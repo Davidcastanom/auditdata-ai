@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AuditData AI | Data Cleaning Report secuencial</title>
+    <meta
+      name="description"
+      content="AuditData AI guia el proceso profesional de limpieza de datos: comprension, perfilado, reglas, depuracion, validacion e informe final."
+    />
+    <link rel="stylesheet" href="/frontend/src/styles/design-system.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="hero">
+        <div class="hero__content">
+          <p class="eyebrow">Flujo Base Data Quality System</p>
+          <h1>AuditData AI</h1>
+          <h2>Limpieza de datos guiada, documentada y lista para informe profesional.</h2>
+          <p class="hero__description">
+            La herramienta acompana el flujo real de un analista: entender el dataset, perfilar columnas, definir reglas,
+            depurar con criterio, validar calidad y compilar un Data Cleaning Report reutilizable para cualquier fuente CSV o XLSX.
+          </p>
+        </div>
+        <aside class="status-card" aria-label="Estado del sistema">
+          <span class="status-card__label">Estado del proceso</span>
+          <strong id="systemStatus">Esperando dataset</strong>
+          <span class="status-card__meta" id="datasetMeta">Motor Python local</span>
+        </aside>
+      </header>
+
+      <nav class="stepper" aria-label="Etapas de limpieza">
+        <button class="stepper__item is-active" data-step-button="0" type="button">
+          <span>01</span><strong>Comprender</strong>
+        </button>
+        <button class="stepper__item" data-step-button="1" type="button" disabled>
+          <span>02</span><strong>Perfilar</strong>
+        </button>
+        <button class="stepper__item" data-step-button="2" type="button" disabled>
+          <span>03</span><strong>Reglas</strong>
+        </button>
+        <button class="stepper__item" data-step-button="3" type="button" disabled>
+          <span>04</span><strong>Depurar</strong>
+        </button>
+        <button class="stepper__item" data-step-button="4" type="button" disabled>
+          <span>05</span><strong>Validar</strong>
+        </button>
+        <button class="stepper__item" data-step-button="5" type="button" disabled>
+          <span>06</span><strong>Informe</strong>
+        </button>
+      </nav>
+
+      <section class="stage is-active" data-step="0">
+        <article class="panel stage-grid">
+          <div>
+            <p class="section-kicker">Etapa 01 - Comprensión</p>
+            <h2>Antes de limpiar, entiende qué representa el dataset.</h2>
+            <p>
+              Define la unidad de analisis y carga la fuente. Esta informacion se conserva para justificar decisiones
+              como eliminar duplicados, imputar faltantes o retirar columnas.
+            </p>
+            <div class="form-grid">
+              <label>
+                Que representa cada fila
+                <input id="rowMeaningInput" type="text" placeholder="Ej. participante, venta, cliente, evento" />
+              </label>
+              <label>
+                Objetivo del analisis
+                <input id="objectiveInput" type="text" placeholder="Ej. validar calidad antes del dashboard" />
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label class="dropzone" id="dropzone">
+              <input id="fileInput" type="file" accept=".csv,.xlsx,.xlsm" />
+              <span class="dropzone__icon">+</span>
+              <strong>Selecciona o arrastra tu archivo</strong>
+              <small>CSV, XLSX o XLSM</small>
+            </label>
+            <div class="actions-row">
+              <button class="button button--primary" id="analyzeButton" type="button" disabled>Analizar dataset</button>
+              <button class="button button--ghost" id="loadSampleButton" type="button">Usar muestra</button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="stage" data-step="1">
+        <article class="panel">
+          <p class="section-kicker">Etapa 02 - Perfilado Técnico</p>
+          <h2 id="profileTitle">Perfilado técnico del dataset</h2>
+          <div class="metrics" id="metrics"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Columna</th>
+                  <th>Tipo</th>
+                  <th>Unicos</th>
+                  <th>Faltantes</th>
+                  <th>Min</th>
+                  <th>Max</th>
+                  <th>Ejemplos</th>
+                </tr>
+              </thead>
+              <tbody id="profileTable"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="stage" data-step="2">
+        <article class="panel">
+          <p class="section-kicker">Etapa 03 - Reglas de Calidad</p>
+          <h2>Clasifica columnas y documenta decisiones estructurales.</h2>
+          <p>
+            Puedes eliminar columnas que no aportan al objetivo del analisis. Toda eliminacion requiere justificacion,
+            porque borrar informacion sin contexto rompe trazabilidad.
+          </p>
+          <div id="rulesBoard" class="cards-list"></div>
+        </article>
+      </section>
+
+      <section class="stage" data-step="3">
+        <article class="panel">
+          <p class="section-kicker">Etapa 04 - Depuración Guiada</p>
+          <h2>Aplica acciones de limpieza con criterio documentado.</h2>
+          <p>
+            Cada accion queda en la bitacora: problema, tratamiento, justificacion y resultado. La herramienta permite
+            imputar, estandarizar, eliminar filas duplicadas, eliminar columnas y marcar outliers para revision.
+          </p>
+          <div class="split-layout">
+            <div>
+              <div id="cleaningBoard" class="cards-list"></div>
+              
+              <!-- Panel de Acciones Avanzadas Libres -->
+              <div class="panel advanced-actions" style="margin-top: var(--space-4); border-top: 1px solid var(--color-border); padding-top: var(--space-4); background: var(--color-surface);">
+                <h3 style="margin-top: 0;">Herramientas de Transformación Libre</h3>
+                <p style="font-size: 0.85rem; color: var(--color-muted); margin-bottom: var(--space-3);">Aplica cambios libres y transformaciones sobre cualquier columna sin importar si el sistema marcó un error o no.</p>
+                <div class="form-grid" style="grid-template-columns: repeat(3, 1fr); margin-top: var(--space-2);">
+                  <label>
+                    Selecciona Columna
+                    <select id="advColSelect">
+                      <option value="">Selecciona columna...</option>
+                    </select>
+                  </label>
+                  <label>
+                    Selecciona Acción
+                    <select id="advActionSelect">
+                      <option value="">Selecciona acción...</option>
+                      <option value="change_type">Cambiar tipo de dato</option>
+                      <option value="replace_value">Reemplazar texto/valor</option>
+                      <option value="rename_column">Renombrar columna</option>
+                    </select>
+                  </label>
+                  <label id="advParam1Label">
+                    Parámetro 1
+                    <input id="advParam1Input" type="text" placeholder="Ej. valor a buscar o nuevo tipo" />
+                  </label>
+                </div>
+                <div class="form-grid" style="grid-template-columns: 1fr; margin-top: var(--space-2); display: none;" id="advParam2Row">
+                  <label id="advParam2Label">
+                    Parámetro 2
+                    <input id="advParam2Input" type="text" placeholder="Ej. nuevo valor" />
+                  </label>
+                </div>
+                <div class="form-grid" style="grid-template-columns: 1fr auto; margin-top: var(--space-3); align-items: end; gap: var(--space-3);">
+                  <label>
+                    Justificación de la decisión
+                    <input id="advReasonInput" type="text" placeholder="Justifica esta decisión técnica..." />
+                  </label>
+                  <button class="button button--secondary" id="applyAdvActionButton" type="button" style="min-height: 42px;">Aplicar acción libre</button>
+                </div>
+              </div>
+            </div>
+             <aside class="audit-log">
+              <div class="audit-log__header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
+                <h3 style="margin: 0;">Bitácora de decisiones</h3>
+                <button class="button button--ghost" id="undoButton" type="button" style="min-height: 32px; padding: 0 var(--space-2); font-size: 0.8rem;" disabled>Deshacer</button>
+              </div>
+              <div id="actionsLog" class="log-list">
+                <p class="empty-state">Aún no hay acciones registradas.</p>
+              </div>
+            </aside>
+          </div>
+        </article>
+      </section>
+
+      <section class="stage" data-step="4">
+        <article class="panel">
+          <p class="section-kicker">Etapa 05 - Validación de Calidad</p>
+          <h2>Demuestra la calidad antes de declarar el dataset listo.</h2>
+          <div class="comparison-grid" id="comparisonGrid"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Criterio</th>
+                  <th>Estado</th>
+                  <th>Lectura profesional</th>
+                </tr>
+              </thead>
+              <tbody id="validationTable"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="stage" data-step="5">
+        <article class="panel">
+          <p class="section-kicker">Data Cleaning Report</p>
+          <h2>Compila el informe y descarga el dataset limpio.</h2>
+          <div class="form-grid">
+            <label>
+              Analista
+              <input id="analystInput" type="text" placeholder="Nombre del analista" />
+            </label>
+            <label>
+              Version
+              <input id="versionInput" type="text" value="v1.0" />
+            </label>
+          </div>
+          <div class="report-preview" id="reportPreview"></div>
+          <div class="actions-row">
+            <button class="button button--primary" id="downloadMarkdownButton" type="button">Descargar informe Markdown</button>
+            <button class="button button--secondary" id="downloadPdfButton" type="button">Descargar informe PDF</button>
+            <button class="button button--ghost" id="downloadCsvButton" type="button">Descargar dataset limpio</button>
+          </div>
+        </article>
+      </section>
+
+      <footer class="navigation-bar">
+        <button class="button button--ghost" id="previousButton" type="button" disabled>Anterior</button>
+        <button class="button button--primary" id="nextButton" type="button" disabled>Siguiente etapa</button>
+      </footer>
+    </main>
+
+    <script type="module" src="/frontend/src/app.js"></script>
+  </body>
+</html>

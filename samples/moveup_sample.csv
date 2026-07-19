@@ -1,0 +1,7 @@
+id,nombre,ciudad,edad,horas_sueno,litros_agua,completo_reto
+1,Ana,Bogota,28,7,2.1,si
+2,Juan,bogota,31,6,1.8,no
+3,Ana,Bogota,28,7,2.1,si
+4,Maria,Medellin,,8,2.4,si
+5,Luis,Medellin,450,2,,no
+

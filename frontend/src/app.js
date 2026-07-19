@@ -1,0 +1,646 @@
+import { Store } from "./state.js";
+import { Router } from "./router.js";
+
+const store = new Store();
+
+const els = {
+  fileInput: document.querySelector("#fileInput"),
+  dropzone: document.querySelector("#dropzone"),
+  analyzeButton: document.querySelector("#analyzeButton"),
+  loadSampleButton: document.querySelector("#loadSampleButton"),
+  systemStatus: document.querySelector("#systemStatus"),
+  datasetMeta: document.querySelector("#datasetMeta"),
+  previousButton: document.querySelector("#previousButton"),
+  nextButton: document.querySelector("#nextButton"),
+  profileTitle: document.querySelector("#profileTitle"),
+  metrics: document.querySelector("#metrics"),
+  profileTable: document.querySelector("#profileTable"),
+  rulesBoard: document.querySelector("#rulesBoard"),
+  cleaningBoard: document.querySelector("#cleaningBoard"),
+  actionsLog: document.querySelector("#actionsLog"),
+  undoButton: document.querySelector("#undoButton"),
+  comparisonGrid: document.querySelector("#comparisonGrid"),
+  validationTable: document.querySelector("#validationTable"),
+  analystInput: document.querySelector("#analystInput"),
+  versionInput: document.querySelector("#versionInput"),
+  reportPreview: document.querySelector("#reportPreview"),
+  downloadMarkdownButton: document.querySelector("#downloadMarkdownButton"),
+  downloadPdfButton: document.querySelector("#downloadPdfButton"),
+  downloadCsvButton: document.querySelector("#downloadCsvButton"),
+  advColSelect: document.querySelector("#advColSelect"),
+  advActionSelect: document.querySelector("#advActionSelect"),
+  advParam1Label: document.querySelector("#advParam1Label"),
+  advParam1Input: document.querySelector("#advParam1Input"),
+  advParam2Row: document.querySelector("#advParam2Row"),
+  advParam2Label: document.querySelector("#advParam2Label"),
+  advParam2Input: document.querySelector("#advParam2Input"),
+  advReasonInput: document.querySelector("#advReasonInput"),
+  applyAdvActionButton: document.querySelector("#applyAdvActionButton"),
+};
+
+const router = new Router(goToStep);
+
+els.fileInput.addEventListener("change", () => {
+  const file = els.fileInput.files[0];
+  if (file) {
+    fileToBase64(file).then(base64 => {
+      store.setFile(file.name, base64);
+      els.analyzeButton.disabled = false;
+      els.systemStatus.textContent = `Archivo listo: ${file.name}`;
+    });
+  }
+});
+
+els.dropzone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  els.dropzone.classList.add("is-dragging");
+});
+
+els.dropzone.addEventListener("dragleave", () => {
+  els.dropzone.classList.remove("is-dragging");
+});
+
+els.dropzone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  els.dropzone.classList.remove("is-dragging");
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    fileToBase64(file).then(base64 => {
+      store.setFile(file.name, base64);
+      els.analyzeButton.disabled = false;
+      els.systemStatus.textContent = `Archivo listo: ${file.name}`;
+    });
+  }
+});
+
+els.analyzeButton.addEventListener("click", analyzeSelectedFile);
+els.loadSampleButton.addEventListener("click", loadSample);
+els.previousButton.addEventListener("click", () => router.navigate(store.state.step - 1));
+els.nextButton.addEventListener("click", onNext);
+els.downloadMarkdownButton.addEventListener("click", () => downloadReport("markdown"));
+els.downloadPdfButton.addEventListener("click", () => downloadReport("pdf"));
+els.downloadCsvButton.addEventListener("click", downloadCleanCsv);
+els.undoButton.addEventListener("click", undoLastAction);
+
+document.querySelectorAll("[data-step-button]").forEach((button) => {
+  button.addEventListener("click", () => router.navigate(Number(button.dataset.stepButton)));
+});
+
+function init() {
+  if (store.state.filename) {
+    els.systemStatus.textContent = `Sesión recuperada: ${store.state.filename}`;
+    if (store.state.analysis) {
+      renderProfile();
+      renderRules();
+      renderCleaningBoard();
+      populateAdvancedColumns();
+      renderLog();
+      enableStep(1);
+      enableStep(2);
+      enableStep(3);
+      els.datasetMeta.textContent = `${store.state.analysis.row_count} filas | ${store.state.analysis.column_count} columnas`;
+    }
+    if (store.state.cleaning) {
+      renderValidation();
+      renderReportPreview();
+      enableStep(4);
+      enableStep(5);
+    }
+  }
+  router.init();
+}
+
+async function loadSample() {
+  const sample = [
+    "id,nombre,ciudad,edad,horas_sueno,litros_agua,completo_reto",
+    "1,Ana,Bogota,28,7,2.1,si",
+    "2,Juan,bogota,31,6,1.8,no",
+    "3,Ana,Bogota,28,7,2.1,si",
+    "4,Maria,Medellin,,8,2.4,si",
+    "5,Luis,Medellin,450,2,,no",
+  ].join("\n");
+  
+  const base64 = btoa(sample);
+  store.setFile("moveup_sample.csv", base64);
+  els.analyzeButton.disabled = false;
+  await analyzeSelectedFile();
+}
+
+async function analyzeSelectedFile() {
+  if (!store.state.fileBase64) return;
+  els.systemStatus.textContent = "Perfilando dataset con Python...";
+  els.analyzeButton.disabled = true;
+
+  try {
+    const response = await postJson("/api/analyze", {
+      filename: store.state.filename,
+      content_base64: store.state.fileBase64,
+    });
+    store.setAnalysis(response.analysis);
+    renderProfile();
+    renderRules();
+    renderCleaningBoard();
+    populateAdvancedColumns();
+    renderLog();
+    enableStep(1);
+    enableStep(2);
+    enableStep(3);
+    els.systemStatus.textContent = "Perfilado completado";
+    els.datasetMeta.textContent = `${store.state.analysis.row_count} filas | ${store.state.analysis.column_count} columnas`;
+    router.navigate(1);
+  } catch (error) {
+    els.systemStatus.textContent = `Error: ${error.message}`;
+  } finally {
+    els.analyzeButton.disabled = false;
+  }
+}
+
+function renderProfile() {
+  const analysis = store.state.analysis;
+  if (!analysis) return;
+  els.profileTitle.textContent = `Perfilado técnico - ${analysis.filename}`;
+  els.metrics.innerHTML = [
+    metric("Filas", analysis.row_count),
+    metric("Columnas", analysis.column_count),
+    metric("Duplicados", analysis.duplicate_rows),
+    metric("Calidad general", `${analysis.scores.overall}%`),
+  ].join("");
+
+  els.profileTable.innerHTML = analysis.columns
+    .map(
+      (column) => `
+      <tr>
+        <td>${escapeHtml(column.name)}</td>
+        <td><span class="tag">${escapeHtml(column.detected_type)}</span></td>
+        <td>${column.unique_values}</td>
+        <td>${column.missing}</td>
+        <td>${valueOrDash(column.min_value)}</td>
+        <td>${valueOrDash(column.max_value)}</td>
+        <td>${escapeHtml((column.examples || []).slice(0, 4).join(", "))}</td>
+      </tr>`,
+    )
+    .join("");
+}
+
+function renderRules() {
+  const analysis = store.state.analysis;
+  if (!analysis) return;
+  els.rulesBoard.innerHTML = analysis.columns
+    .map(
+      (column) => `
+      <article class="decision-card">
+        <div>
+          <span class="tag">${escapeHtml(column.detected_type)}</span>
+          <h3>${escapeHtml(column.name)}</h3>
+          <p>${column.missing} faltantes | ${column.unique_values} valores únicos | ${column.outliers} outliers</p>
+        </div>
+        <label>
+          Justificación para eliminar columna
+          <input type="text" data-delete-reason="${escapeAttr(column.name)}" placeholder="Ej. no aporta al objetivo del análisis" />
+        </label>
+        <button class="button button--ghost" type="button" data-delete-column="${escapeAttr(column.name)}">Eliminar columna y documentar</button>
+      </article>`,
+    )
+    .join("");
+
+  document.querySelectorAll("[data-delete-column]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const column = button.dataset.deleteColumn;
+      const input = document.querySelector(`[data-delete-reason="${cssEscape(column)}"]`);
+      const reason = input?.value || "Columna retirada por decisión del analista.";
+      addAction({ kind: "delete_column", column, reason });
+    });
+  });
+}
+
+function renderCleaningBoard() {
+  const analysis = store.state.analysis;
+  if (!analysis) return;
+  const cards = [];
+
+  if (analysis.duplicate_rows > 0) {
+    cards.push(`
+      <article class="decision-card decision-card--critical">
+        <span class="tag">Unicidad</span>
+        <h3>Filas duplicadas completas</h3>
+        <p>Se detectaron ${analysis.duplicate_rows} filas duplicadas. Antes de eliminar, valida que una fila represente una entidad única.</p>
+        <label>Justificación<input type="text" id="dedupeReason" placeholder="Ej. la fila representa un participante único" /></label>
+        <button class="button button--primary" type="button" id="dedupeButton">Eliminar duplicados</button>
+      </article>`);
+  }
+
+  for (const column of analysis.columns) {
+    if (column.missing > 0) {
+      cards.push(`
+        <article class="decision-card">
+          <span class="tag">Completitud</span>
+          <h3>${escapeHtml(column.name)}</h3>
+          <p>${column.missing} valores faltantes detectados.</p>
+          <div class="inline-controls">
+            <select data-impute-method="${escapeAttr(column.name)}">
+              <option value="mode">Moda</option>
+              <option value="mean">Media</option>
+              <option value="median">Mediana</option>
+              <option value="custom">Valor personalizado</option>
+            </select>
+            <input type="text" data-custom-value="${escapeAttr(column.name)}" placeholder="Valor si aplica" />
+          </div>
+          <label>Justificación<input type="text" data-impute-reason="${escapeAttr(column.name)}" placeholder="Ej. bajo porcentaje de faltantes" /></label>
+          <div class="actions-row">
+            <button class="button button--primary" type="button" data-impute="${escapeAttr(column.name)}">Imputar</button>
+            <button class="button button--ghost" type="button" data-drop-missing="${escapeAttr(column.name)}">Eliminar filas con faltante</button>
+          </div>
+        </article>`);
+    }
+
+    if (column.detected_type !== "number" && column.format_issues > 0) {
+      cards.push(`
+        <article class="decision-card">
+          <span class="tag">Consistencia</span>
+          <h3>${escapeHtml(column.name)}</h3>
+          <p>Existen variantes de formato que pueden fragmentar categorías.</p>
+          <div class="inline-controls">
+            <select data-standardize-method="${escapeAttr(column.name)}">
+              <option value="title">Capitalizar</option>
+              <option value="upper">MAYÚSCULAS</option>
+              <option value="lower">minúsculas</option>
+            </select>
+          </div>
+          <label>Justificación<input type="text" data-standardize-reason="${escapeAttr(column.name)}" placeholder="Ej. unificar categorías equivalentes" /></label>
+          <button class="button button--primary" type="button" data-standardize="${escapeAttr(column.name)}">Estandarizar texto</button>
+        </article>`);
+    }
+
+    if (column.outliers > 0) {
+      cards.push(`
+        <article class="decision-card">
+          <span class="tag">Exactitud</span>
+          <h3>${escapeHtml(column.name)}</h3>
+          <p>${column.outliers} valores atípicos. No se eliminan automáticamente: se marcan para revisión profesional.</p>
+          <label>Justificación<input type="text" data-outlier-reason="${escapeAttr(column.name)}" placeholder="Ej. requiere validación con fuente original" /></label>
+          <button class="button button--ghost" type="button" data-flag-outliers="${escapeAttr(column.name)}">Marcar para revisión</button>
+        </article>`);
+    }
+  }
+
+  els.cleaningBoard.innerHTML = cards.length ? cards.join("") : `<p class="empty-state">No se detectaron acciones críticas para esta etapa.</p>`;
+  bindCleaningActions();
+}
+
+function bindCleaningActions() {
+  document.querySelector("#dedupeButton")?.addEventListener("click", () => {
+    addAction({
+      kind: "remove_duplicate_rows",
+      column: "Dataset",
+      reason: document.querySelector("#dedupeReason")?.value || "Duplicados completos eliminados por criterio de unicidad.",
+    });
+  });
+
+  document.querySelectorAll("[data-impute]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const column = button.dataset.impute;
+      addAction({
+        kind: "impute_missing",
+        column,
+        method: document.querySelector(`[data-impute-method="${cssEscape(column)}"]`)?.value || "mode",
+        value: document.querySelector(`[data-custom-value="${cssEscape(column)}"]`)?.value || "",
+        reason: document.querySelector(`[data-impute-reason="${cssEscape(column)}"]`)?.value || "Imputación documentada por el analista.",
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-drop-missing]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const column = button.dataset.dropMissing;
+      addAction({
+        kind: "drop_missing_rows",
+        column,
+        reason: document.querySelector(`[data-impute-reason="${cssEscape(column)}"]`)?.value || "Filas eliminadas por faltante crítico.",
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-standardize]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const column = button.dataset.standardize;
+      addAction({
+        kind: "standardize_text",
+        column,
+        method: document.querySelector(`[data-standardize-method="${cssEscape(column)}"]`)?.value || "title",
+        reason: document.querySelector(`[data-standardize-reason="${cssEscape(column)}"]`)?.value || "Estandarización para consistencia categórica.",
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-flag-outliers]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const column = button.dataset.flagOutliers;
+      addAction({
+        kind: "flag_outliers",
+        column,
+        reason: document.querySelector(`[data-outlier-reason="${cssEscape(column)}"]`)?.value || "Outlier marcado para validación con negocio.",
+      });
+    });
+  });
+}
+
+function addAction(action) {
+  store.addAction(action);
+  renderLog();
+  els.systemStatus.textContent = `${store.state.actions.length} decisión(es) documentada(s)`;
+}
+
+function undoLastAction() {
+  const undone = store.undoAction();
+  if (undone) {
+    renderLog();
+    els.systemStatus.textContent = `${store.state.actions.length} decisión(es) documentada(s)`;
+  }
+}
+
+function renderLog() {
+  const actions = store.state.actions;
+  els.undoButton.disabled = actions.length === 0;
+
+  if (!actions.length) {
+    els.actionsLog.innerHTML = `<p class="empty-state">Aún no hay acciones registradas.</p>`;
+    return;
+  }
+  els.actionsLog.innerHTML = actions
+    .map(
+      (action, index) => `
+      <div class="log-item">
+        <strong>${index + 1}. ${labelForAction(action.kind)}</strong>
+        <span>${escapeHtml(action.column || "Dataset")}</span>
+        <p>${escapeHtml(action.reason || "")}</p>
+      </div>`,
+    )
+    .join("");
+}
+
+async function runCleaning() {
+  els.systemStatus.textContent = "Aplicando limpieza documentada...";
+  const response = await postJson("/api/clean", {
+    filename: store.state.filename,
+    content_base64: store.state.fileBase64,
+    actions: store.state.actions,
+  });
+  store.setCleaning(response.cleaning);
+  renderValidation();
+  renderReportPreview();
+  enableStep(4);
+  enableStep(5);
+  els.systemStatus.textContent = "Limpieza compilada y validada";
+}
+
+function renderValidation() {
+  const cleaning = store.state.cleaning;
+  if (!cleaning) return;
+  const before = cleaning.before;
+  const after = cleaning.after;
+  els.comparisonGrid.innerHTML = [
+    compareMetric("Filas", before.row_count, after.row_count),
+    compareMetric("Columnas", before.column_count, after.column_count),
+    compareMetric("Duplicados", before.duplicate_rows, after.duplicate_rows),
+    compareMetric("Calidad general", `${before.scores.overall}%`, `${after.scores.overall}%`),
+  ].join("");
+
+  const rows = [
+    validationRow("Completitud", after.scores.completeness >= 95, "No deben persistir faltantes críticos sin decisión documentada."),
+    validationRow("Consistencia", after.scores.consistency >= 95, "Las categorías deben quedar estandarizadas para análisis agregado."),
+    validationRow("Exactitud", after.scores.accuracy >= 95, "Los outliers restantes deben estar marcados o validados."),
+    validationRow("Unicidad", after.duplicate_rows === 0, "Los duplicados relevantes deben tratarse según la unidad de análisis."),
+    validationRow("Documentación", cleaning.actions.length > 0, "Toda corrección debe quedar en la bitácora."),
+  ];
+  els.validationTable.innerHTML = rows.join("");
+}
+
+function renderReportPreview() {
+  const cleaning = store.state.cleaning;
+  if (!cleaning) return;
+  const before = cleaning.before;
+  const after = cleaning.after;
+  els.reportPreview.innerHTML = `
+    <h3>Vista previa ejecutiva</h3>
+    <p>Dataset original: <strong>${escapeHtml(before.filename)}</strong></p>
+    <p>Calidad general: <strong>${before.scores.overall}%</strong> antes / <strong>${after.scores.overall}%</strong> después.</p>
+    <p>Acciones documentadas: <strong>${cleaning.actions.length}</strong> (Optimizadas con IA)</p>
+    <p>Salida disponible: informe Markdown, informe PDF y dataset limpio CSV.</p>
+  `;
+}
+
+function onNext() {
+  if (store.state.step === 3) {
+    runCleaning().then(() => router.navigate(4)).catch((error) => {
+      els.systemStatus.textContent = `Error: ${error.message}`;
+    });
+    return;
+  }
+  router.navigate(store.state.step + 1);
+}
+
+function goToStep(step) {
+  if (step < 0 || step > 5) return;
+  const button = document.querySelector(`[data-step-button="${step}"]`);
+  if (button?.disabled) return;
+  store.setStep(step);
+  document.querySelectorAll("[data-step]").forEach((section) => {
+    section.classList.toggle("is-active", Number(section.dataset.step) === step);
+  });
+  document.querySelectorAll("[data-step-button]").forEach((item) => {
+    const index = Number(item.dataset.stepButton);
+    item.classList.toggle("is-active", index === step);
+    item.classList.toggle("is-done", index < step);
+  });
+  els.previousButton.disabled = step === 0;
+  els.nextButton.disabled = !store.state.analysis || step === 5;
+  els.nextButton.textContent = step === 3 ? "Aplicar limpieza y validar" : "Siguiente etapa";
+}
+
+function enableStep(step) {
+  const btn = document.querySelector(`[data-step-button="${step}"]`);
+  if (btn) btn.disabled = false;
+  if (step <= 3) {
+    els.nextButton.disabled = false;
+  }
+}
+
+async function downloadReport(type) {
+  const cleaning = store.state.cleaning;
+  if (!cleaning) return;
+  const route = type === "pdf" ? "/api/report/pdf" : "/api/report/markdown";
+  const response = await postJson(route, {
+    cleaning: cleaning,
+    analyst: els.analystInput.value,
+    version: els.versionInput.value || "v1.0",
+  });
+  if (type === "pdf") {
+    downloadBlob(response.filename, base64ToBlob(response.content_base64, "application/pdf"));
+  } else {
+    downloadBlob(response.filename, new Blob([response.content], { type: "text/markdown;charset=utf-8" }));
+  }
+}
+
+function downloadCleanCsv() {
+  const cleaning = store.state.cleaning;
+  if (!cleaning) return;
+  downloadBlob("dataset_limpio.csv", new Blob([cleaning.clean_csv], { type: "text/csv;charset=utf-8" }));
+}
+
+function metric(label, value) {
+  return `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`;
+}
+
+function compareMetric(label, before, after) {
+  return `<div class="metric"><span>${label}</span><strong>${before} -> ${after}</strong></div>`;
+}
+
+function validationRow(label, pass, description) {
+  return `<tr><td>${label}</td><td><span class="status ${pass ? "status--ok" : "status--warn"}">${pass ? "Cumple" : "Revisar"}</span></td><td>${description}</td></tr>`;
+}
+
+function labelForAction(kind) {
+  const labels = {
+    delete_column: "Eliminar columna",
+    drop_missing_rows: "Eliminar filas con faltantes",
+    impute_missing: "Imputar faltantes",
+    standardize_text: "Estandarizar texto",
+    remove_duplicate_rows: "Eliminar duplicados",
+    flag_outliers: "Marcar outliers",
+  };
+  return labels[kind] || kind;
+}
+
+async function postJson(route, payload) {
+  const response = await fetch(route, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const msg = data.detail || data.error || "Error de servidor";
+    throw new Error(msg);
+  }
+  return data;
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function base64ToBlob(base64, type) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new Blob([bytes], { type });
+}
+
+function downloadBlob(filename, blob) {
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function valueOrDash(value) {
+  return value === null || value === undefined ? "-" : value;
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (character) => {
+    const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" };
+    return map[character];
+  });
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/`/g, "&#096;");
+}
+
+function cssEscape(value) {
+  return CSS.escape(value);
+}
+
+function populateAdvancedColumns() {
+  const cols = store.state.analysis?.columns || [];
+  els.advColSelect.innerHTML = `<option value="">Selecciona columna...</option>` +
+    cols.map(c => `<option value="${escapeAttr(c.name)}">${escapeHtml(c.name)}</option>`).join("");
+}
+
+els.advActionSelect.addEventListener("change", () => {
+  const action = els.advActionSelect.value;
+  els.advParam2Row.style.display = "none";
+  els.advParam1Input.value = "";
+  els.advParam2Input.value = "";
+  
+  if (action === "change_type") {
+    els.advParam1Label.firstChild.textContent = "Nuevo tipo de dato";
+    els.advParam1Input.placeholder = "number, text, o boolean";
+  } else if (action === "replace_value") {
+    els.advParam1Label.firstChild.textContent = "Valor original (a buscar)";
+    els.advParam1Input.placeholder = "Ej. bogota";
+    els.advParam2Label.firstChild.textContent = "Nuevo valor (reemplazo)";
+    els.advParam2Input.placeholder = "Ej. Bogotá";
+    els.advParam2Row.style.display = "block";
+  } else if (action === "rename_column") {
+    els.advParam1Label.firstChild.textContent = "Nuevo nombre de columna";
+    els.advParam1Input.placeholder = "Ej. edad_años";
+  } else {
+    els.advParam1Label.firstChild.textContent = "Parámetro 1";
+    els.advParam1Input.placeholder = "";
+  }
+});
+
+els.applyAdvActionButton.addEventListener("click", () => {
+  const column = els.advColSelect.value;
+  const kind = els.advActionSelect.value;
+  const param1 = els.advParam1Input.value.trim();
+  const param2 = els.advParam2Input.value.trim();
+  const reason = els.advReasonInput.value.trim() || "Acción avanzada libre aplicada por el analista.";
+  
+  if (!column || !kind) {
+    alert("Por favor selecciona columna y acción.");
+    return;
+  }
+  if (kind === "change_type" && !param1) {
+    alert("Por favor especifica el nuevo tipo de dato.");
+    return;
+  }
+  if (kind === "change_type" && !["number", "text", "boolean"].includes(param1)) {
+    alert("Tipo inválido. Usa: number, text o boolean");
+    return;
+  }
+  if (kind === "replace_value" && (!param1 || !param2)) {
+    alert("Por favor completa los dos valores para reemplazar.");
+    return;
+  }
+  if (kind === "rename_column" && !param1) {
+    alert("Por favor especifica el nuevo nombre de la columna.");
+    return;
+  }
+  
+  const action = {
+    kind,
+    column,
+    reason,
+    method: param1,
+    value: kind === "replace_value" ? param2 : param1
+  };
+  
+  addAction(action);
+  
+  els.advActionSelect.value = "";
+  els.advParam1Input.value = "";
+  els.advParam2Input.value = "";
+  els.advReasonInput.value = "";
+  els.advParam2Row.style.display = "none";
+});
+
+init();

@@ -1,0 +1,28 @@
+[project]
+name = "auditdata-ai"
+version = "1.0.0"
+description = "Herramienta profesional de limpieza y validación de calidad de datos con reportes PDF"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+readme = "README.md"
+
+dependencies = [
+    "openpyxl>=3.1.0",
+    "reportlab>=4.0.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.22.0",
+    "python-multipart>=0.0.6",
+]
+
+[project.optional-dependencies]
+ai = [
+    "google-generativeai>=0.3.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "httpx>=0.24.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
