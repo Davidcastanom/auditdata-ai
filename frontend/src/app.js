@@ -511,6 +511,14 @@ function renderValidation() {
   if (!cleaning) return;
   const before = cleaning.before;
   const after = cleaning.after;
+
+  const missingBefore = before.columns.reduce((sum, c) => sum + (c.missing || 0), 0);
+  const missingAfter = after.columns.reduce((sum, c) => sum + (c.missing || 0), 0);
+  const formatBefore = before.columns.reduce((sum, c) => sum + (c.format_issues || 0), 0);
+  const formatAfter = after.columns.reduce((sum, c) => sum + (c.format_issues || 0), 0);
+  const outliersBefore = before.columns.reduce((sum, c) => sum + (c.outliers || 0), 0);
+  const outliersAfter = after.columns.reduce((sum, c) => sum + (c.outliers || 0), 0);
+
   els.comparisonGrid.innerHTML = [
     compareMetric("Filas", before.row_count, after.row_count),
     compareMetric("Columnas", before.column_count, after.column_count),
@@ -519,11 +527,12 @@ function renderValidation() {
   ].join("");
 
   const rows = [
-    validationRow("Completitud", after.scores.completeness >= 95, "No deben persistir faltantes críticos sin decisión documentada."),
-    validationRow("Consistencia", after.scores.consistency >= 95, "Las categorías deben quedar estandarizadas para análisis agregado."),
-    validationRow("Exactitud", after.scores.accuracy >= 95, "Los outliers restantes deben estar marcados o validados."),
-    validationRow("Unicidad", after.duplicate_rows === 0, "Los duplicados relevantes deben tratarse según la unidad de análisis."),
-    validationRow("Documentación", cleaning.actions.length > 0, "Toda corrección debe quedar en la bitácora."),
+    validationRow("Completitud", after.scores.completeness >= 95, `${before.scores.completeness}% → ${after.scores.completeness}% (${missingBefore} → ${missingAfter} faltantes)`),
+    validationRow("Consistencia", after.scores.consistency >= 95, `${before.scores.consistency}% → ${after.scores.consistency}% (${formatBefore} → ${formatAfter} inconsistencias)`),
+    validationRow("Exactitud", after.scores.accuracy >= 95, `${before.scores.accuracy}% → ${after.scores.accuracy}% (${outliersBefore} → ${outliersAfter} outliers)`),
+    validationRow("Unicidad", after.duplicate_rows === 0, `${before.duplicate_rows} → ${after.duplicate_rows} filas duplicadas`),
+    validationRow("Calidad general", after.scores.overall >= 90, `${before.scores.overall}% → ${after.scores.overall}%`),
+    validationRow("Documentacion", cleaning.actions.length > 0, `${cleaning.actions.length} decisiones documentadas en bitacora`),
   ];
   els.validationTable.innerHTML = rows.join("");
 }
@@ -533,12 +542,38 @@ function renderReportPreview() {
   if (!cleaning) return;
   const before = cleaning.before;
   const after = cleaning.after;
+  const actions = cleaning.actions || [];
+
+  const missingBefore = before.columns.reduce((sum, c) => sum + (c.missing || 0), 0);
+  const formatBefore = before.columns.reduce((sum, c) => sum + (c.format_issues || 0), 0);
+  const outliersBefore = before.columns.reduce((sum, c) => sum + (c.outliers || 0), 0);
+
+  const changedDims = [];
+  const dims = [
+    ["Completitud", "completeness"],
+    ["Consistencia", "consistency"],
+    ["Exactitud", "accuracy"],
+    ["Unicidad", "uniqueness"],
+  ];
+  for (const [label, key] of dims) {
+    const diff = after.scores[key] - before.scores[key];
+    if (Math.abs(diff) >= 0.01) {
+      changedDims.push(`${label}: ${before.scores[key]}% → ${after.scores[key]}% (${diff > 0 ? '+' : ''}${diff.toFixed(1)}%)`);
+    }
+  }
+
   els.reportPreview.innerHTML = `
-    <h3>Vista previa ejecutiva</h3>
-    <p>Dataset original: <strong>${escapeHtml(before.filename)}</strong></p>
-    <p>Calidad general: <strong>${before.scores.overall}%</strong> antes / <strong>${after.scores.overall}%</strong> después.</p>
-    <p>Acciones documentadas: <strong>${cleaning.actions.length}</strong> (Optimizadas con IA)</p>
-    <p>Salida disponible: informe Markdown, informe PDF y dataset limpio CSV.</p>
+    <h3>Vista previa del Data Cleaning Report</h3>
+    <p>El informe PDF contiene 10 secciones: Informacion General, Resumen Ejecutivo, Indicadores Clave (antes/despues), Problemas Encontrados (6 dimensiones), Outliers y Fuera de Rango, Plan de Acciones, Evaluacion de Calidad, Checklist de Validacion, Riesgos Identificados, Metodologia y Conclusion.</p>
+    <div style="margin: 0.75rem 0; padding: 0.75rem; background: var(--color-black); border-radius: var(--radius-sm); border: 1px solid var(--color-border);">
+      <p style="margin:0 0 0.4rem;"><strong>Dataset:</strong> ${escapeHtml(before.filename)}</p>
+      <p style="margin:0 0 0.4rem;"><strong>Calidad general:</strong> ${before.scores.overall}% → ${after.scores.overall}%</p>
+      <p style="margin:0 0 0.4rem;"><strong>Registros:</strong> ${before.row_count} → ${after.row_count} | <strong>Columnas:</strong> ${before.column_count} → ${after.column_count}</p>
+      <p style="margin:0 0 0.4rem;"><strong>Problemas detectados antes:</strong> ${missingBefore} faltantes, ${formatBefore} inconsistencias, ${before.duplicate_rows} duplicados, ${outliersBefore} outliers</p>
+      <p style="margin:0 0 0.4rem;"><strong>Acciones documentadas:</strong> ${actions.length}</p>
+      ${changedDims.length ? `<p style="margin:0;"><strong>Mejoras:</strong> ${changedDims.join(' | ')}</p>` : '<p style="margin:0;"><strong>Sin cambios significativos</strong></p>'}
+    </div>
+    <p style="font-size:0.85rem; color: var(--color-muted);">Salida disponible: informe PDF (formato academico), informe Markdown y dataset limpio CSV.</p>
   `;
 }
 

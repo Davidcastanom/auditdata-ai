@@ -121,6 +121,58 @@ class TestReportEndpoint(unittest.TestCase):
         pdf_bytes = base64.b64decode(data["content_base64"])
         self.assertTrue(pdf_bytes.startswith(b"%PDF"))
 
+    def test_cleaning_pdf_report_comprehensive_sections(self):
+        clean_response = client.post(
+            "/api/clean",
+            json={
+                "filename": "test.csv",
+                "content_base64": _encode(SAMPLE_CSV),
+                "actions": [
+                    {"kind": "remove_duplicate_rows", "column": "Dataset", "reason": "Duplicados"},
+                    {"kind": "impute_missing", "column": "edad", "method": "median", "reason": "Imputar"},
+                ],
+            },
+        )
+        cleaning = clean_response.json()["cleaning"]
+
+        response = client.post(
+            "/api/report/pdf",
+            json={"cleaning": cleaning, "analyst": "Test Analyst", "version": "v1.0"},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("content_base64", data)
+        pdf_bytes = base64.b64decode(data["content_base64"])
+        self.assertTrue(pdf_bytes.startswith(b"%PDF"))
+        self.assertGreater(len(pdf_bytes), 1000)
+
+    def test_cleaning_markdown_report_comprehensive(self):
+        clean_response = client.post(
+            "/api/clean",
+            json={
+                "filename": "test.csv",
+                "content_base64": _encode(SAMPLE_CSV),
+                "actions": [
+                    {"kind": "remove_duplicate_rows", "column": "Dataset", "reason": "Duplicados"},
+                ],
+            },
+        )
+        cleaning = clean_response.json()["cleaning"]
+
+        response = client.post(
+            "/api/report/markdown",
+            json={"cleaning": cleaning, "analyst": "Test Analyst", "version": "v1.0"},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("content", data)
+        md = data["content"]
+        self.assertIn("INFORMACION GENERAL", md.upper())
+        self.assertIn("RESUMEN EJECUTIVO", md.upper())
+        self.assertIn("INDICADORES CLAVE", md.upper())
+        self.assertIn("PROBLEMAS ENCONTRADOS", md.upper())
+        self.assertIn("CONCLUSION", md.upper())
+
 
 if __name__ == "__main__":
     unittest.main()

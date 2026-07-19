@@ -296,66 +296,174 @@ def build_markdown_report(analysis: dict[str, Any], analyst: str = "-", version:
 
 
 def build_cleaning_markdown_report(cleaning: dict[str, Any], analyst: str = "-", version: str = "v1.0") -> str:
-    """Create a before/after report for a completed cleaning workflow."""
+    """Create a comprehensive before/after report matching the academic Data Cleaning Report standard."""
 
     before = cleaning["before"]
     after = cleaning["after"]
+    actions = cleaning.get("actions", [])
+
     lines = [
         f"# Data Cleaning Report - {before['filename']}",
         "",
-        "## 1. Informacion general",
+        "## 1. Informacion General",
         f"- Dataset original: {before['filename']}",
         f"- Dataset limpio: {after['filename']}",
         f"- Analista: {analyst or '-'}",
         f"- Version del informe: {version or 'v1.0'}",
-        f"- Fecha tecnica: {after['generated_at']}",
         f"- Registros antes: {before['row_count']}",
         f"- Registros despues: {after['row_count']}",
         f"- Columnas antes: {before['column_count']}",
         f"- Columnas despues: {after['column_count']}",
+        f"- Acciones documentadas: {len(actions)}",
+        f"- Fecha de generacion: {after['generated_at']}",
+        f"- Herramienta utilizada: AuditData AI - Motor Python",
         "",
-        "## 2. Resumen ejecutivo",
-        (
-            f"Se ejecuto un proceso secuencial de limpieza sobre el dataset '{before['filename']}'. "
-            f"La calidad general paso de {before['scores']['overall']}% a {after['scores']['overall']}%. "
-            "Las decisiones aplicadas quedaron documentadas para garantizar trazabilidad, auditoria y reutilizacion."
-        ),
+        "## 2. Resumen Ejecutivo",
+        _cleaning_resumen(before, after, actions),
         "",
-        "## 3. Problemas encontrados",
+        "## 3. Indicadores Clave del Dataset",
         "| Indicador | Antes | Despues |",
         "|---|---:|---:|",
-        f"| Filas | {before['row_count']} | {after['row_count']} |",
+        f"| Registros | {before['row_count']} | {after['row_count']} |",
         f"| Columnas | {before['column_count']} | {after['column_count']} |",
         f"| Filas duplicadas | {before['duplicate_rows']} | {after['duplicate_rows']} |",
         f"| Completitud | {before['scores']['completeness']}% | {after['scores']['completeness']}% |",
         f"| Consistencia | {before['scores']['consistency']}% | {after['scores']['consistency']}% |",
         f"| Exactitud | {before['scores']['accuracy']}% | {after['scores']['accuracy']}% |",
         f"| Unicidad | {before['scores']['uniqueness']}% | {after['scores']['uniqueness']}% |",
+        f"| Calidad general | {before['scores']['overall']}% | {after['scores']['overall']}% |",
         "",
-        "## 4. Acciones realizadas",
-        "| Columna | Accion | Justificacion | Resultado |",
-        "|---|---|---|---|",
+        "## 4. Problemas Encontrados",
     ]
 
-    if cleaning["actions"]:
-        for item in cleaning["actions"]:
-            lines.append(f"| {item['column']} | {item['action']} | {item['reason']} | {item['result']} |")
-    else:
-        lines.append("| Dataset | Sin acciones aplicadas | No se registraron decisiones de limpieza | Sin cambios |")
+    missing_before = [c for c in before["columns"] if c.get("missing", 0) > 0]
+    format_before = [c for c in before["columns"] if c.get("format_issues", 0) > 0]
+    outliers_before = [c for c in before["columns"] if c.get("outliers", 0) > 0]
 
-    lines.extend(
-        [
-            "",
-            "## 5. Riesgos identificados",
-            _risk_summary(after),
-            "",
-            "## 6. Conclusion",
-            _conclusion(after),
-            "",
-            "## 7. Criterio metodologico",
-            "El proceso siguio la metodologia de comprension, perfilado, reglas de calidad, clasificacion de problemas, tratamiento documentado y validacion final.",
-        ]
-    )
+    lines.append("")
+    lines.append("### 4.1 Valores Faltantes por Columna")
+    if missing_before:
+        total_missing = sum(c["missing"] for c in missing_before)
+        lines.append(f"El dataset presento {total_missing} celdas vacias:")
+        lines.append("| Columna | Faltantes | % Columna | Tipo detectado |")
+        lines.append("|---|---:|---:|---|")
+        for c in missing_before:
+            pct = round(c["missing"] / max(before["row_count"], 1) * 100, 1)
+            lines.append(f"| {c['name']} | {c['missing']} | {pct}% | {c['detected_type']} |")
+    else:
+        lines.append("No se detectaron valores faltantes.")
+
+    lines.append("")
+    lines.append("### 4.2 Filas Duplicadas")
+    if before["duplicate_rows"] > 0:
+        dup_pct = round(before["duplicate_rows"] / max(before["row_count"], 1) * 100, 1)
+        lines.append(f"Se detectaron {before['duplicate_rows']} filas duplicadas ({dup_pct}% del total).")
+    else:
+        lines.append("No se detectaron filas duplicadas.")
+
+    lines.append("")
+    lines.append("### 4.3 Errores de Escritura y Variantes de Texto")
+    if format_before:
+        total_format = sum(c["format_issues"] for c in format_before)
+        lines.append(f"Se encontraron {total_format} inconsistencias de formato en {len(format_before)} columnas.")
+        for col in format_before:
+            groups = col.get("format_groups", [])
+            if groups:
+                lines.append(f"**{col['name']}:**")
+                for g in groups[:5]:
+                    variants = g.get("variants", [])
+                    lines.append(f"  - Canonical: '{g.get('canonical', '')}' | Variantes: {', '.join(variants)}")
+    else:
+        lines.append("No se detectaron errores de escritura significativos.")
+
+    lines.append("")
+    lines.append("### 4.4 Formatos Inconsistentes")
+    cols_with_groups = [c for c in before["columns"] if c.get("format_groups")]
+    if cols_with_groups:
+        lines.append(f"{len(cols_with_groups)} columnas presentan formatos mixtos.")
+    else:
+        lines.append("No se detectaron formatos inconsistentes.")
+
+    lines.append("")
+    lines.append("### 4.5 Categorias Inconsistentes")
+    if format_before:
+        lines.append(f"{len(format_before)} columnas presentan categorias fragmentadas.")
+    else:
+        lines.append("No se detectaron categorias inconsistentes.")
+
+    lines.append("")
+    lines.append("### 4.6 Valores Atipicos")
+    if outliers_before:
+        total_outliers = sum(c["outliers"] for c in outliers_before)
+        lines.append(f"Se detectaron {total_outliers} valores atipicos en {len(outliers_before)} columnas.")
+        lines.append("| Columna | Outliers | Ejemplos |")
+        lines.append("|---|---:|---|")
+        for c in outliers_before:
+            examples = ", ".join(str(v) for v in (c.get("outlier_examples") or [])[:5])
+            lines.append(f"| {c['name']} | {c['outliers']} | {examples} |")
+    else:
+        lines.append("No se detectaron valores atipicos.")
+
+    lines.extend(["", "## 5. Valores Atipicos y Fuera de Rango"])
+    if outliers_before:
+        lines.append("| Columna | Outliers | Min | Max | Media | Mediana |")
+        lines.append("|---|---:|---|---|---|---|")
+        for c in outliers_before:
+            lines.append(f"| {c['name']} | {c['outliers']} | {c.get('min_value', '-')} | {c.get('max_value', '-')} | {c.get('mean', '-')} | {c.get('median', '-')} |")
+    else:
+        lines.append("No se detectaron valores atipicos.")
+
+    lines.extend(["", "## 6. Plan y Acciones de Limpieza"])
+    if actions:
+        lines.append(f"Se documentaron {len(actions)} acciones de limpieza.")
+        lines.append("| N. | Columna | Accion | Justificacion | Resultado |")
+        lines.append("|---|---|---|---|---|")
+        for i, item in enumerate(actions):
+            lines.append(f"| {i+1} | {item.get('column', '')} | {item.get('action', '')} | {item.get('reason', '')} | {item.get('result', '')} |")
+    else:
+        lines.append("No se aplicaron acciones de limpieza.")
+
+    lines.extend(["", "## 7. Evaluacion de Calidad - Antes vs Despues"])
+    dims = [("Completitud", "completeness"), ("Consistencia", "consistency"), ("Exactitud", "accuracy"), ("Unicidad", "uniqueness")]
+    lines.append("| Dimension | Antes | Despues | Cambio |")
+    lines.append("|---|---|---|---|")
+    for label, key in dims:
+        diff = round(after["scores"][key] - before["scores"][key], 2)
+        sign = "+" if diff > 0 else ""
+        lines.append(f"| {label} | {before['scores'][key]}% | {after['scores'][key]}% | {sign}{diff}% |")
+    overall_diff = round(after["scores"]["overall"] - before["scores"]["overall"], 2)
+    overall_sign = "+" if overall_diff > 0 else ""
+    lines.append(f"| Calidad general | {before['scores']['overall']}% | {after['scores']['overall']}% | {overall_sign}{overall_diff}% |")
+
+    lines.extend(["", "## 8. Checklist de Validacion Final"])
+    checks = [
+        ("Completitud >= 95%", after["scores"]["completeness"] >= 95),
+        ("Consistencia >= 95%", after["scores"]["consistency"] >= 95),
+        ("Exactitud >= 95%", after["scores"]["accuracy"] >= 95),
+        ("Sin duplicados pendientes", after["duplicate_rows"] == 0),
+        ("Acciones documentadas", len(actions) > 0),
+        ("Calidad general >= 90%", after["scores"]["overall"] >= 90),
+    ]
+    lines.append("| Criterio | Estado |")
+    lines.append("|---|---|")
+    for criterion, passed in checks:
+        lines.append(f"| {criterion} | {'Cumple' if passed else 'Requiere revision'} |")
+
+    lines.extend(["", "## 9. Riesgos Identificados"])
+    risks = _risk_list(after)
+    for risk in risks:
+        lines.append(f"- {risk}")
+
+    lines.extend(["", "## 10. Metodologia de Calculo"])
+    lines.append("**Completitud:** 100% - (celdas vacias / total de celdas) * 100.")
+    lines.append("**Consistencia:** 100% - (inconsistencias de formato / total de celdas) * 100.")
+    lines.append("**Exactitud:** 100% - (valores atipicos / total de celdas) * 100. Calculados con IQR.")
+    lines.append("**Unicidad:** 100% - (filas duplicadas / total de filas) * 100.")
+    lines.append("**Calidad general:** Promedio aritmetico de las cuatro dimensiones.")
+
+    lines.extend(["", "## 11. Conclusion Final"])
+    lines.append(_conclusion(after))
+
     return "\n".join(lines) + "\n"
 
 
@@ -669,3 +777,40 @@ def _executive_summary(analysis: dict[str, Any]) -> str:
         "y unicidad. Los hallazgos deben interpretarse como diagnostico tecnico inicial y "
         "validarse con reglas de negocio antes de ejecutar cambios definitivos."
     )
+
+
+def _cleaning_resumen(before: dict[str, Any], after: dict[str, Any], actions: list[dict[str, Any]]) -> str:
+    total_actions = len(actions)
+    improvements = []
+    dims = [("completitud", "completeness"), ("consistencia", "consistency"), ("exactitud", "accuracy"), ("unicidad", "uniqueness")]
+    for label, key in dims:
+        b = before["scores"][key]
+        a = after["scores"][key]
+        if b != a:
+            diff = round(a - b, 2)
+            sign = "+" if diff > 0 else ""
+            improvements.append(f"{label} ({b}% -> {a}%, {sign}{diff}%)")
+    improvement_text = ", ".join(improvements) if improvements else "sin cambios significativos"
+    return (
+        f"Se ejecuto un proceso secuencial de limpieza sobre el dataset '{before['filename']}', "
+        f"compuesto por {before['row_count']} registros y {before['column_count']} columnas. "
+        f"Se documentaron {total_actions} acciones de limpieza. "
+        f"La calidad general paso de {before['scores']['overall']}% a {after['scores']['overall']}%. "
+        f"Las dimensiones con mejoras: {improvement_text}. "
+        "Cada decision quedo registrada para facilitar auditoria, mantenimiento y reutilizacion."
+    )
+
+
+def _risk_list(analysis: dict[str, Any]) -> list[str]:
+    risks = []
+    if analysis["scores"]["completeness"] < 95:
+        risks.append("Persisten valores faltantes que pueden sesgar indicadores.")
+    if analysis["scores"]["consistency"] < 95:
+        risks.append("Persisten inconsistencias de formato que pueden fragmentar categorias.")
+    if analysis["scores"]["accuracy"] < 95:
+        risks.append("Persisten outliers que requieren validacion con la fuente original.")
+    if analysis["duplicate_rows"]:
+        risks.append("Persisten duplicados que deben evaluarse segun la unidad de analisis.")
+    if not risks:
+        risks.append("No se identifican riesgos criticos en el diagnostico posterior a la limpieza.")
+    return risks
