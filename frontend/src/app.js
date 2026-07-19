@@ -185,21 +185,36 @@ function renderProfile() {
 function renderRules() {
   const analysis = store.state.analysis;
   if (!analysis) return;
+
+  const deletedColumns = store.state.actions
+    .filter(a => a.kind === "delete_column")
+    .map(a => a.column);
+
   els.rulesBoard.innerHTML = analysis.columns
     .map(
-      (column) => `
-      <article class="decision-card">
+      (column) => {
+        const isDeleted = deletedColumns.includes(column.name);
+        return `
+      <article class="decision-card ${isDeleted ? "decision-card--disabled" : ""}">
         <div>
           <span class="tag">${escapeHtml(column.detected_type)}</span>
           <h3>${escapeHtml(column.name)}</h3>
           <p>${column.missing} faltantes | ${column.unique_values} valores únicos | ${column.outliers} outliers</p>
         </div>
-        <label>
-          Justificación para eliminar columna
-          <input type="text" data-delete-reason="${escapeAttr(column.name)}" placeholder="Ej. no aporta al objetivo del análisis" />
-        </label>
-        <button class="button button--ghost" type="button" data-delete-column="${escapeAttr(column.name)}">Eliminar columna y documentar</button>
-      </article>`,
+        ${isDeleted ? `
+          <div class="action-done">
+            <span class="status status--warn">Columna eliminada</span>
+            <p class="action-done__reason">${escapeHtml(deletedColumns.includes(column.name) ? (store.state.actions.find(a => a.kind === "delete_column" && a.column === column.name)?.reason || "") : "")}</p>
+          </div>
+        ` : `
+          <label>
+            Justificación para eliminar columna
+            <input type="text" data-delete-reason="${escapeAttr(column.name)}" placeholder="Ej. no aporta al objetivo del análisis" />
+          </label>
+          <button class="button button--ghost" type="button" data-delete-column="${escapeAttr(column.name)}">Eliminar columna y documentar</button>
+        `}
+      </article>`;
+      }
     )
     .join("");
 
@@ -209,81 +224,151 @@ function renderRules() {
       const input = document.querySelector(`[data-delete-reason="${cssEscape(column)}"]`);
       const reason = input?.value || "Columna retirada por decisión del analista.";
       addAction({ kind: "delete_column", column, reason });
+      renderRules();
     });
   });
 }
+
+const ACTION_DESCRIPTIONS = {
+  remove_duplicate_rows: "Elimina filas que son idénticas en todas las columnas. Solo úsalo si cada fila representa una entidad única (ej. un participante, un cliente).",
+  impute_missing: "Reemplaza valores vacíos con un valor calculado (media, mediana, moda o uno que tú definas). Útil cuando hay pocos datos faltantes.",
+  drop_missing_rows: "Elimina filas completas que tienen al menos un valor vacío en esta columna. Úsalo cuando la fila no tiene sentido sin ese dato.",
+  standardize_text: "Unifica la escritura del texto (mayúsculas, minúsculas o capitalizado). Evita que la misma cosa aparezca como categorías diferentes.",
+  flag_outliers: "Marca valores extremos para que los revises manualmente. No elimina nada: solo te alerta sobre datos inusuales.",
+  delete_column: "Elimina toda la columna del dataset. Úsalo solo si la columna no aporta nada al objetivo del análisis.",
+};
 
 function renderCleaningBoard() {
   const analysis = store.state.analysis;
   if (!analysis) return;
   const cards = [];
+  const appliedActions = store.state.actions;
+
+  function isActionApplied(kind, column) {
+    return appliedActions.some(a => a.kind === kind && a.column === column);
+  }
 
   if (analysis.duplicate_rows > 0) {
+    const applied = isActionApplied("remove_duplicate_rows", "Dataset");
     cards.push(`
-      <article class="decision-card decision-card--critical">
+      <article class="decision-card decision-card--critical ${applied ? "decision-card--done" : ""}">
         <span class="tag">Unicidad</span>
         <h3>Filas duplicadas completas</h3>
-        <p>Se detectaron ${analysis.duplicate_rows} filas duplicadas. Antes de eliminar, valida que una fila represente una entidad única.</p>
-        <label>Justificación<input type="text" id="dedupeReason" placeholder="Ej. la fila representa un participante único" /></label>
-        <button class="button button--primary" type="button" id="dedupeButton">Eliminar duplicados</button>
+        <p class="action-desc">${ACTION_DESCRIPTIONS.remove_duplicate_rows}</p>
+        <p class="action-detail">Se detectaron <strong>${analysis.duplicate_rows}</strong> filas duplicadas.</p>
+        ${applied ? `
+          <div class="action-done">
+            <span class="status status--ok">Acción aplicada</span>
+          </div>
+        ` : `
+          <label>¿Por qué eliminas los duplicados?<input type="text" id="dedupeReason" placeholder="Ej. cada fila es un participante único" /></label>
+          <button class="button button--primary" type="button" id="dedupeButton">Eliminar duplicados</button>
+        `}
       </article>`);
   }
 
   for (const column of analysis.columns) {
-    if (column.missing > 0) {
-      cards.push(`
-        <article class="decision-card">
-          <span class="tag">Completitud</span>
-          <h3>${escapeHtml(column.name)}</h3>
-          <p>${column.missing} valores faltantes detectados.</p>
-          <div class="inline-controls">
-            <select data-impute-method="${escapeAttr(column.name)}">
-              <option value="mode">Moda</option>
-              <option value="mean">Media</option>
-              <option value="median">Mediana</option>
-              <option value="custom">Valor personalizado</option>
-            </select>
-            <input type="text" data-custom-value="${escapeAttr(column.name)}" placeholder="Valor si aplica" />
-          </div>
-          <label>Justificación<input type="text" data-impute-reason="${escapeAttr(column.name)}" placeholder="Ej. bajo porcentaje de faltantes" /></label>
-          <div class="actions-row">
-            <button class="button button--primary" type="button" data-impute="${escapeAttr(column.name)}">Imputar</button>
-            <button class="button button--ghost" type="button" data-drop-missing="${escapeAttr(column.name)}">Eliminar filas con faltante</button>
-          </div>
-        </article>`);
+    const hasMissing = column.missing > 0;
+    const hasFormatIssues = column.detected_type !== "number" && column.format_issues > 0;
+    const hasOutliers = column.outliers > 0;
+
+    if (!hasMissing && !hasFormatIssues && !hasOutliers) continue;
+
+    let issuesList = [];
+    if (hasMissing) issuesList.push(`${column.missing} valores vacíos`);
+    if (hasFormatIssues) issuesList.push(`${column.format_issues} variantes de formato`);
+    if (hasOutliers) issuesList.push(`${column.outliers} valores atípicos`);
+
+    let actionsHtml = "";
+
+    if (hasMissing) {
+      const imputeApplied = isActionApplied("impute_missing", column.name);
+      const dropApplied = isActionApplied("drop_missing_rows", column.name);
+      actionsHtml += `
+        <div class="action-group">
+          <p class="action-group__title">Valores vacíos → ¿Qué hacemos?</p>
+          <p class="action-desc">${ACTION_DESCRIPTIONS.impute_missing}</p>
+          ${imputeApplied ? `
+            <div class="action-done">
+              <span class="status status--ok">Imputación aplicada</span>
+            </div>
+          ` : `
+            <div class="inline-controls">
+              <select data-impute-method="${escapeAttr(column.name)}">
+                <option value="mode">Rellenar con la moda (más frecuente)</option>
+                <option value="mean">Rellenar con el promedio</option>
+                <option value="median">Rellenar con la mediana</option>
+                <option value="custom">Rellenar con un valor que yo defina</option>
+              </select>
+              <input type="text" data-custom-value="${escapeAttr(column.name)}" placeholder="Valor personalizado (si aplica)" />
+            </div>
+            <label>¿Por qué imputas este valor?<input type="text" data-impute-reason="${escapeAttr(column.name)}" placeholder="Ej. solo el 5% están vacíos, es seguro rellenar" /></label>
+            <button class="button button--primary" type="button" data-impute="${escapeAttr(column.name)}">Imputar valores vacíos</button>
+          `}
+          ${!imputeApplied && !dropApplied ? `<p class="action-desc" style="margin-top:0.5rem">${ACTION_DESCRIPTIONS.drop_missing_rows}</p>` : ""}
+          ${dropApplied ? `
+            <div class="action-done">
+              <span class="status status--ok">Filas eliminadas</span>
+            </div>
+          ` : !imputeApplied ? `
+            <button class="button button--ghost" type="button" data-drop-missing="${escapeAttr(column.name)}">Eliminar filas con vacío</button>
+          ` : ""}
+        </div>`;
     }
 
-    if (column.detected_type !== "number" && column.format_issues > 0) {
-      cards.push(`
-        <article class="decision-card">
-          <span class="tag">Consistencia</span>
-          <h3>${escapeHtml(column.name)}</h3>
-          <p>Existen variantes de formato que pueden fragmentar categorías.</p>
-          <div class="inline-controls">
-            <select data-standardize-method="${escapeAttr(column.name)}">
-              <option value="title">Capitalizar</option>
-              <option value="upper">MAYÚSCULAS</option>
-              <option value="lower">minúsculas</option>
-            </select>
-          </div>
-          <label>Justificación<input type="text" data-standardize-reason="${escapeAttr(column.name)}" placeholder="Ej. unificar categorías equivalentes" /></label>
-          <button class="button button--primary" type="button" data-standardize="${escapeAttr(column.name)}">Estandarizar texto</button>
-        </article>`);
+    if (hasFormatIssues) {
+      const stdApplied = isActionApplied("standardize_text", column.name);
+      actionsHtml += `
+        <div class="action-group">
+          <p class="action-group__title">Variantes de texto → ¿Unificamos?</p>
+          <p class="action-desc">${ACTION_DESCRIPTIONS.standardize_text}</p>
+          ${stdApplied ? `
+            <div class="action-done">
+              <span class="status status--ok">Texto estandarizado</span>
+            </div>
+          ` : `
+            <div class="inline-controls">
+              <select data-standardize-method="${escapeAttr(column.name)}">
+                <option value="title">Capitalizar (primera letra mayúscula)</option>
+                <option value="upper">TODO EN MAYÚSCULAS</option>
+                <option value="lower">todo en minúsculas</option>
+              </select>
+            </div>
+            <label>¿Por qué unificas la escritura?<input type="text" data-standardize-reason="${escapeAttr(column.name)}" placeholder="Ej. 'Bogota' y 'bogota' son lo mismo" /></label>
+            <button class="button button--primary" type="button" data-standardize="${escapeAttr(column.name)}">Unificar escritura</button>
+          `}
+        </div>`;
     }
 
-    if (column.outliers > 0) {
-      cards.push(`
-        <article class="decision-card">
-          <span class="tag">Exactitud</span>
-          <h3>${escapeHtml(column.name)}</h3>
-          <p>${column.outliers} valores atípicos. No se eliminan automáticamente: se marcan para revisión profesional.</p>
-          <label>Justificación<input type="text" data-outlier-reason="${escapeAttr(column.name)}" placeholder="Ej. requiere validación con fuente original" /></label>
-          <button class="button button--ghost" type="button" data-flag-outliers="${escapeAttr(column.name)}">Marcar para revisión</button>
-        </article>`);
+    if (hasOutliers) {
+      const flagApplied = isActionApplied("flag_outliers", column.name);
+      actionsHtml += `
+        <div class="action-group">
+          <p class="action-group__title">Valores atípicos → ¿Qué hacemos?</p>
+          <p class="action-desc">${ACTION_DESCRIPTIONS.flag_outliers}</p>
+          ${flagApplied ? `
+            <div class="action-done">
+              <span class="status status--ok">Marcado para revisión</span>
+            </div>
+          ` : `
+            <label>¿Por qué marcas estos valores?<input type="text" data-outlier-reason="${escapeAttr(column.name)}" placeholder="Ej. edad 450 no es posible, revisar fuente" /></label>
+            <button class="button button--ghost" type="button" data-flag-outliers="${escapeAttr(column.name)}">Marcar para revisión</button>
+          `}
+        </div>`;
     }
+
+    cards.push(`
+      <article class="decision-card">
+        <div>
+          <span class="tag">${escapeHtml(column.name)}</span>
+          <h3>${escapeHtml(column.name)}</h3>
+          <p class="action-detail">${issuesList.join(" · ")}</p>
+        </div>
+        ${actionsHtml}
+      </article>`);
   }
 
-  els.cleaningBoard.innerHTML = cards.length ? cards.join("") : `<p class="empty-state">No se detectaron acciones críticas para esta etapa.</p>`;
+  els.cleaningBoard.innerHTML = cards.length ? cards.join("") : `<p class="empty-state">No se detectaron problemas. Puedes avanzar a la siguiente etapa.</p>`;
   bindCleaningActions();
 }
 
@@ -354,6 +439,9 @@ function undoLastAction() {
   const undone = store.undoAction();
   if (undone) {
     renderLog();
+    renderRules();
+    renderCleaningBoard();
+    populateAdvancedColumns();
     els.systemStatus.textContent = `${store.state.actions.length} decisión(es) documentada(s)`;
   }
 }
@@ -431,6 +519,20 @@ function renderReportPreview() {
 
 function onNext() {
   if (store.state.step === 3) {
+    if (store.state.actions.length === 0) {
+      store.setCleaning({
+        before: store.state.analysis,
+        after: store.state.analysis,
+        actions: [],
+        clean_csv: "",
+      });
+      renderValidation();
+      renderReportPreview();
+      enableStep(4);
+      enableStep(5);
+      router.navigate(4);
+      return;
+    }
     runCleaning().then(() => router.navigate(4)).catch((error) => {
       els.systemStatus.textContent = `Error: ${error.message}`;
     });
