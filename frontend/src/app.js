@@ -3,6 +3,18 @@ import { Router } from "./router.js";
 
 const store = new Store();
 
+const loadingOverlay = document.querySelector("#loadingOverlay");
+const loadingText = document.querySelector("#loadingText");
+
+function showLoading(text = "Procesando dataset...") {
+  loadingText.textContent = text;
+  loadingOverlay.style.display = "grid";
+}
+
+function hideLoading() {
+  loadingOverlay.style.display = "none";
+}
+
 const els = {
   fileInput: document.querySelector("#fileInput"),
   dropzone: document.querySelector("#dropzone"),
@@ -130,6 +142,7 @@ async function analyzeSelectedFile() {
   if (!store.state.fileBase64) return;
   els.systemStatus.textContent = "Perfilando dataset con Python...";
   els.analyzeButton.disabled = true;
+  showLoading("Analizando tu dataset... Esto puede tardar unos segundos.");
 
   try {
     const response = await postJson("/api/analyze", {
@@ -152,6 +165,7 @@ async function analyzeSelectedFile() {
     els.systemStatus.textContent = `Error: ${error.message}`;
   } finally {
     els.analyzeButton.disabled = false;
+    hideLoading();
   }
 }
 
@@ -190,10 +204,15 @@ function renderRules() {
     .filter(a => a.kind === "delete_column")
     .map(a => a.column);
 
-  els.rulesBoard.innerHTML = analysis.columns
+  els.rulesBoard.innerHTML = `
+    <div class="rules-intro">
+      <p class="action-desc">Revisa cada columna del dataset. Si alguna no es necesaria para tu análisis, elimínala aquí con una justificación. Las columnas eliminadas no aparecerán en el reporte final.</p>
+    </div>
+  ` + analysis.columns
     .map(
       (column) => {
         const isDeleted = deletedColumns.includes(column.name);
+        const reason = store.state.actions.find(a => a.kind === "delete_column" && a.column === column.name)?.reason || "";
         return `
       <article class="decision-card ${isDeleted ? "decision-card--disabled" : ""}">
         <div>
@@ -204,14 +223,15 @@ function renderRules() {
         ${isDeleted ? `
           <div class="action-done">
             <span class="status status--warn">Columna eliminada</span>
-            <p class="action-done__reason">${escapeHtml(deletedColumns.includes(column.name) ? (store.state.actions.find(a => a.kind === "delete_column" && a.column === column.name)?.reason || "") : "")}</p>
           </div>
+          <p class="action-done__reason">Justificación: ${escapeHtml(reason)}</p>
         ` : `
+          <p class="action-desc">¿Esta columna aporta al objetivo de tu análisis? Si no, elimínala y documenta por qué.</p>
           <label>
-            Justificación para eliminar columna
+            Justificación para eliminar
             <input type="text" data-delete-reason="${escapeAttr(column.name)}" placeholder="Ej. no aporta al objetivo del análisis" />
           </label>
-          <button class="button button--ghost" type="button" data-delete-column="${escapeAttr(column.name)}">Eliminar columna y documentar</button>
+          <button class="button button--ghost" type="button" data-delete-column="${escapeAttr(column.name)}">Eliminar columna</button>
         `}
       </article>`;
       }
@@ -467,18 +487,23 @@ function renderLog() {
 }
 
 async function runCleaning() {
+  showLoading("Aplicando limpieza documentada y generando reporte...");
   els.systemStatus.textContent = "Aplicando limpieza documentada...";
-  const response = await postJson("/api/clean", {
-    filename: store.state.filename,
-    content_base64: store.state.fileBase64,
-    actions: store.state.actions,
-  });
-  store.setCleaning(response.cleaning);
-  renderValidation();
-  renderReportPreview();
-  enableStep(4);
-  enableStep(5);
-  els.systemStatus.textContent = "Limpieza compilada y validada";
+  try {
+    const response = await postJson("/api/clean", {
+      filename: store.state.filename,
+      content_base64: store.state.fileBase64,
+      actions: store.state.actions,
+    });
+    store.setCleaning(response.cleaning);
+    renderValidation();
+    renderReportPreview();
+    enableStep(4);
+    enableStep(5);
+    els.systemStatus.textContent = "Limpieza compilada y validada";
+  } finally {
+    hideLoading();
+  }
 }
 
 function renderValidation() {
@@ -570,16 +595,21 @@ function enableStep(step) {
 async function downloadReport(type) {
   const cleaning = store.state.cleaning;
   if (!cleaning) return;
-  const route = type === "pdf" ? "/api/report/pdf" : "/api/report/markdown";
-  const response = await postJson(route, {
-    cleaning: cleaning,
-    analyst: els.analystInput.value,
-    version: els.versionInput.value || "v1.0",
-  });
-  if (type === "pdf") {
-    downloadBlob(response.filename, base64ToBlob(response.content_base64, "application/pdf"));
-  } else {
-    downloadBlob(response.filename, new Blob([response.content], { type: "text/markdown;charset=utf-8" }));
+  showLoading(`Generando informe ${type === "pdf" ? "PDF" : "Markdown"}...`);
+  try {
+    const route = type === "pdf" ? "/api/report/pdf" : "/api/report/markdown";
+    const response = await postJson(route, {
+      cleaning: cleaning,
+      analyst: els.analystInput.value,
+      version: els.versionInput.value || "v1.0",
+    });
+    if (type === "pdf") {
+      downloadBlob(response.filename, base64ToBlob(response.content_base64, "application/pdf"));
+    } else {
+      downloadBlob(response.filename, new Blob([response.content], { type: "text/markdown;charset=utf-8" }));
+    }
+  } finally {
+    hideLoading();
   }
 }
 
