@@ -107,12 +107,57 @@ def _styles() -> dict[str, ParagraphStyle]:
     }
 
 
+_CELL_STYLE = ParagraphStyle(
+    "CellStyle",
+    fontName="Helvetica",
+    fontSize=8,
+    leading=10,
+    textColor=colors.HexColor("#333333"),
+)
+
+_CELL_STYLE_BOLD = ParagraphStyle(
+    "CellStyleBold",
+    parent=_CELL_STYLE,
+    fontName="Helvetica-Bold",
+)
+
+_HEADER_CELL_STYLE = ParagraphStyle(
+    "HeaderCellStyle",
+    parent=_CELL_STYLE,
+    fontName="Helvetica-Bold",
+    fontSize=8,
+    leading=10,
+    textColor=colors.white,
+)
+
+
+def _cell(text: str, bold: bool = False) -> Paragraph:
+    """Wrap text in a Paragraph so ReportLab can word-wrap inside table cells."""
+    text = str(text).strip()
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    if bold:
+        return Paragraph(text, _CELL_STYLE_BOLD)
+    return Paragraph(text, _CELL_STYLE)
+
+
+def _header_cell(text: str) -> Paragraph:
+    text = str(text).strip()
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return Paragraph(text, _HEADER_CELL_STYLE)
+
+
 def _table(rows: list[list[str]], header: bool = False) -> Table:
-    table = Table(rows, hAlign="LEFT", repeatRows=1 if header else 0)
+    """Build a table where all cells are Paragraphs for automatic word-wrapping."""
+    wrapped: list[list[Paragraph]] = []
+    for row_idx, row in enumerate(rows):
+        if header and row_idx == 0:
+            wrapped.append([_header_cell(cell) for cell in row])
+        else:
+            wrapped.append([_cell(cell, bold=(col_idx == 0)) for col_idx, cell in enumerate(row)])
+
+    table = Table(wrapped, hAlign="LEFT", repeatRows=1 if header else 0)
     style = [
         ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#B8B8C8")),
-        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F5F7FB")),
         ("TOPPADDING", (0, 0), (-1, -1), 4),
@@ -124,10 +169,7 @@ def _table(rows: list[list[str]], header: bool = False) -> Table:
         style.extend([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(BRAND["blue_dark"])),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ])
-    else:
-        style.extend([("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold")])
     table.setStyle(TableStyle(style))
     return table
 
