@@ -17,9 +17,12 @@ from data_engine.analyzer import (
 
 app = FastAPI(title="AuditData AI API", version="1.0.0")
 
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://127.0.0.1:8000").split(",")
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -53,12 +56,20 @@ class ReportPdfRequest(BaseModel):
     analyst: str = "-"
     version: str = "v1.0"
 
+@app.get("/api/health")
+def health():
+    return {"status": "ok", "version": "1.0.0", "service": "AuditData AI"}
+
 @app.post("/api/analyze")
 def analyze(req: AnalyzeRequest):
     try:
         payload = base64.b64decode(req.content_base64)
+        if len(payload) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="El archivo excede el límite de 10MB")
         analysis = analyze_dataset(req.filename, payload)
         return {"analysis": analysis}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -66,9 +77,13 @@ def analyze(req: AnalyzeRequest):
 def clean(req: CleanRequest):
     try:
         payload = base64.b64decode(req.content_base64)
+        if len(payload) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="El archivo excede el límite de 10MB")
         actions_dict = [action.model_dump() for action in req.actions]
         cleaning = apply_cleaning_actions(req.filename, payload, actions_dict)
         return {"cleaning": cleaning}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

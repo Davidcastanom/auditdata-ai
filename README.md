@@ -1,155 +1,258 @@
 # AuditData AI
 
-AuditData AI es una herramienta de Flujo Base para diagnosticar, documentar y preparar datasets antes de usarlos en analisis, visualizacion o toma de decisiones.
+**Herramienta profesional de limpieza y validación de calidad de datos con reportes PDF**
 
-La aplicacion combina:
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg)](https://fastapi.tiangolo.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Tests](https://img.shields.io/badge/Tests-10%2F10%20passing-brightgreen.svg)](tests/)
 
-- Frontend web modular.
-- Backend local en Python.
-- Motor reutilizable de calidad de datos.
-- Exportacion de reportes en Markdown y PDF.
-- Design System basado en la paleta oficial del proyecto.
+---
 
-## Objetivo
+## ¿Qué es AuditData AI?
 
-Convertir la limpieza de datos en un proceso profesional, explicable y reutilizable para cualquier dataset CSV o XLSX.
+AuditData AI es una herramienta de **Flujo Base** para diagnosticar, documentar y preparar datasets antes de usarlos en análisis, visualización o toma de decisiones.
 
-La herramienta no inventa datos. Calcula hallazgos, documenta riesgos y permite que el usuario valide las decisiones con criterio de negocio.
+La herramienta **no inventa datos**. Calcula hallazgos, documenta riesgos y permite que el usuario valide las decisiones con criterio de negocio.
 
-## Paleta estandar
+### Flujo de 6 Etapas
 
-| Color | Hex | Uso |
-|---|---|---|
-| Azul electrico | `#0066FF` | Botones, links, acentos principales |
-| Azul oscuro | `#0052CC` | Hover, enfasis secundario |
-| Cian | `#00D4FF` | Acentos especiales, tags |
-| Negro | `#0A0A0F` | Fondo principal |
-| Gris oscuro | `#12121A` | Tarjetas, superficies |
-| Blanco suave | `#F0F0F5` | Texto principal |
-| Gris metalico | `#9090A0` | Texto secundario, fechas |
-
-Colores complementarios definidos para estados:
-
-- Exito: `#22C55E`
-- Advertencia: `#F59E0B`
-- Error: `#EF4444`
-- Borde tecnico: `#242436`
-- Superficie secundaria: `#181824`
-
-## Arquitectura
-
-```text
-auditdata-ai/
-  backend/
-    app/
-      reporting.py       # Generacion de PDF profesional
-      server.py          # API local y servidor del frontend
-  data_engine/
-    analyzer.py          # Cerebro Python reutilizable
-  frontend/
-    index.html           # Pagina principal
-    src/
-      app.js             # Orquestacion de la UI
-      styles/
-        design-system.css
-  docs/
-    architecture/
-    brand/
-  samples/
-  templates/
-    reports/
-  output/
-  README.md
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│  01         │    │  02         │    │  03         │
+│  Comprender │───▶│  Perfilar   │───▶│  Reglas     │
+└─────────────┘    └─────────────┘    └─────────────┘
+                                              │
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│  06         │    │  05         │    │  04         │
+│  Informe    │◀───│  Validar    │◀───│  Depurar    │
+└─────────────┘    └─────────────┘    └─────────────┘
 ```
 
-## Como ejecutar
+1. **Comprender** — Define la unidad de análisis y carga el dataset
+2. **Perfilar** — Diagnóstico técnico automático por columna
+3. **Reglas** — Clasifica columnas y documenta decisiones estructurales
+4. **Depurar** — Aplica acciones de limpieza con criterio documentado
+5. **Validar** — Demuestra la calidad antes de declarar el dataset listo
+6. **Informe** — Compila Data Cleaning Report en PDF y Markdown
 
-Desde la raiz del proyecto:
+---
+
+## Instalación
+
+### Requisitos
+
+- Python 3.10 o superior
+- pip
+
+### Pasos
+
+```bash
+# 1. Clonar el repositorio
+git clone https://github.com/TU_USUARIO/auditdata-ai.git
+cd auditdata-ai
+
+# 2. Crear entorno virtual
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+# macOS/Linux:
+source .venv/bin/activate
+
+# 3. Instalar dependencias
+pip install -r requirements.txt
+
+# 4. (Opcional) Instalar con dependencias de IA y desarrollo
+pip install -e ".[ai,dev]"
+
+# 5. Copiar variables de entorno
+cp .env.example .env
+
+# 6. Ejecutar la aplicación
+python -m backend.app.server
+```
+
+Abrir en el navegador: **http://127.0.0.1:8000**
+
+---
+
+## Estructura del Proyecto
+
+```
+auditdata-ai/
+├── backend/
+│   └── app/
+│       ├── main.py          # API FastAPI
+│       ├── reporting.py     # Generación de PDF
+│       └── server.py        # Runner de Uvicorn
+├── data_engine/
+│   └── analyzer.py          # Motor de análisis de calidad
+├── frontend/
+│   ├── index.html           # UI principal
+│   └── src/
+│       ├── app.js           # Orquestación de la UI
+│       ├── router.js        # Navegación por hash
+│       ├── state.js         # Estado con localStorage
+│       └── styles/
+│           └── design-system.css
+├── tests/
+│   ├── test_analyzer.py     # Tests del motor
+│   └── test_api.py          # Tests de integración
+├── samples/
+│   └── moveup_sample.csv    # Dataset de ejemplo
+├── docs/
+│   ├── architecture/
+│   └── brand/
+├── .env.example
+├── pyproject.toml
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
+## Funcionalidades
+
+### Motor de Análisis (`data_engine/analyzer.py`)
+
+- Detección automática de tipos: texto, número, fecha, booleano
+- Conteo de valores faltantes por columna
+- Detección de filas duplicadas completas
+- Detección de inconsistencias de formato
+- Detección de outliers numéricos con IQR
+- Score de calidad por dimensión (completitud, consistencia, exactitud, unicidad)
+- Recomendaciones automáticas priorizadas
+
+### Acciones de Limpieza
+
+| Acción | Descripción |
+|--------|-------------|
+| `delete_column` | Eliminar columna con justificación |
+| `drop_missing_rows` | Eliminar filas con faltantes |
+| `impute_missing` | Imputar con media, mediana, moda o valor personalizado |
+| `standardize_text` | Estandarizar mayúsculas/minúsculas/título |
+| `remove_duplicate_rows` | Eliminar filas duplicadas completas |
+| `flag_outliers` | Marcar outliers para revisión |
+| `rename_column` | Renombrar columna |
+| `replace_value` | Reemplazar un valor específico |
+| `change_type` | Cambiar tipo de dato |
+
+### Reportes
+
+- **PDF** — Informe ejecutivo profesional con paleta del proyecto
+- **Markdown** — Informe transparente y versionable
+- **CSV** — Dataset limpio descargable
+
+---
+
+## API Endpoints
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `POST` | `/api/analyze` | Analizar dataset |
+| `POST` | `/api/clean` | Aplicar acciones de limpieza |
+| `POST` | `/api/report/markdown` | Generar informe Markdown |
+| `POST` | `/api/report/pdf` | Generar informe PDF |
+| `GET` | `/` | Frontend web |
+| `GET` | `/docs` | Documentación Swagger |
+
+---
+
+## Deploy
+
+### Opción 1: Docker
+
+```bash
+docker-compose up --build
+```
+
+### Opción 2: Railway / Render
+
+1. Subir el repositorio a GitHub
+2. Conectar el repositorio en Railway o Render
+3. Configurar variables de entorno:
+   - `ALLOWED_ORIGINS`: URL de tu deploy
+   - `GEMINI_API_KEY`: (opcional) Para justificaciones con IA
+
+### Opción 3: Local
 
 ```bash
 python -m backend.app.server
 ```
 
-Luego abre:
+---
 
-```text
-http://127.0.0.1:8000
-```
+## Paleta de Colores
 
-Si usas el runtime incluido de Codex en Windows, tambien puedes ejecutar con la ruta completa del Python incluido.
+| Color | Hex | Uso |
+|-------|-----|-----|
+| Azul eléctrico | `#0066FF` | Botones, links, acentos principales |
+| Azul oscuro | `#0052CC` | Hover, énfasis secundario |
+| Cian | `#00D4FF` | Acentos especiales, tags |
+| Negro | `#0A0A0F` | Fondo principal |
+| Gris oscuro | `#12121A` | Tarjetas, superficies |
+| Blanco suave | `#F0F0F5` | Texto principal |
+| Gris metálico | `#9090A0` | Texto secundario |
 
-## Funcionalidades actuales
+---
 
-- Carga de archivos `.csv`, `.xlsx` y `.xlsm`.
-- Deteccion automatica de tipos: texto, numero, fecha y booleano.
-- Conteo de valores faltantes.
-- Deteccion de filas duplicadas completas.
-- Deteccion de inconsistencias simples de formato.
-- Deteccion de outliers numericos con IQR.
-- Score de calidad por dimension.
-- Vista previa de hallazgos por columna.
-- Reporte Markdown descargable.
-- Reporte PDF descargable con paleta del proyecto.
-
-## Cerebro Python
-
-El archivo `data_engine/analyzer.py` concentra la logica de calidad de datos.
-
-Esta separacion permite reutilizar el motor en:
-
-- una API profesional con FastAPI,
-- automatizaciones,
-- notebooks,
-- jobs programados,
-- integraciones futuras con IA,
-- flujos de GitHub Actions.
-
-## IA
-
-La implementacion de IA sigue en pie, pero debe integrarse de forma segura.
-
-Regla tecnica:
-
-- La IA no debe ejecutarse con credenciales expuestas en el navegador.
-- El backend debe actuar como intermediario.
-- La IA debe sugerir criterios, narrativa y reglas de negocio.
-- El motor Python debe calcular los hallazgos reales.
-
-## Roadmap recomendado
-
-1. Agregar FastAPI para una API mas robusta.
-2. Integrar proveedor de IA desde backend con variables de entorno.
-3. Agregar historial de acciones de limpieza.
-4. Permitir aplicar transformaciones y exportar dataset limpio.
-5. Crear plantillas PDF avanzadas por tipo de cliente.
-6. Agregar pruebas unitarias al motor Python.
-7. Configurar repositorio GitHub con Issues, Releases y GitHub Actions.
-
-## Subir a GitHub
-
-Cuando el repositorio local este listo:
+## Testing
 
 ```bash
-git init
-git add .
-git commit -m "Initial AuditData AI architecture"
-git branch -M main
-git remote add origin https://github.com/TU_USUARIO/auditdata-ai.git
-git push -u origin main
+# Ejecutar todos los tests
+python -m unittest discover -s tests -v
+
+# Output esperado:
+# test_analyze_dataset ... ok
+# test_cleaning_actions ... ok
+# test_analyze_valid_csv ... ok
+# test_analyze_invalid_format ... ok
+# test_analyze_invalid_base64 ... ok
+# test_clean_with_actions ... ok
+# test_root_returns_html ... ok
+# test_docs_available ... ok
+# test_markdown_report_from_analysis ... ok
+# test_pdf_report_from_analysis ... ok
+# ---
+# Ran 10 tests in 0.082s
+# OK
 ```
 
-Nota: en esta carpeta existe una entrada `.git`, pero `git status` no la reconoce como repositorio valido. Antes de subir, conviene revisar si esa carpeta esta vacia o corrupta.
+---
 
-## Biblioteca Estrategica Flujo Base
+## Variables de Entorno
 
-Categorias aplicables:
+| Variable | Requerida | Descripción |
+|----------|-----------|-------------|
+| `GEMINI_API_KEY` | No | API key de Google Gemini para justificaciones con IA |
+| `HOST` | No | Host del servidor (default: `127.0.0.1`) |
+| `PORT` | No | Puerto del servidor (default: `8000`) |
+| `ALLOWED_ORIGINS` | No | Orígenes permitidos para CORS (separados por coma) |
 
-- Desarrollo
-- UX
-- Diseno
-- Brand Book
-- Automatizacion
-- GitHub
-- Documentacion
-- Negocio
+---
 
+## Roadmap
+
+- [ ] Autenticación de usuarios
+- [ ] Historial de análisis en base de datos
+- [ ] Integración con IA para sugerir reglas automáticas
+- [ ] Plantillas PDF avanzadas por tipo de cliente
+- [ ] Multi-idioma (español, inglés, portugués)
+- [ ] API pública con rate limiting
+- [ ] Deploy automático con GitHub Actions
+
+---
+
+## Licencia
+
+MIT License - Ver [LICENSE](LICENSE) para detalles.
+
+---
+
+## Autor
+
+**AuditData AI** — Flujo Base Data Quality System
+
+Desarrollado para la comunidad de analistas de datos que necesita herramientas profesionales, documentadas y accesibles.

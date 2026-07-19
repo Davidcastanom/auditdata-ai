@@ -22,6 +22,13 @@ def _encode(payload: str) -> str:
 
 
 class TestHealthEndpoint(unittest.TestCase):
+    def test_health(self):
+        response = client.get("/api/health")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "ok")
+        self.assertEqual(data["version"], "1.0.0")
+
     def test_root_returns_html(self):
         response = client.get("/")
         self.assertEqual(response.status_code, 200)
