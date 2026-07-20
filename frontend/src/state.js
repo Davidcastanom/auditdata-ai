@@ -66,13 +66,17 @@ export class Store {
     this.saveState();
   }
 
-  undoAction() {
-    if (this.state.actions.length > 0) {
-      const removed = this.state.actions.pop();
+  removeAction(index) {
+    if (index >= 0 && index < this.state.actions.length) {
+      const removed = this.state.actions.splice(index, 1)[0];
       this.saveState();
       return removed;
     }
     return null;
+  }
+
+  undoAction() {
+    return this.removeAction(this.state.actions.length - 1);
   }
 
   setStep(step) {

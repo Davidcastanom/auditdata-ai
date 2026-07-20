@@ -478,12 +478,29 @@ function renderLog() {
     .map(
       (action, index) => `
       <div class="log-item">
-        <strong>${index + 1}. ${labelForAction(action.kind)}</strong>
-        <span>${escapeHtml(action.column || "Dataset")}</span>
-        <p>${escapeHtml(action.reason || "")}</p>
+        <div class="log-item__row">
+          <div class="log-item__text">
+            <strong>${index + 1}. ${labelForAction(action.kind)}</strong>
+            <span>${escapeHtml(action.column || "Dataset")}</span>
+            <p>${escapeHtml(action.reason || "")}</p>
+          </div>
+          <button class="log-item__undo" data-undo-index="${index}" type="button" title="Deshacer esta acción">✕</button>
+        </div>
       </div>`,
     )
     .join("");
+
+  document.querySelectorAll("[data-undo-index]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.undoIndex);
+      store.removeAction(index);
+      renderLog();
+      renderRules();
+      renderCleaningBoard();
+      populateAdvancedColumns();
+      els.systemStatus.textContent = `${store.state.actions.length} decisión(es) documentada(s)`;
+    });
+  });
 }
 
 async function runCleaning() {
