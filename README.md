@@ -30,12 +30,12 @@ La herramienta **no inventa datos**. Calcula hallazgos, documenta riesgos y perm
 └─────────────┘    └─────────────┘    └─────────────┘
 ```
 
-1. **Comprender** — Define la unidad de análisis y carga el dataset
+1. **Comprender** — Define la unidad de análisis (opcional), objetivo del análisis (opcional) y carga el dataset
 2. **Perfilar** — Diagnóstico técnico automático por columna
 3. **Reglas** — Clasifica columnas y documenta decisiones estructurales
 4. **Depurar** — Aplica acciones de limpieza con criterio documentado
 5. **Validar** — Demuestra la calidad antes de declarar el dataset listo
-6. **Informe** — Compila Data Cleaning Report en PDF (formato académico) y Markdown
+6. **Informe** — Compila Data Cleaning Report en PDF (formato académico), Markdown y bitácora de cambios
 
 ---
 
@@ -84,12 +84,12 @@ auditdata-ai/
 ├── backend/
 │   └── app/
 │       ├── main.py          # API FastAPI + Pydantic v2
-│       ├── reporting.py     # Generación de PDF (10 secciones)
+│       ├── reporting.py     # Generación de PDF (10 secciones, word wrap)
 │       └── server.py        # Runner de Uvicorn
 ├── data_engine/
-│   └── analyzer.py          # Motor de análisis de calidad
+│   └── analyzer.py          # Motor de análisis de calidad + bitácora de cambios
 ├── frontend/
-│   ├── index.html           # UI principal
+│   ├── index.html           # UI principal (wizard 6 pasos)
 │   └── src/
 │       ├── app.js           # Orquestación de la UI
 │       ├── router.js        # Navegación por hash
@@ -102,8 +102,8 @@ auditdata-ai/
 ├── samples/
 │   └── moveup_sample.csv    # Dataset de ejemplo
 ├── docs/
-│   ├── architecture/
-│   └── brand/
+│   ├── AI_IMPLEMENTATION_PLAN.md   # Plan de implementación IA (5 fases)
+│   └── PRESENTACION_SCRIPT.md      # Guion de presentación (20 slides)
 ├── .env.example
 ├── pyproject.toml
 ├── requirements.txt
@@ -148,13 +148,25 @@ auditdata-ai/
 - Botón global "Deshacer" para quitar la última acción rápidamente
 - Justificaciones generadas con IA (Gemini) cuando la API key está configurada
 
+### Bitácora de Cambios (Audit Log)
+
+- Tracking de cambios a nivel de celda: fila, columna, valor antes → valor nuevo
+- Descargable como Markdown con tablas detalladas
+- Ideal para auditoría, cumplimiento regulatorio y reproducibilidad
+
+### Contexto Opcional del Dataset
+
+- **"Qué representa cada fila"** — Unidad de análisis (ej. participante, venta, cliente)
+- **"Objetivo del análisis"** — Propósito del análisis (ej. validar calidad antes del dashboard)
+- Campos opcionales: si se llenan aparecen en los reportes, si se dejan vacíos no afectan
+
 ### Reportes PDF (Formato Académico)
 
 El informe PDF contiene **10 secciones** completas:
 
 | Sección | Contenido |
 |---------|-----------|
-| 1. Información General | Dataset, analista, registros antes/después, fecha, herramienta |
+| 1. Información General | Dataset, analista, contexto (opcional), registros antes/después, fecha, herramienta |
 | 2. Resumen Ejecutivo | Narrativa con conteos de problemas y % de calidad |
 | 3. Indicadores Clave | Tabla antes/después de las 4 dimensiones + general |
 | 4. Problemas Encontrados | 6 subsecciones: faltantes, duplicados, escritura, formatos, categorías, atípicos |
@@ -169,6 +181,7 @@ El informe PDF contiene **10 secciones** completas:
 
 - **Markdown** — Informe transparente y versionable (mismas 10 secciones)
 - **CSV** — Dataset limpio descargable
+- **Bitácora** — Registro de cada celda modificada (antes/después)
 
 ---
 
@@ -180,6 +193,7 @@ El informe PDF contiene **10 secciones** completas:
 | `POST` | `/api/clean` | Aplicar acciones de limpieza |
 | `POST` | `/api/report/markdown` | Generar informe Markdown |
 | `POST` | `/api/report/pdf` | Generar informe PDF |
+| `POST` | `/api/report/audit-log` | Generar bitácora de cambios |
 | `GET` | `/api/health` | Health check |
 | `GET` | `/` | Frontend web |
 | `GET` | `/docs` | Documentación Swagger |
@@ -278,14 +292,19 @@ python -m pytest tests/ -v
 ### Completado
 - [x] Motor de análisis de calidad con 4 dimensiones
 - [x] 9 acciones de limpieza documentadas
-- [x] Reporte PDF con 10 secciones (formato académico)
+- [x] Reporte PDF con 10 secciones (formato académico, word wrap)
 - [x] Reporte Markdown con mismas 10 secciones
+- [x] Bitácora de cambios a nivel de celda (antes/después)
 - [x] Justificaciones con IA (Gemini)
-- [x] Deshacer individual por acción
+- [x] Deshacer individual por acción (✕) + deshacer global
+- [x] Contexto opcional: unidad de análisis y objetivo
 - [x] Loading overlay con spinner
 - [x] Paleta de colores unificada en todo el stack
+- [x] Timezone Colombia (UTC-5) para fechas de reporte
 - [x] Tests automatizados (13/13)
-- [x] Deploy en Render
+- [x] Deploy en Render + Docker
+- [x] Plan de implementación IA (5 fases)
+- [x] Guion de presentación (20 slides)
 
 ### Próximo
 - [ ] **IA: Sugerencia automática de acciones de limpieza** basada en el diagnóstico
