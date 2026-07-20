@@ -13,6 +13,7 @@ from data_engine.analyzer import (
     apply_cleaning_actions,
     build_cleaning_markdown_report,
     build_markdown_report,
+    generate_audit_log,
 )
 
 app = FastAPI(title="AuditData AI API", version="1.0.0")
@@ -127,6 +128,22 @@ def report_pdf(req: ReportPdfRequest):
             raise HTTPException(status_code=400, detail="Faltan datos de limpieza o análisis")
         pdf_b64 = base64.b64encode(pdf).decode("ascii")
         return {"filename": "data_cleaning_report.pdf", "content_base64": pdf_b64}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/report/audit-log")
+def report_audit_log(req: CleanRequest):
+    try:
+        payload = base64.b64decode(req.content_base64)
+        if len(payload) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="El archivo excede el límite de 10MB")
+        actions_dict = [action.model_dump() for action in req.actions]
+        cleaning = apply_cleaning_actions(req.filename, payload, actions_dict)
+        changelog = cleaning.get("changelog", [])
+        markdown = generate_audit_log(changelog, filename=req.filename)
+        return {"filename": "bitacora_cambios.md", "content": markdown}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

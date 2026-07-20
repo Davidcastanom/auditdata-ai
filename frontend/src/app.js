@@ -39,6 +39,7 @@ const els = {
   downloadMarkdownButton: document.querySelector("#downloadMarkdownButton"),
   downloadPdfButton: document.querySelector("#downloadPdfButton"),
   downloadCsvButton: document.querySelector("#downloadCsvButton"),
+  downloadAuditLogButton: document.querySelector("#downloadAuditLogButton"),
   resetButton: document.querySelector("#resetButton"),
   advColSelect: document.querySelector("#advColSelect"),
   advActionSelect: document.querySelector("#advActionSelect"),
@@ -92,6 +93,7 @@ els.previousButton.addEventListener("click", () => router.navigate(store.state.s
 els.nextButton.addEventListener("click", onNext);
 els.downloadMarkdownButton.addEventListener("click", () => downloadReport("markdown"));
 els.downloadPdfButton.addEventListener("click", () => downloadReport("pdf"));
+els.downloadAuditLogButton.addEventListener("click", downloadAuditLog);
 els.downloadCsvButton.addEventListener("click", downloadCleanCsv);
 els.undoButton.addEventListener("click", undoLastAction);
 els.resetButton.addEventListener("click", resetProject);
@@ -671,6 +673,21 @@ function downloadCleanCsv() {
   const cleaning = store.state.cleaning;
   if (!cleaning) return;
   downloadBlob("dataset_limpio.csv", new Blob([cleaning.clean_csv], { type: "text/csv;charset=utf-8" }));
+}
+
+async function downloadAuditLog() {
+  if (!store.state.fileBase64 || !store.state.actions.length) return;
+  showLoading("Generando bitácora de cambios...");
+  try {
+    const response = await postJson("/api/report/audit-log", {
+      filename: store.state.filename,
+      content_base64: store.state.fileBase64,
+      actions: store.state.actions,
+    });
+    downloadBlob(response.filename, new Blob([response.content], { type: "text/markdown;charset=utf-8" }));
+  } finally {
+    hideLoading();
+  }
 }
 
 function resetProject() {

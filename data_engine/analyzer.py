@@ -129,11 +129,13 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
 
     Every action creates a log entry. This follows the professional rule from
     the source lessons: cleaning is not complete until the decision is traceable.
+    Now also tracks cell-level changes for the audit log.
     """
 
     headers, rows = load_dataset(filename, payload)
     before = analyze_dataset(filename, payload)
     log: list[dict[str, str]] = []
+    changelog: list[dict[str, Any]] = []
 
     for action in actions:
         kind = action.get("kind")
@@ -144,6 +146,12 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
         ai_reason = generate_ai_justification(column or "Dataset", kind, reason)
 
         if kind == "delete_column" and column in headers:
+            changelog.append({
+                "action": "Eliminar columna",
+                "column": column,
+                "reason": ai_reason,
+                "changes": [{"row": "TODAS", "column": column, "old": "(valor presente)", "new": "(columna eliminada)"}],
+            })
             headers.remove(column)
             for row in rows:
                 row.pop(column, None)
@@ -151,15 +159,23 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
 
         elif kind == "drop_missing_rows" and column in headers:
             before_count = len(rows)
-            rows = [row for row in rows if _normalize_missing(row.get(column, "")) != ""]
-            log.append(
-                _log_entry(
-                    column,
-                    "Eliminar filas con faltantes",
-                    ai_reason,
-                    f"{before_count - len(rows)} filas eliminadas.",
-                )
-            )
+            dropped_rows = []
+            kept_rows = []
+            for row in rows:
+                if _normalize_missing(row.get(column, "")) == "":
+                    dropped_rows.append(dict(row))
+                else:
+                    kept_rows.append(row)
+            rows = kept_rows
+            for dr in dropped_rows:
+                row_id = dr.get("id", dr.get("ID", dr.get(headers[0], "?")))
+                changelog.append({
+                    "action": "Eliminar fila",
+                    "column": column,
+                    "reason": ai_reason,
+                    "changes": [{"row": str(row_id), "column": column, "old": "(vacio)", "new": "(fila eliminada)"}],
+                })
+            log.append(_log_entry(column, "Eliminar filas con faltantes", ai_reason, f"{before_count - len(rows)} filas eliminadas."))
 
         elif kind == "impute_missing" and column in headers:
             method = action.get("method", "mode")
@@ -167,6 +183,14 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
             changed = 0
             for row in rows:
                 if _normalize_missing(row.get(column, "")) == "":
+                    old_val = row.get(column, "")
+                    row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+                    changelog.append({
+                        "action": f"Imputar con {method}",
+                        "column": column,
+                        "reason": ai_reason,
+                        "changes": [{"row": str(row_id), "column": column, "old": str(old_val) or "(vacio)", "new": str(value)}],
+                    })
                     row[column] = value
                     changed += 1
             log.append(_log_entry(column, f"Imputar faltantes con {method}", ai_reason, f"{changed} valores reemplazados."))
@@ -178,21 +202,36 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
                 original = str(row.get(column, ""))
                 updated = _standardize_text(original, mode)
                 if original != updated:
+                    row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+                    changelog.append({
+                        "action": f"Estandarizar ({mode})",
+                        "column": column,
+                        "reason": ai_reason,
+                        "changes": [{"row": str(row_id), "column": column, "old": original, "new": updated}],
+                    })
                     row[column] = updated
                     changed += 1
             log.append(_log_entry(column, f"Estandarizar texto ({mode})", ai_reason, f"{changed} celdas normalizadas."))
 
         elif kind == "remove_duplicate_rows":
             before_count = len(rows)
-            rows = _dedupe_rows(headers, rows)
-            log.append(
-                _log_entry(
-                    "Dataset",
-                    "Eliminar filas duplicadas",
-                    ai_reason,
-                    f"{before_count - len(rows)} filas duplicadas eliminadas.",
-                )
-            )
+            seen: set[tuple[str, ...]] = set()
+            clean_rows = []
+            for row in rows:
+                key = tuple(str(row.get(h, "")).strip() for h in headers)
+                if key not in seen:
+                    seen.add(key)
+                    clean_rows.append(row)
+                else:
+                    row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+                    changelog.append({
+                        "action": "Eliminar duplicado",
+                        "column": "Dataset",
+                        "reason": ai_reason,
+                        "changes": [{"row": str(row_id), "column": "*", "old": "(fila duplicada)", "new": "(fila eliminada)"}],
+                    })
+            rows = clean_rows
+            log.append(_log_entry("Dataset", "Eliminar filas duplicadas", ai_reason, f"{before_count - len(rows)} filas duplicadas eliminadas."))
 
         elif kind == "flag_outliers" and column in headers:
             log.append(_log_entry(column, "Marcar outliers para revision", ai_reason, "Sin cambios destructivos en el dataset."))
@@ -205,6 +244,12 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
                 for row in rows:
                     if column in row:
                         row[new_name] = row.pop(column)
+                changelog.append({
+                    "action": f"Renombrar a '{new_name}'",
+                    "column": column,
+                    "reason": ai_reason,
+                    "changes": [{"row": "TODAS", "column": column, "old": column, "new": new_name}],
+                })
                 log.append(_log_entry(column, f"Renombrar a '{new_name}'", ai_reason, f"Columna renombrada a '{new_name}'."))
 
         elif kind == "replace_value" and column in headers:
@@ -213,6 +258,13 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
             changed = 0
             for row in rows:
                 if str(row.get(column, "")) == target_val:
+                    row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+                    changelog.append({
+                        "action": f"Reemplazar '{target_val}' -> '{repl_val}'",
+                        "column": column,
+                        "reason": ai_reason,
+                        "changes": [{"row": str(row_id), "column": column, "old": target_val, "new": repl_val}],
+                    })
                     row[column] = repl_val
                     changed += 1
             log.append(_log_entry(column, f"Reemplazar '{target_val}' con '{repl_val}'", ai_reason, f"{changed} valores reemplazados."))
@@ -225,20 +277,42 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
                 if target_type == "number":
                     casted = _to_float(val)
                     if casted is not None:
+                        row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+                        changelog.append({
+                            "action": f"Tipo: {target_type}",
+                            "column": column,
+                            "reason": ai_reason,
+                            "changes": [{"row": str(row_id), "column": column, "old": str(val), "new": str(casted)}],
+                        })
                         row[column] = casted
                         changed += 1
                 elif target_type == "text":
+                    row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+                    changelog.append({
+                        "action": f"Tipo: {target_type}",
+                        "column": column,
+                        "reason": ai_reason,
+                        "changes": [{"row": str(row_id), "column": column, "old": str(val), "new": str(val)}],
+                    })
                     row[column] = str(val)
                     changed += 1
                 elif target_type == "boolean":
                     lower_val = str(val).strip().lower()
-                    row[column] = "si" if lower_val in {"si", "sí", "true", "1"} else "no"
+                    new_val = "si" if lower_val in {"si", "sí", "true", "1"} else "no"
+                    row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+                    changelog.append({
+                        "action": f"Tipo: {target_type}",
+                        "column": column,
+                        "reason": ai_reason,
+                        "changes": [{"row": str(row_id), "column": column, "old": str(val), "new": new_val}],
+                    })
+                    row[column] = new_val
                     changed += 1
             log.append(_log_entry(column, f"Cambiar tipo de dato a {target_type}", ai_reason, f"{changed} valores convertidos."))
 
     clean_csv = rows_to_csv(headers, rows)
     after = analyze_dataset(_clean_filename(filename), clean_csv.encode("utf-8"))
-    return {"before": before, "after": after, "actions": log, "clean_csv": clean_csv}
+    return {"before": before, "after": after, "actions": log, "clean_csv": clean_csv, "changelog": changelog}
 
 
 
@@ -814,3 +888,66 @@ def _risk_list(analysis: dict[str, Any]) -> list[str]:
     if not risks:
         risks.append("No se identifican riesgos criticos en el diagnostico posterior a la limpieza.")
     return risks
+
+
+def generate_audit_log(changelog: list[dict[str, Any]], filename: str = "dataset") -> str:
+    """Generate a Markdown changelog documenting every cell-level change made during cleaning.
+
+    Returns a structured document suitable for auditing, regulatory compliance,
+    or reproducibility purposes.
+    """
+    lines: list[str] = []
+    lines.append(f"# Bitácora de Cambios - {filename}")
+    lines.append("")
+    lines.append("Documento de auditoría que registra cada modificación realizada sobre el dataset durante el proceso de limpieza.")
+    lines.append("")
+    lines.append(f"**Total de acciones registradas:** {len(changelog)}")
+    lines.append("")
+
+    if not changelog:
+        lines.append("_No se realizaron cambios en el dataset._")
+        lines.append("")
+        return "\n".join(lines)
+
+    lines.append("---")
+    lines.append("")
+
+    for idx, entry in enumerate(changelog, 1):
+        action = entry.get("action", "Acción desconocida")
+        column = entry.get("column", "?")
+        reason = entry.get("reason", "Sin justificación registrada.")
+        changes = entry.get("changes", [])
+
+        lines.append(f"## {idx}. {action}")
+        lines.append("")
+        lines.append(f"- **Columna afectada:** {column}")
+        lines.append(f"- **Justificación:** {reason}")
+        lines.append(f"- **Filas modificadas:** {len(changes)}")
+        lines.append("")
+
+        if changes:
+            lines.append("| Fila | Columna | Valor anterior | Valor nuevo |")
+            lines.append("|------|---------|---------------|-------------|")
+            for ch in changes:
+                row_id = str(ch.get("row", "?"))
+                col = str(ch.get("column", "?"))
+                old_val = str(ch.get("old", ""))
+                new_val = str(ch.get("new", ""))
+                lines.append(f"| {row_id} | {col} | {old_val} | {new_val} |")
+            lines.append("")
+
+        lines.append("---")
+        lines.append("")
+
+    lines.append("## Resumen")
+    lines.append("")
+    lines.append(f"Documento generado automáticamente por AuditData AI.")
+    lines.append(f"- **Archivo original:** {filename}")
+    lines.append(f"- **Total de acciones:** {len(changelog)}")
+    total_changes = sum(len(e.get("changes", [])) for e in changelog)
+    lines.append(f"- **Total de celdas modificadas:** {total_changes}")
+    lines.append("")
+    lines.append("_Este documento debe conservarse como evidencia del proceso de limpieza de datos._")
+    lines.append("")
+
+    return "\n".join(lines)
