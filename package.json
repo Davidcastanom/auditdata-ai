@@ -1,0 +1,30 @@
+{
+  "name": "dataclaingreportautomatico",
+  "version": "1.0.0",
+  "description": "**Herramienta profesional de limpieza y validación de calidad de datos con reportes PDF**",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test:frontend": "npx playwright test",
+    "test:frontend:headed": "npx playwright test --headed",
+    "test:all": "python -m pytest tests/ -v && npx playwright test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Davidcastanom/auditdata-ai.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Davidcastanom/auditdata-ai/issues"
+  },
+  "homepage": "https://github.com/Davidcastanom/auditdata-ai#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
+  }
+}
