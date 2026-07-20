@@ -360,6 +360,17 @@ select:focus {
   background: var(--color-surface);
 }
 
+.button--danger {
+  background: transparent;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.button--danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--color-danger);
+}
+
 .metrics,
 .comparison-grid {
   display: grid;
@@ -690,6 +701,21 @@ th {
   border-radius: var(--radius-md);
   background: var(--color-surface-2);
   padding: var(--space-4);
+}
+
+.reset-section {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reset-section__text {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  margin: 0;
 }
 
 .navigation-bar {

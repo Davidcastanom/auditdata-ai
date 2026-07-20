@@ -39,6 +39,7 @@ const els = {
   downloadMarkdownButton: document.querySelector("#downloadMarkdownButton"),
   downloadPdfButton: document.querySelector("#downloadPdfButton"),
   downloadCsvButton: document.querySelector("#downloadCsvButton"),
+  resetButton: document.querySelector("#resetButton"),
   advColSelect: document.querySelector("#advColSelect"),
   advActionSelect: document.querySelector("#advActionSelect"),
   advParam1Label: document.querySelector("#advParam1Label"),
@@ -93,6 +94,7 @@ els.downloadMarkdownButton.addEventListener("click", () => downloadReport("markd
 els.downloadPdfButton.addEventListener("click", () => downloadReport("pdf"));
 els.downloadCsvButton.addEventListener("click", downloadCleanCsv);
 els.undoButton.addEventListener("click", undoLastAction);
+els.resetButton.addEventListener("click", resetProject);
 
 document.querySelectorAll("[data-step-button]").forEach((button) => {
   button.addEventListener("click", () => router.navigate(Number(button.dataset.stepButton)));
@@ -669,6 +671,27 @@ function downloadCleanCsv() {
   const cleaning = store.state.cleaning;
   if (!cleaning) return;
   downloadBlob("dataset_limpio.csv", new Blob([cleaning.clean_csv], { type: "text/csv;charset=utf-8" }));
+}
+
+function resetProject() {
+  if (!confirm("¿Estás seguro? Se borrará todo: dataset, análisis, acciones e informe.")) return;
+  store.clear();
+  els.systemStatus.textContent = "Esperando dataset";
+  els.datasetMeta.textContent = "Motor Python local";
+  els.analyzeButton.disabled = true;
+  els.profileTitle.textContent = "Perfilado técnico del dataset";
+  els.metrics.innerHTML = "";
+  els.profileTable.innerHTML = "";
+  els.rulesBoard.innerHTML = "";
+  els.cleaningBoard.innerHTML = "";
+  els.actionsLog.innerHTML = `<p class="empty-state">Aún no hay acciones registradas.</p>`;
+  els.comparisonGrid.innerHTML = "";
+  els.validationTable.innerHTML = "";
+  els.reportPreview.innerHTML = "";
+  els.fileInput.value = "";
+  els.analystInput.value = "";
+  els.versionInput.value = "v1.0";
+  router.navigate(0);
 }
 
 function metric(label, value) {
