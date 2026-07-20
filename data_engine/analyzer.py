@@ -16,7 +16,7 @@ import zipfile
 import os
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -112,7 +112,7 @@ def analyze_dataset(filename: str, payload: bytes) -> dict[str, Any]:
 
     return {
         "filename": filename,
-        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds") + "Z",
+        "generated_at": datetime.now(timezone(timedelta(hours=-5))).isoformat(timespec="seconds"),
         "row_count": len(rows),
         "column_count": len(headers),
         "headers": headers,
@@ -766,7 +766,7 @@ def _recommendations(columns: list[ColumnProfile], duplicate_rows: int) -> list[
 
 def _log_entry(column: str, action: str, reason: str, result: str) -> dict[str, str]:
     return {
-        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds") + "Z",
+        "timestamp": datetime.now(timezone(timedelta(hours=-5))).isoformat(timespec="seconds"),
         "column": column,
         "action": action,
         "reason": reason,
