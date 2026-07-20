@@ -4,6 +4,8 @@ export class Store {
       step: 0,
       filename: "",
       fileBase64: "",
+      rowMeaning: "",
+      analysisObjective: "",
       analysis: null,
       cleaning: null,
       actions: [],
@@ -33,6 +35,8 @@ export class Store {
       step: 0,
       filename: "",
       fileBase64: "",
+      rowMeaning: "",
+      analysisObjective: "",
       analysis: null,
       cleaning: null,
       actions: [],
@@ -46,6 +50,12 @@ export class Store {
     this.state.analysis = null;
     this.state.cleaning = null;
     this.state.actions = [];
+    this.saveState();
+  }
+
+  setContext(rowMeaning, analysisObjective) {
+    this.state.rowMeaning = rowMeaning;
+    this.state.analysisObjective = analysisObjective;
     this.saveState();
   }
 

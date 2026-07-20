@@ -369,12 +369,18 @@ def build_markdown_report(analysis: dict[str, Any], analyst: str = "-", version:
     return "\n".join(lines) + "\n"
 
 
-def build_cleaning_markdown_report(cleaning: dict[str, Any], analyst: str = "-", version: str = "v1.0") -> str:
+def build_cleaning_markdown_report(cleaning: dict[str, Any], analyst: str = "-", version: str = "v1.0", row_meaning: str = "", analysis_objective: str = "") -> str:
     """Create a comprehensive before/after report matching the academic Data Cleaning Report standard."""
 
     before = cleaning["before"]
     after = cleaning["after"]
     actions = cleaning.get("actions", [])
+
+    context_lines = []
+    if row_meaning:
+        context_lines.append(f"- Que representa cada fila: {row_meaning}")
+    if analysis_objective:
+        context_lines.append(f"- Objetivo del analisis: {analysis_objective}")
 
     lines = [
         f"# Data Cleaning Report - {before['filename']}",
@@ -384,6 +390,7 @@ def build_cleaning_markdown_report(cleaning: dict[str, Any], analyst: str = "-",
         f"- Dataset limpio: {after['filename']}",
         f"- Analista: {analyst or '-'}",
         f"- Version del informe: {version or 'v1.0'}",
+    ] + context_lines + [
         f"- Registros antes: {before['row_count']}",
         f"- Registros despues: {after['row_count']}",
         f"- Columnas antes: {before['column_count']}",

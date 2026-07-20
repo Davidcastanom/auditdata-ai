@@ -50,12 +50,16 @@ class ReportMarkdownRequest(BaseModel):
     analysis: dict[str, Any] | None = None
     analyst: str = "-"
     version: str = "v1.0"
+    row_meaning: str = ""
+    analysis_objective: str = ""
 
 class ReportPdfRequest(BaseModel):
     cleaning: dict[str, Any] | None = None
     analysis: dict[str, Any] | None = None
     analyst: str = "-"
     version: str = "v1.0"
+    row_meaning: str = ""
+    analysis_objective: str = ""
 
 @app.get("/api/health")
 def health():
@@ -96,6 +100,8 @@ def report_markdown(req: ReportMarkdownRequest):
                 req.cleaning,
                 analyst=req.analyst,
                 version=req.version,
+                row_meaning=req.row_meaning,
+                analysis_objective=req.analysis_objective,
             )
         elif req.analysis:
             markdown = build_markdown_report(
@@ -117,6 +123,8 @@ def report_pdf(req: ReportPdfRequest):
                 req.cleaning,
                 analyst=req.analyst,
                 version=req.version,
+                row_meaning=req.row_meaning,
+                analysis_objective=req.analysis_objective,
             )
         elif req.analysis:
             pdf = build_pdf_report(

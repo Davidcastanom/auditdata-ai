@@ -205,7 +205,7 @@ def build_pdf_report(analysis: dict[str, Any], analyst: str = "-", version: str 
     return buffer.getvalue()
 
 
-def build_cleaning_pdf_report(cleaning: dict[str, Any], analyst: str = "-", version: str = "v1.0") -> bytes:
+def build_cleaning_pdf_report(cleaning: dict[str, Any], analyst: str = "-", version: str = "v1.0", row_meaning: str = "", analysis_objective: str = "") -> bytes:
     """Generate the full Data Cleaning Report with before/after evidence."""
 
     before = cleaning["before"]
@@ -228,7 +228,7 @@ def build_cleaning_pdf_report(cleaning: dict[str, Any], analyst: str = "-", vers
         Spacer(1, 0.5 * cm),
     ]
 
-    _add_informacion_general_cleaning(story, styles, before, after, actions, analyst, version)
+    _add_informacion_general_cleaning(story, styles, before, after, actions, analyst, version, row_meaning, analysis_objective)
     _add_resumen_ejecutivo_cleaning(story, styles, before, after, actions)
     _add_indicadores_clave_cleaning(story, styles, before, after)
     _add_problemas_encontrados_cleaning(story, styles, before, after)
@@ -259,14 +259,20 @@ def _add_informacion_general(story, styles, analysis, analyst, version):
     story.append(Spacer(1, 0.3 * cm))
 
 
-def _add_informacion_general_cleaning(story, styles, before, after, actions, analyst, version):
+def _add_informacion_general_cleaning(story, styles, before, after, actions, analyst, version, row_meaning="", analysis_objective=""):
     story.append(Paragraph("1. INFORMACION GENERAL", styles["Section"]))
-    story.append(_table([
+    rows = [
         ["Campo", "Detalle"],
         ["Dataset original", before["filename"]],
         ["Dataset limpio", after["filename"]],
         ["Analista", analyst or "-"],
         ["Version del informe", version or "v1.0"],
+    ]
+    if row_meaning:
+        rows.append(["Que representa cada fila", row_meaning])
+    if analysis_objective:
+        rows.append(["Objetivo del analisis", analysis_objective])
+    rows.extend([
         ["Registros antes", str(before["row_count"])],
         ["Registros despues", str(after["row_count"])],
         ["Columnas antes", str(before["column_count"])],
@@ -274,7 +280,8 @@ def _add_informacion_general_cleaning(story, styles, before, after, actions, ana
         ["Acciones documentadas", str(len(actions))],
         ["Fecha de generacion", after["generated_at"]],
         ["Herramienta utilizada", "AuditData AI - Motor Python"],
-    ], header=True))
+    ])
+    story.append(_table(rows, header=True))
     story.append(Spacer(1, 0.3 * cm))
 
 

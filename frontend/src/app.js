@@ -50,6 +50,8 @@ const els = {
   advParam2Input: document.querySelector("#advParam2Input"),
   advReasonInput: document.querySelector("#advReasonInput"),
   applyAdvActionButton: document.querySelector("#applyAdvActionButton"),
+  rowMeaningInput: document.querySelector("#rowMeaningInput"),
+  objectiveInput: document.querySelector("#objectiveInput"),
 };
 
 const router = new Router(goToStep);
@@ -105,6 +107,8 @@ document.querySelectorAll("[data-step-button]").forEach((button) => {
 function init() {
   if (store.state.filename) {
     els.systemStatus.textContent = `Sesión recuperada: ${store.state.filename}`;
+    if (store.state.rowMeaning) els.rowMeaningInput.value = store.state.rowMeaning;
+    if (store.state.analysisObjective) els.objectiveInput.value = store.state.analysisObjective;
     if (store.state.analysis) {
       renderProfile();
       renderRules();
@@ -149,6 +153,7 @@ async function analyzeSelectedFile() {
   showLoading("Analizando tu dataset... Esto puede tardar unos segundos.");
 
   try {
+    store.setContext(els.rowMeaningInput.value.trim(), els.objectiveInput.value.trim());
     const response = await postJson("/api/analyze", {
       filename: store.state.filename,
       content_base64: store.state.fileBase64,
@@ -658,6 +663,8 @@ async function downloadReport(type) {
       cleaning: cleaning,
       analyst: els.analystInput.value,
       version: els.versionInput.value || "v1.0",
+      row_meaning: store.state.rowMeaning || "",
+      analysis_objective: store.state.analysisObjective || "",
     });
     if (type === "pdf") {
       downloadBlob(response.filename, base64ToBlob(response.content_base64, "application/pdf"));
