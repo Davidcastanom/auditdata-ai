@@ -66,6 +66,11 @@ export class Store {
     this.saveState();
   }
 
+  setActions(actions) {
+    this.state.actions = actions || [];
+    this.saveState();
+  }
+
   setCleaning(cleaning) {
     this.state.cleaning = cleaning;
     this.saveState();

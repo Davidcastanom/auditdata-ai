@@ -1,6 +1,6 @@
 import { Store } from "./state.js";
 import { Router } from "./router.js";
-import { signInWithGoogle, signOut, getCurrentUser, authAvailable, saveToHistory, getHistory } from "./auth.js";
+import { signInWithGoogle, signOut, getCurrentUser, authAvailable, saveToHistory, getHistory, getHistorySession } from "./auth.js";
 
 const loginScreen = document.querySelector("#loginScreen");
 const appContent = document.querySelector("#appContent");
@@ -624,12 +624,12 @@ async function runCleaning() {
     els.systemStatus.textContent = "Limpieza compilada y validada";
     if (currentUser && authAvailable) {
       saveToHistory(
-        { filename: store.state.filename, content_base64: store.state.fileBase64, row_count: store.state.analysis?.row_count || 0, column_count: store.state.analysis?.column_count || 0, row_meaning: store.state.rowMeaning || "", analysis_objective: store.state.analysisObjective || "" },
+        { filename: store.state.filename, row_count: store.state.analysis?.row_count || 0, column_count: store.state.analysis?.column_count || 0, row_meaning: store.state.rowMeaning || "", analysis_objective: store.state.analysisObjective || "" },
         store.state.analysis,
         store.state.actions,
         response.cleaning.before,
         response.cleaning.after
-      ).then(() => loadHistory()).catch(() => {});
+      ).then((id) => { if (id) loadHistory(); }).catch(() => { showToast("No se pudo guardar en historial.", "error"); });
     }
   } finally {
     hideLoading();
@@ -990,6 +990,17 @@ function formatDate(dateStr) {
   return d.toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+function showToast(message, type) {
+  const existing = document.querySelector(".toast");
+  if (existing) existing.remove();
+  const toast = document.createElement("div");
+  toast.className = `toast toast--${type || "info"}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.classList.add("is-visible"), 10);
+  setTimeout(() => { toast.classList.remove("is-visible"); setTimeout(() => toast.remove(), 300); }, 4000);
+}
+
 async function loadHistory() {
   if (!currentUser) return;
   try {
@@ -1001,14 +1012,48 @@ async function loadHistory() {
     els.historyList.innerHTML = items.map(item => {
       const ds = item.datasets || {};
       const actions = item.actions_json || [];
-      return `<div class="history-item" data-session-id="${item.id}">
+      const hasData = item.before_json && item.after_json;
+      return `<div class="history-item${hasData ? " history-item--clickable" : ""}" data-session-id="${item.id}"${hasData ? ' role="button" tabindex="0"' : ""}>
         <div class="history-item__name">${escapeHtml(ds.filename || "dataset")}</div>
         <div class="history-item__meta">${ds.row_count || 0} filas | ${ds.column_count || 0} columnas | ${actions.length} acciones</div>
         <div class="history-item__date">${formatDate(item.created_at)}</div>
+        ${hasData ? '<div class="history-item__action">Clic para restaurar</div>' : ""}
       </div>`;
     }).join("");
+    els.historyList.querySelectorAll(".history-item--clickable").forEach(el => {
+      el.addEventListener("click", () => restoreSession(el.dataset.sessionId));
+    });
   } catch (e) {
     console.warn("History load failed:", e);
+  }
+}
+
+async function restoreSession(sessionId) {
+  showLoading("Restaurando sesion desde historial...");
+  try {
+    const session = await getHistorySession(sessionId);
+    if (!session || !session.before_json || !session.after_json) {
+      showToast("No se pudo restaurar: datos incompletos.", "error");
+      return;
+    }
+    store.setFile(session.datasets.filename, "");
+    store.state.analysis = session.before_json;
+    store.state.actions = session.actions_json || [];
+    store.setCleaning({ before: session.before_json, after: session.after_json, actions: session.actions_json || [], clean_csv: "" });
+    store.saveState();
+    router.navigate(4);
+    renderValidation();
+    renderReportPreview();
+    enableStep(4);
+    enableStep(5);
+    els.systemStatus.textContent = `Sesion restaurada: ${session.datasets.filename}`;
+    toggleHistory();
+    showToast("Sesion restaurada correctamente.", "success");
+  } catch (e) {
+    showToast("Error al restaurar sesion.", "error");
+    console.warn("Restore failed:", e);
+  } finally {
+    hideLoading();
   }
 }
 

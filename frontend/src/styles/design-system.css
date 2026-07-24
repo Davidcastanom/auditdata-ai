@@ -1104,3 +1104,46 @@ th {
   color: var(--color-muted);
   margin-top: 4px;
 }
+.history-item--clickable {
+  cursor: pointer;
+}
+.history-item--clickable:hover {
+  background: var(--color-surface-2);
+}
+.history-item__action {
+  font-size: 0.7rem;
+  color: var(--color-primary);
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--color-text);
+  z-index: 9999;
+  transform: translateY(20px);
+  opacity: 0;
+  transition: all 0.3s ease;
+  max-width: 360px;
+}
+.toast.is-visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+.toast--success {
+  background: #166534;
+  border: 1px solid #22C55E;
+}
+.toast--error {
+  background: #7F1D1D;
+  border: 1px solid #EF4444;
+}
+.toast--info {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-primary);
+}

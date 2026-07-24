@@ -73,7 +73,7 @@ export async function saveToHistory(dataset, analysis, actions, before, after) {
       .insert({
         user_id: user.id,
         filename: dataset.filename || "dataset",
-        content_base64: dataset.content_base64 || "",
+        content_base64: "not_stored",
         row_count: dataset.row_count || 0,
         column_count: dataset.column_count || 0,
       })
@@ -133,5 +133,27 @@ export async function getHistory() {
     console.warn("Failed to load history:", e);
     return [];
   }
+}
+
+export async function getHistorySession(sessionId) {
+  if (!authAvailable || !supabase) return null;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (!user) return null;
+
+    const { data, error } = await supabase
+      .from("cleaning_sessions")
+      .select("*, datasets!inner(filename, row_count, column_count)")
+      .eq("id", sessionId)
+      .eq("user_id", user.id)
+      .single();
+    if (error) throw error;
+    return data;
+  } catch (e) {
+    console.warn("Failed to load session:", e);
+    return null;
+  }
+}
 }
 }
