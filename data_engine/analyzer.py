@@ -42,11 +42,11 @@ def generate_ai_justification(column: str, action: str, current_reason: str) -> 
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         return current_reason or "Tratamiento aplicado para mejorar la calidad del dataset."
-    
+
     try:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-1.5-flash")
-        
+
         prompt = (
             f"Actúa como un Auditor Senior de Calidad de Datos.\n"
             f"El analista ha tomado la siguiente decisión:\n"
@@ -55,7 +55,7 @@ def generate_ai_justification(column: str, action: str, current_reason: str) -> 
             f"- Justificación inicial del analista: '{current_reason}'\n\n"
             f"Redacta una justificación técnica formal y profesional de una sola oración para el informe final de limpieza de datos, justificando por qué es correcto aplicar este tratamiento a nivel metodológico."
         )
-        
+
         response = model.generate_content(prompt)
         text = response.text.strip()
         if text.startswith('"') and text.endswith('"'):
@@ -397,7 +397,7 @@ def build_cleaning_markdown_report(cleaning: dict[str, Any], analyst: str = "-",
         f"- Columnas despues: {after['column_count']}",
         f"- Acciones documentadas: {len(actions)}",
         f"- Fecha de generacion: {after['generated_at']}",
-        f"- Herramienta utilizada: AuditData AI - Motor Python",
+        "- Herramienta utilizada: AuditData AI - Motor Python",
         "",
         "## 2. Resumen Ejecutivo",
         _cleaning_resumen(before, after, actions),
@@ -948,7 +948,7 @@ def generate_audit_log(changelog: list[dict[str, Any]], filename: str = "dataset
 
     lines.append("## Resumen")
     lines.append("")
-    lines.append(f"Documento generado automáticamente por AuditData AI.")
+    lines.append("Documento generado automáticamente por AuditData AI.")
     lines.append(f"- **Archivo original:** {filename}")
     lines.append(f"- **Total de acciones:** {len(changelog)}")
     total_changes = sum(len(e.get("changes", [])) for e in changelog)

@@ -3,7 +3,6 @@
 import os
 import logging
 from typing import Any
-import jwt
 from supabase import create_client, Client
 
 logger = logging.getLogger(__name__)

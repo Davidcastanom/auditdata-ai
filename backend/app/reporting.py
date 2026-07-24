@@ -9,6 +9,7 @@ Evaluación de Calidad, Checklist, Riesgos, Metodología y Conclusión.
 from __future__ import annotations
 
 import io
+import base64
 from typing import Any
 
 from reportlab.lib import colors
@@ -16,12 +17,15 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import (
+    Image,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
     Table,
     TableStyle,
 )
+
+from data_engine.charts import generate_all_charts
 
 
 BRAND = {
@@ -174,6 +178,37 @@ def _table(rows: list[list[str]], header: bool = False) -> Table:
     return table
 
 
+def _chart_image(b64_data: str, max_width_cm: float = 16) -> Image:
+    img_bytes = base64.b64decode(b64_data)
+    img = Image(io.BytesIO(img_bytes))
+    aspect = img.imageWidth / img.imageHeight
+    w = min(max_width_cm * cm, 16 * cm)
+    h = w / aspect
+    img.drawWidth = w
+    img.drawHeight = h
+    return img
+
+
+def _add_charts_section(story, styles, profile, total_rows=None, actions_log=None):
+    charts = generate_all_charts(profile, total_rows=total_rows, actions_log=actions_log)
+    if not charts:
+        return
+    story.append(Paragraph("ANEXO - VISUALIZACIONES", styles["Section"]))
+    story.append(Spacer(1, 0.2 * cm))
+    chart_labels = {
+        "missing_values": "Valores Nulos por Columna",
+        "data_types": "Distribucion de Tipos de Dato",
+        "quality_gauge": "Calidad General del Dataset",
+        "cleaning_summary": "Resumen de Acciones de Limpieza",
+    }
+    for key, label in chart_labels.items():
+        if key in charts:
+            story.append(Paragraph(f"<b>{label}</b>", styles["SubSection"]))
+            story.append(Spacer(1, 0.1 * cm))
+            story.append(_chart_image(charts[key]))
+            story.append(Spacer(1, 0.3 * cm))
+
+
 def build_pdf_report(analysis: dict[str, Any], analyst: str = "-", version: str = "v1.0") -> bytes:
     """Generate an analysis-only PDF report with full methodology sections."""
 
@@ -199,6 +234,7 @@ def build_pdf_report(analysis: dict[str, Any], analyst: str = "-", version: str 
     _add_problemas_encontrados(story, styles, analysis)
     _add_outliers_section(story, styles, analysis)
     _add_recomendaciones(story, styles, analysis)
+    _add_charts_section(story, styles, analysis["columns"], total_rows=analysis["row_count"])
     _add_metodologia(story, styles)
 
     document.build(story)
@@ -237,6 +273,7 @@ def build_cleaning_pdf_report(cleaning: dict[str, Any], analyst: str = "-", vers
     _add_evaluacion_calidad(story, styles, before, after)
     _add_checklist(story, styles, after, actions)
     _add_riesgos(story, styles, after)
+    _add_charts_section(story, styles, before["columns"], total_rows=before["row_count"], actions_log=actions)
     _add_metodologia(story, styles)
     _add_conclusion(story, styles, before, after)
 
