@@ -60,3 +60,78 @@ export async function getSession() {
     return null;
   }
 }
+
+export async function saveToHistory(dataset, analysis, actions, before, after) {
+  if (!authAvailable || !supabase) return null;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (!user) return null;
+
+    const { data: ds, error: dsErr } = await supabase
+      .from("datasets")
+      .insert({
+        user_id: user.id,
+        filename: dataset.filename || "dataset",
+        content_base64: dataset.content_base64 || "",
+        row_count: dataset.row_count || 0,
+        column_count: dataset.column_count || 0,
+      })
+      .select()
+      .single();
+    if (dsErr) throw dsErr;
+
+    if (analysis) {
+      const { error: aErr } = await supabase
+        .from("analyses")
+        .insert({
+          dataset_id: ds.id,
+          user_id: user.id,
+          analysis_json: analysis,
+          row_meaning: dataset.row_meaning || "",
+          analysis_objective: dataset.analysis_objective || "",
+        });
+      if (aErr) throw aErr;
+    }
+
+    if (actions && actions.length > 0) {
+      const { error: cErr } = await supabase
+        .from("cleaning_sessions")
+        .insert({
+          dataset_id: ds.id,
+          user_id: user.id,
+          actions_json: actions,
+          before_json: before || null,
+          after_json: after || null,
+        });
+      if (cErr) throw cErr;
+    }
+
+    return ds.id;
+  } catch (e) {
+    console.warn("Failed to save to history:", e);
+    return null;
+  }
+}
+
+export async function getHistory() {
+  if (!authAvailable || !supabase) return [];
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from("cleaning_sessions")
+      .select("id, created_at, actions_json, before_json, after_json, datasets!inner(id, filename, row_count, column_count)")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (error) throw error;
+    return data || [];
+  } catch (e) {
+    console.warn("Failed to load history:", e);
+    return [];
+  }
+}
+}

@@ -194,6 +194,9 @@
           <span class="status-card__meta" id="datasetMeta">Motor Python local</span>
         </aside>
         <div class="user-bar" id="userBar" style="display:none;">
+          <button class="user-bar__history" id="historyButton" type="button" title="Mi historial">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 1.5A5.5 5.5 0 1 1 2.5 8 5.51 5.51 0 0 1 8 2.5zM7.25 4v4.25l3.15 1.88.75-1.24-2.4-1.44V4z"/></svg>
+          </button>
           <img id="userAvatar" src="" alt="" />
           <span class="user-bar__name" id="userName"></span>
           <button class="user-bar__logout" id="logoutButton" type="button">Salir</button>
@@ -411,6 +414,18 @@
         <button class="button button--primary" id="nextButton" type="button" disabled>Siguiente etapa</button>
       </footer>
     </main>
+
+    <aside class="history-panel" id="historyPanel">
+      <div class="history-panel__header">
+        <h3>Mi historial</h3>
+        <button class="history-panel__close" id="historyCloseButton" type="button">&times;</button>
+      </div>
+      <div class="history-panel__list" id="historyList">
+        <p class="history-panel__empty">Aun no hay analisis guardados.</p>
+      </div>
+    </aside>
+    <div class="history-backdrop" id="historyBackdrop"></div>
+
     </div>
 
     <script type="module" src="/frontend/src/app.js"></script>

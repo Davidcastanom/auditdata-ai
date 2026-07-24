@@ -1,6 +1,6 @@
 import { Store } from "./state.js";
 import { Router } from "./router.js";
-import { signInWithGoogle, signOut, getCurrentUser, authAvailable } from "./auth.js";
+import { signInWithGoogle, signOut, getCurrentUser, authAvailable, saveToHistory, getHistory } from "./auth.js";
 
 const loginScreen = document.querySelector("#loginScreen");
 const appContent = document.querySelector("#appContent");
@@ -40,8 +40,10 @@ function showLogin() {
 function showApp() {
   loginScreen.style.display = "none";
   appContent.style.display = "block";
-  if (currentUser) showUserBar();
-  init();
+  if (currentUser) {
+    showUserBar();
+    loadHistory();
+  }
 }
 
 function showUserBar() {
@@ -140,6 +142,11 @@ const els = {
   applyAdvActionButton: document.querySelector("#applyAdvActionButton"),
   rowMeaningInput: document.querySelector("#rowMeaningInput"),
   objectiveInput: document.querySelector("#objectiveInput"),
+  historyButton: document.querySelector("#historyButton"),
+  historyPanel: document.querySelector("#historyPanel"),
+  historyBackdrop: document.querySelector("#historyBackdrop"),
+  historyCloseButton: document.querySelector("#historyCloseButton"),
+  historyList: document.querySelector("#historyList"),
 };
 
 const router = new Router(goToStep);
@@ -615,6 +622,15 @@ async function runCleaning() {
     enableStep(4);
     enableStep(5);
     els.systemStatus.textContent = "Limpieza compilada y validada";
+    if (currentUser && authAvailable) {
+      saveToHistory(
+        { filename: store.state.filename, content_base64: store.state.fileBase64, row_count: store.state.analysis?.row_count || 0, column_count: store.state.analysis?.column_count || 0, row_meaning: store.state.rowMeaning || "", analysis_objective: store.state.analysisObjective || "" },
+        store.state.analysis,
+        store.state.actions,
+        response.cleaning.before,
+        response.cleaning.after
+      ).then(() => loadHistory()).catch(() => {});
+    }
   } finally {
     hideLoading();
   }
@@ -961,5 +977,43 @@ els.applyAdvActionButton.addEventListener("click", () => {
   els.advReasonInput.value = "";
   els.advParam2Row.style.display = "none";
 });
+
+function toggleHistory() {
+  const isOpen = els.historyPanel.classList.contains("is-open");
+  els.historyPanel.classList.toggle("is-open", !isOpen);
+  els.historyBackdrop.classList.toggle("is-open", !isOpen);
+  if (!isOpen) loadHistory();
+}
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+async function loadHistory() {
+  if (!currentUser) return;
+  try {
+    const items = await getHistory();
+    if (!items.length) {
+      els.historyList.innerHTML = '<p class="history-panel__empty">Aun no hay analisis guardados.</p>';
+      return;
+    }
+    els.historyList.innerHTML = items.map(item => {
+      const ds = item.datasets || {};
+      const actions = item.actions_json || [];
+      return `<div class="history-item" data-session-id="${item.id}">
+        <div class="history-item__name">${escapeHtml(ds.filename || "dataset")}</div>
+        <div class="history-item__meta">${ds.row_count || 0} filas | ${ds.column_count || 0} columnas | ${actions.length} acciones</div>
+        <div class="history-item__date">${formatDate(item.created_at)}</div>
+      </div>`;
+    }).join("");
+  } catch (e) {
+    console.warn("History load failed:", e);
+  }
+}
+
+els.historyButton?.addEventListener("click", toggleHistory);
+els.historyCloseButton?.addEventListener("click", toggleHistory);
+els.historyBackdrop?.addEventListener("click", toggleHistory);
 
 initAuth();

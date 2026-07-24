@@ -997,3 +997,110 @@ th {
 .user-bar__logout:hover {
   color: var(--color-error);
 }
+
+.user-bar__history {
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+.user-bar__history:hover {
+  color: var(--color-accent);
+}
+
+.history-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 998;
+}
+.history-backdrop.is-open {
+  display: block;
+}
+
+.history-panel {
+  position: fixed;
+  top: 0;
+  right: -400px;
+  width: 380px;
+  max-width: 90vw;
+  height: 100vh;
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  transition: right 0.3s ease;
+}
+.history-panel.is-open {
+  right: 0;
+}
+
+.history-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+.history-panel__header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--color-text);
+}
+.history-panel__close {
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.history-panel__close:hover {
+  color: var(--color-text);
+}
+
+.history-panel__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+
+.history-panel__empty {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: var(--space-5) 0;
+}
+
+.history-item {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-2);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.history-item:hover {
+  border-color: var(--color-primary);
+}
+.history-item__name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  margin-bottom: 2px;
+}
+.history-item__meta {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+.history-item__date {
+  font-size: 0.7rem;
+  color: var(--color-muted);
+  margin-top: 4px;
+}
