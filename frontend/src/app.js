@@ -1,5 +1,65 @@
 import { Store } from "./state.js";
 import { Router } from "./router.js";
+import { signInWithGoogle, signOut, getCurrentUser, authAvailable } from "./auth.js";
+
+const loginScreen = document.querySelector("#loginScreen");
+const appContent = document.querySelector("#appContent");
+const googleLoginButton = document.querySelector("#googleLoginButton");
+
+let currentUser = null;
+
+async function initAuth() {
+  try {
+    const user = await getCurrentUser();
+    if (user) {
+      currentUser = user;
+    }
+  } catch {}
+  showApp();
+}
+
+function showLogin() {
+  loginScreen.style.display = "grid";
+  appContent.style.display = "none";
+}
+
+function showApp() {
+  loginScreen.style.display = "none";
+  appContent.style.display = "block";
+  if (currentUser) showUserBar();
+  init();
+}
+
+function showUserBar() {
+  if (!currentUser) return;
+  const userBar = document.querySelector("#userBar");
+  const userAvatar = document.querySelector("#userAvatar");
+  const userName = document.querySelector("#userName");
+  const logoutButton = document.querySelector("#logoutButton");
+
+  userBar.style.display = "flex";
+  userName.textContent = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || currentUser.email;
+  const avatar = currentUser.user_metadata?.avatar_url || currentUser.user_metadata?.picture;
+  if (avatar) {
+    userAvatar.src = avatar;
+    userAvatar.alt = userName.textContent;
+  }
+
+  logoutButton.addEventListener("click", async () => {
+    await signOut();
+    currentUser = null;
+    localStorage.clear();
+    showLogin();
+  });
+}
+
+googleLoginButton.addEventListener("click", async () => {
+  try {
+    await signInWithGoogle();
+  } catch (e) {
+    console.error("Login failed:", e);
+  }
+});
 
 const store = new Store();
 
@@ -874,4 +934,4 @@ els.applyAdvActionButton.addEventListener("click", () => {
   els.advParam2Row.style.display = "none";
 });
 
-init();
+initAuth();

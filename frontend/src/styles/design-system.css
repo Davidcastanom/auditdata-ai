@@ -807,3 +807,102 @@ th {
     flex-direction: column;
   }
 }
+
+.login-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: var(--color-black);
+}
+
+.login-card {
+  text-align: center;
+  max-width: 400px;
+  width: 90%;
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+}
+
+.login-card h1 {
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: 2rem;
+}
+
+.login-subtitle {
+  color: var(--color-muted);
+  margin-bottom: var(--space-4);
+  font-size: 0.9rem;
+}
+
+.login-hint {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  margin-top: var(--space-3);
+}
+
+.button--google {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: #fff;
+  color: #333;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 12px 24px;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+  min-height: 48px;
+}
+
+.button--google:hover {
+  background: #f8f9fa;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.button--google:active {
+  background: #f1f3f4;
+}
+
+.user-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: 0.85rem;
+}
+
+.user-bar img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+.user-bar__name {
+  color: var(--color-text);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-bar__logout {
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 2px 6px;
+}
+
+.user-bar__logout:hover {
+  color: var(--color-error);
+}
