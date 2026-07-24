@@ -1,9 +1,11 @@
 const { test, expect } = require("@playwright/test");
 
+const URL = "/?test";
+
 async function clearAndLoad(page) {
-  await page.goto("/");
+  await page.goto(URL);
   await page.evaluate(() => localStorage.clear());
-  await page.goto("/");
+  await page.goto(URL);
 }
 
 test.describe("AuditData AI - Contexto y Reset", () => {

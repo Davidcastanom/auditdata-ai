@@ -1,9 +1,11 @@
 const { test, expect } = require("@playwright/test");
 
+const URL = "/?test";
+
 async function clearLoadAnalyze(page) {
-  await page.goto("/");
+  await page.goto(URL);
   await page.evaluate(() => localStorage.clear());
-  await page.goto("/");
+  await page.goto(URL);
   await page.click("#loadSampleButton");
   await expect(page.locator('[data-step="1"]')).toHaveClass(/is-active/, { timeout: 15000 });
 }

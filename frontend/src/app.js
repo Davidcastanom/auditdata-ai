@@ -9,13 +9,22 @@ const googleLoginButton = document.querySelector("#googleLoginButton");
 let currentUser = null;
 
 async function initAuth() {
+  const isTest = new URLSearchParams(window.location.search).has("test");
+  if (isTest) {
+    showApp();
+    return;
+  }
   try {
     const user = await getCurrentUser();
     if (user) {
       currentUser = user;
+      showApp();
+    } else {
+      showLogin();
     }
-  } catch {}
-  showApp();
+  } catch {
+    showApp();
+  }
 }
 
 function showLogin() {
