@@ -623,12 +623,24 @@ async function runCleaning() {
     enableStep(5);
     els.systemStatus.textContent = "Limpieza compilada y validada";
     if (currentUser && authAvailable) {
+      let pdfBase64 = "";
+      try {
+        const pdfResp = await postJson("/api/report/pdf", {
+          cleaning: response.cleaning,
+          analyst: els.analystInput.value,
+          version: els.versionInput.value || "v1.0",
+          row_meaning: store.state.rowMeaning || "",
+          analysis_objective: store.state.analysisObjective || "",
+        });
+        pdfBase64 = pdfResp.content_base64 || "";
+      } catch (_) { /* PDF optional for history */ }
       saveToHistory(
         { filename: store.state.filename, row_count: store.state.analysis?.row_count || 0, column_count: store.state.analysis?.column_count || 0, row_meaning: store.state.rowMeaning || "", analysis_objective: store.state.analysisObjective || "" },
         store.state.analysis,
         store.state.actions,
         response.cleaning.before,
-        response.cleaning.after
+        response.cleaning.after,
+        pdfBase64
       ).then((id) => { if (id) loadHistory(); }).catch(() => { showToast("No se pudo guardar en historial.", "error"); });
     }
   } finally {
@@ -1013,15 +1025,30 @@ async function loadHistory() {
       const ds = item.datasets || {};
       const actions = item.actions_json || [];
       const hasData = item.before_json && item.after_json;
+      const hasPdf = item.report_pdf_base64 && item.report_pdf_base64.length > 10;
       return `<div class="history-item${hasData ? " history-item--clickable" : ""}" data-session-id="${item.id}"${hasData ? ' role="button" tabindex="0"' : ""}>
         <div class="history-item__name">${escapeHtml(ds.filename || "dataset")}</div>
         <div class="history-item__meta">${ds.row_count || 0} filas | ${ds.column_count || 0} columnas | ${actions.length} acciones</div>
         <div class="history-item__date">${formatDate(item.created_at)}</div>
-        ${hasData ? '<div class="history-item__action">Clic para restaurar</div>' : ""}
+        <div class="history-item__actions">
+          ${hasData ? '<span class="history-item__action">Restaurar</span>' : ""}
+          ${hasPdf ? `<button class="history-item__download" data-pdf="${escapeAttr(item.report_pdf_base64)}" data-filename="${escapeAttr(ds.filename || "dataset")}" type="button">Descargar PDF</button>` : ""}
+        </div>
       </div>`;
     }).join("");
     els.historyList.querySelectorAll(".history-item--clickable").forEach(el => {
-      el.addEventListener("click", () => restoreSession(el.dataset.sessionId));
+      el.addEventListener("click", (e) => {
+        if (e.target.closest(".history-item__download")) return;
+        restoreSession(el.dataset.sessionId);
+      });
+    });
+    els.historyList.querySelectorAll(".history-item__download").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const pdfB64 = btn.dataset.pdf;
+        const fname = btn.dataset.filename;
+        if (pdfB64) downloadBlob(`data_cleaning_report_${fname}.pdf`, base64ToBlob(pdfB64, "application/pdf"));
+      });
     });
   } catch (e) {
     console.warn("History load failed:", e);

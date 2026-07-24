@@ -61,7 +61,7 @@ export async function getSession() {
   }
 }
 
-export async function saveToHistory(dataset, analysis, actions, before, after) {
+export async function saveToHistory(dataset, analysis, actions, before, after, reportPdfBase64) {
   if (!authAvailable || !supabase) return null;
   try {
     const { data: { session } } = await supabase.auth.getSession();
@@ -103,6 +103,7 @@ export async function saveToHistory(dataset, analysis, actions, before, after) {
           actions_json: actions,
           before_json: before || null,
           after_json: after || null,
+          report_pdf_base64: reportPdfBase64 || "",
         });
       if (cErr) throw cErr;
     }
@@ -123,7 +124,7 @@ export async function getHistory() {
 
     const { data, error } = await supabase
       .from("cleaning_sessions")
-      .select("id, created_at, actions_json, before_json, after_json, datasets!inner(id, filename, row_count, column_count)")
+      .select("id, created_at, actions_json, before_json, after_json, report_pdf_base64, datasets!inner(filename, row_count, column_count)")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(20);

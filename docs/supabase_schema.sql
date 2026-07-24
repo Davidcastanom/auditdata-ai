@@ -66,6 +66,7 @@ create table if not exists public.cleaning_sessions (
   changelog_json jsonb default '[]'::jsonb,
   analyst text default '',
   version text default 'v1.0',
+  report_pdf_base64 text default '',
   created_at timestamp with time zone default now() not null
 );
 
