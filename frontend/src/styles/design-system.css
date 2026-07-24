@@ -745,6 +745,28 @@ th {
 }
 
 @media (max-width: 680px) {
+  .app-shell {
+    width: min(100% - 20px, 1200px);
+    padding: var(--space-3) 0;
+  }
+
+  .stepper,
+  .form-grid,
+  .metrics,
+  .comparison-grid,
+  .inline-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .panel {
+    padding: var(--space-3);
+  }
+
+  .navigation-bar {
+    flex-direction: column;
+  }
+}
+
 .loading-overlay {
   position: fixed;
   inset: 0;
@@ -784,28 +806,6 @@ th {
   font-size: 0.8rem;
   display: block;
   margin-top: var(--space-1);
-}
-
-.app-shell {
-    width: min(100% - 20px, 1200px);
-    padding: var(--space-3) 0;
-  }
-
-  .stepper,
-  .form-grid,
-  .metrics,
-  .comparison-grid,
-  .inline-controls {
-    grid-template-columns: 1fr;
-  }
-
-  .panel {
-    padding: var(--space-3);
-  }
-
-  .navigation-bar {
-    flex-direction: column;
-  }
 }
 
 .login-screen {
