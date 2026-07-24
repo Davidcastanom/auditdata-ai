@@ -5,6 +5,11 @@ import { signInWithGoogle, signOut, getCurrentUser, authAvailable } from "./auth
 const loginScreen = document.querySelector("#loginScreen");
 const appContent = document.querySelector("#appContent");
 const googleLoginButton = document.querySelector("#googleLoginButton");
+const skipLoginButton = document.querySelector("#skipLoginButton");
+const heroStartButton = document.querySelector("#heroStartButton");
+const heroSkipButton = document.querySelector("#heroSkipButton");
+const ctaStartButton = document.querySelector("#ctaStartButton");
+const ctaGoogleButton = document.querySelector("#ctaGoogleButton");
 
 let currentUser = null;
 
@@ -69,6 +74,20 @@ googleLoginButton.addEventListener("click", async () => {
     console.error("Login failed:", e);
   }
 });
+
+[skipLoginButton, heroStartButton, heroSkipButton, ctaStartButton].forEach((btn) => {
+  if (btn) btn.addEventListener("click", () => showApp());
+});
+
+if (ctaGoogleButton) {
+  ctaGoogleButton.addEventListener("click", async () => {
+    try {
+      await signInWithGoogle();
+    } catch (e) {
+      console.error("Login failed:", e);
+    }
+  });
+}
 
 const store = new Store();
 
