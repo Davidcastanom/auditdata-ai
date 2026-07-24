@@ -1,5 +1,5 @@
 -- AuditData AI - Supabase Schema
--- Run this in Supabase SQL Editor (https://supabase.com/dashboard/project/_/sql)
+-- Safe to run multiple times (uses IF NOT EXISTS / OR REPLACE / DROP IF EXISTS)
 
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
@@ -29,7 +29,8 @@ begin
 end;
 $$ language plpgsql security definer;
 
-create or replace trigger on_auth_user_created
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
@@ -55,7 +56,7 @@ create table if not exists public.analyses (
   created_at timestamp with time zone default now() not null
 );
 
--- Cleaning sessions table
+-- Cleaning sessions table (includes report_pdf_base64 for stored reports)
 create table if not exists public.cleaning_sessions (
   id uuid default uuid_generate_v4() primary key,
   dataset_id uuid references public.datasets(id) on delete cascade not null,
@@ -70,11 +71,32 @@ create table if not exists public.cleaning_sessions (
   created_at timestamp with time zone default now() not null
 );
 
+-- Add report_pdf_base64 column if it doesn't exist (for existing tables)
+do $$ begin
+  alter table public.cleaning_sessions add column report_pdf_base64 text default '';
+exception when duplicate_column then null;
+end $$;
+
 -- Row Level Security (RLS) - users can only see their own data
 alter table public.profiles enable row level security;
 alter table public.datasets enable row level security;
 alter table public.analyses enable row level security;
 alter table public.cleaning_sessions enable row level security;
+
+-- Drop existing policies before recreating (avoids alreadyExists error)
+drop policy if exists "Users can view own profile" on public.profiles;
+drop policy if exists "Users can update own profile" on public.profiles;
+drop policy if exists "Users can view own datasets" on public.datasets;
+drop policy if exists "Users can insert own datasets" on public.datasets;
+drop policy if exists "Users can update own datasets" on public.datasets;
+drop policy if exists "Users can delete own datasets" on public.datasets;
+drop policy if exists "Users can view own analyses" on public.analyses;
+drop policy if exists "Users can insert own analyses" on public.analyses;
+drop policy if exists "Users can delete own analyses" on public.analyses;
+drop policy if exists "Users can view own cleaning sessions" on public.cleaning_sessions;
+drop policy if exists "Users can insert own cleaning sessions" on public.cleaning_sessions;
+drop policy if exists "Users can update own cleaning sessions" on public.cleaning_sessions;
+drop policy if exists "Users can delete own cleaning sessions" on public.cleaning_sessions;
 
 -- Profiles: users can read/update their own profile
 create policy "Users can view own profile"
