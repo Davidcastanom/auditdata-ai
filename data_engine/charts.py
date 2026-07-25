@@ -9,14 +9,18 @@ import matplotlib.ticker as ticker
 
 COLORS = {
     "primary": "#0066FF",
+    "primary_dark": "#0052CC",
     "accent": "#00D4FF",
-    "danger": "#FF4444",
-    "warning": "#FFB800",
-    "success": "#00CC88",
-    "bg": "#12121A",
+    "cyan": "#00D4FF",
+    "danger": "#EF4444",
+    "warning": "#F59E0B",
+    "success": "#22C55E",
+    "bg": "#0A0A0F",
+    "surface": "#12121A",
+    "surface_2": "#181824",
     "text": "#F0F0F5",
     "muted": "#9090A0",
-    "surface": "#1A1A2E",
+    "border": "#242436",
 }
 
 plt.rcParams.update({

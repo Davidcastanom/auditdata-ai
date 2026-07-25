@@ -214,13 +214,16 @@
           <span>03</span><strong>Reglas</strong>
         </button>
         <button class="stepper__item" data-step-button="3" type="button" disabled>
-          <span>04</span><strong>Depurar</strong>
+          <span>04</span><strong>Validar IA</strong>
         </button>
         <button class="stepper__item" data-step-button="4" type="button" disabled>
-          <span>05</span><strong>Validar</strong>
+          <span>05</span><strong>Depurar</strong>
         </button>
         <button class="stepper__item" data-step-button="5" type="button" disabled>
-          <span>06</span><strong>Informe</strong>
+          <span>06</span><strong>Validar</strong>
+        </button>
+        <button class="stepper__item" data-step-button="6" type="button" disabled>
+          <span>07</span><strong>Informe</strong>
         </button>
       </nav>
 
@@ -297,8 +300,20 @@
       </section>
 
       <section class="stage" data-step="3">
+        <article class="panel panel--nube">
+          <p class="section-kicker">Etapa 04 - Validacion con IA</p>
+          <h2>Revisa las recomendaciones de inteligencia artificial.</h2>
+          <p>
+            La IA analizo tu dataset en 28 categorias de calidad. Revisa cada recomendacion:
+            acepta, modifica el texto o la accion, o rechaza si no aplica. Tu tienes el control total.
+          </p>
+          <div id="nubeContainer" class="nube-container"></div>
+        </article>
+      </section>
+
+      <section class="stage" data-step="4">
         <article class="panel">
-          <p class="section-kicker">Etapa 04 - Depuración Guiada</p>
+          <p class="section-kicker">Etapa 05 - Depuracion Guiada</p>
           <h2>Aplica acciones de limpieza con criterio documentado.</h2>
           <p>
             Cada accion queda en la bitacora: problema, tratamiento, justificacion y resultado. La herramienta permite
@@ -361,9 +376,9 @@
         </article>
       </section>
 
-      <section class="stage" data-step="4">
+      <section class="stage" data-step="5">
         <article class="panel">
-          <p class="section-kicker">Etapa 05 - Validación de Calidad</p>
+          <p class="section-kicker">Etapa 06 - Validacion de Calidad</p>
           <h2>Demuestra la calidad antes de declarar el dataset listo.</h2>
           <div class="comparison-grid" id="comparisonGrid"></div>
           <div class="table-wrap">
@@ -381,7 +396,7 @@
         </article>
       </section>
 
-      <section class="stage" data-step="5">
+      <section class="stage" data-step="6">
         <article class="panel">
           <p class="section-kicker">Data Cleaning Report</p>
           <h2>Compila el informe y descarga el dataset limpio.</h2>

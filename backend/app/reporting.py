@@ -660,15 +660,11 @@ def _add_outliers_section(story, styles, analysis):
             styles["Body"],
         ))
         story.append(_table(
-            [["Columna", "Outliers", "Min", "Max", "Media", "Mediana", "Ejemplos"]]
+            [["Columna", "Outliers", "Ejemplos"]]
             + [[
                 c["name"],
                 str(c["outliers"]),
-                str(c.get("min_value", "-")),
-                str(c.get("max_value", "-")),
-                str(c.get("mean", "-")),
-                str(c.get("median", "-")),
-                ", ".join(str(v) for v in (c.get("outlier_examples") or [])[:4]),
+                ", ".join(str(v) for v in (c.get("outlier_examples") or [])[:5]),
             ] for c in cols_with_outliers],
             header=True,
         ))
@@ -686,15 +682,11 @@ def _add_outliers_cleaning(story, styles, before):
             styles["Body"],
         ))
         story.append(_table(
-            [["Columna", "Outliers", "Min", "Max", "Media", "Mediana", "Ejemplos"]]
+            [["Columna", "Outliers", "Ejemplos"]]
             + [[
                 c["name"],
                 str(c["outliers"]),
-                str(c.get("min_value", "-")),
-                str(c.get("max_value", "-")),
-                str(c.get("mean", "-")),
-                str(c.get("median", "-")),
-                ", ".join(str(v) for v in (c.get("outlier_examples") or [])[:4]),
+                ", ".join(str(v) for v in (c.get("outlier_examples") or [])[:5]),
             ] for c in cols_with_outliers],
             header=True,
         ))
@@ -857,6 +849,11 @@ def _add_metodologia(story, styles):
     story.append(Paragraph(
         "<b>Calidad general:</b> Promedio aritmetico de las cuatro dimensiones: "
         "completitud, consistencia, exactitud y unicidad.",
+        styles["Body"],
+    ))
+    story.append(Paragraph(
+        "<b>Diagnostico avanzado:</b> El motor de diagnostico evalua 28 categorias de problemas "
+        "de calidad de datos para identificar hallazgos que van mas alla de las cuatro dimensiones basicas.",
         styles["Body"],
     ))
     story.append(Spacer(1, 0.3 * cm))

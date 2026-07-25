@@ -1,0 +1,494 @@
+=============================================================================
+GUIA MAESTRA DE DIAGNOSTICO DE CALIDAD DE DATOS
+AuditData AI - Para contexto de IA (Llama 3.1)
+=============================================================================
+
+ESTE DOCUMENTO ES USADO POR LA IA PARA ENTENDER QUE PROBLEMAS PUEDE ENCONTRAR.
+NO ES UNA GUIA PARA HUMANOS - ES CONTEXTO PARA EL MODELO DE LENGUAJE.
+
+=============================================================================
+CATEGORIA 1: VALORES FALTANTES (MISSING)
+=============================================================================
+QUE ES:
+Celdas que estan vacias, contienen NULL, o tienen tokens que ocultan la falta
+de datos. Esto es comun cuando los sistemas permiten campos opcionales.
+
+COMO SE DETECTA:
+- Celdas vacias o con ""
+- Valores NULL o NaN
+- Tokens como "NA", "N/A", "null", "-", "S/D", "9999", "-1"
+
+EJEMPLO EN DATOS REALES:
+Columna "edad" con valores: ["25", "NA", "30", "N/A", "45"]
+
+ACCIONES DISPONIBLES:
+1. ELIMINAR FILA: Si hay pocos faltantes y no afecta el analisis
+2. IMPUTAR MEDIA: Para numericos (reemplazar con promedio)
+3. IMPUTAR MEDIANA: Para numericos con outliers
+4. IMPUTAR MODO: Para categoricos (reemplazar con valor mas comun)
+5. IMPUTAR VALOR FIJO: Cuando se sabe que debe ser un valor especifico
+6. DEJAR COMO ESTE: Si el faltante es informativo
+
+PRIORIDAD: ALTA - Los faltantes afectan el 100% de los analisis
+
+=============================================================================
+CATEGORIA 2: DUPLICADOS
+=============================================================================
+QUE ES:
+Filas que representan la misma entidad real apareciendo mas de una vez.
+Pueden ser duplicados exactos o con diferencias menores.
+
+COMO SE DETECTA:
+- Filas completamente identicas
+- Mismas columnas clave con diferentes valores en otras columnas
+- Diferencias por espacios, mayusculas, o typos menores
+
+EJEMPLO EN DATOS REALES:
+Fila 1: {"id": "1", "nombre": "Juan Perez"}
+Fila 2: {"id": "1", "nombre": "juan perez"}  (mismo id, diferente formato)
+
+ACCIONES DISPONIBLES:
+1. MANTENER PRIMERO: Quedarse con la primera aparicion
+2. MANTENER ULTIMO: Quedarse con la ultima aparicion (mas reciente)
+3. CONSOLIDAR: Combinar informacion de ambas filas
+4. ELIMINAR TODOS: Eliminar todas las copias
+
+PRIORIDAD: CRITICA - Los duplicados inflan metricas y causan analisis incorrectos
+
+=============================================================================
+CATEGORIA 3: INCONSISTENCIA DE FORMATO DE FECHA
+=============================================================================
+QUE ES:
+La misma columna de fechas tiene multiples formatos, dificultando el analisis.
+Tambien incluye fechas imposibles (31 de febrero, etc.)
+
+COMO SE DETECTA:
+- Formatos mixtos: "2024-01-15" vs "15/01/2024" vs "Enero 15, 2024"
+- Separadores diferentes: "/" vs "-" vs "."
+- Fechas invalidas: "31/02/2024", "32/13/2024"
+
+EJEMPLO EN DATOS REALES:
+Columna "fecha_registro": ["2024-01-15", "15/01/2024", "2024/01/15"]
+
+ACCIONES DISPONIBLES:
+1. ESTANDARIZAR ISO: Convertir todo a formato YYYY-MM-DD
+2. ESTANDARIZAR DD/MM/YYYY: Convertir a formato latino
+3. ELIMINAR INVALIDAS: Eliminar fechas imposibles
+4. CORREGIR: Corregir fechas con errores
+
+PRIORIDAD: ALTA - Las fechas son criticas para analisis temporales
+
+=============================================================================
+CATEGORIA 4: VIOLACIONES DE DOMINIO NUMERICO
+=============================================================================
+QUE ES:
+Valores numericos que estan fuera del rango logico para esa variable.
+Ejemplo: edad negativa, porcentaje mayor a 100.
+
+COMO SE DETECTA:
+- Valores negativos en variables que deben ser >= 0
+- Valores superiores al maximo logico
+- Dominios conocidos: edad [0,120], porcentaje [0,100], etc.
+
+EJEMPLO EN DATOS REALES:
+Columna "edad": ["25", "30", "-1", "45", "250"]
+
+ACCIONES DISPONIBLES:
+1. ELIMINAR: Eliminar filas con valores fuera de rango
+2. CORREGIR: Si se conoce el valor correcto
+3. IMPUTAR: Reemplazar con valor logico (ej: 0 para negativos)
+4. DEJAR MARCADO: Marcar como outliers sin eliminar
+
+PRIORIDAD: CRITICA - Los valores imposibles invalidan el analisis
+
+=============================================================================
+CATEGORIA 5: ERRORES DE REDACCION Y TEXTO
+=============================================================================
+QUE ES:
+Errores de captura manual: espacios extra, mayusculas inconsistentes,
+typos, caracteres invisibles. Comun en datos ingresados por humanos.
+
+COMO SE DETECTA:
+- Espacios al inicio o final
+- Doble espacios
+- Mezcla de mayusculas/minusculas
+- Palabras similares pero diferentes
+
+EJEMPLO EN DATOS REALES:
+Columna "ciudad": ["Medellin", "MEDELLIN", " medellin", "Medellín"]
+
+ACCIONES DISPONIBLES:
+1. TRIM: Eliminar espacios extra
+2. LOWERCASE: Convertir todo a minusculas
+3. UPPERCASE: Convertir todo a mayusculas
+4. CAPITALIZE: Primera letra mayuscula
+5. REMOVE_ACCENTS: Eliminar tildes
+6. STANDARDIZE: Estandarizar a un formato unico
+
+PRIORIDAD: BAJA - Afecta busquedas y agrupaciones, no valores numericos
+
+=============================================================================
+CATEGORIA 6: INCONSISTENCIA CATEGORICA
+=============================================================================
+QUE ES:
+La misma categoria representada de diferentes maneras.
+Comun en campos como genero, estado civil, paises.
+
+COMO SE DETECTA:
+- Sinonimos: "M" vs "Masculino" vs "Hombre"
+- Codigos vs nombres: "CO" vs "Colombia"
+- Niveles mezclados: "Bebidas" vs "Gaseosa Cola 350ml"
+
+EJEMPLO EN DATOS REALES:
+Columna "genero": ["M", "Masculino", "H", "Femenino", "F"]
+
+ACCIONES DISPONIBLES:
+1. STANDARDIZE_SYNONYNS: Unificar a un valor estandar
+2. MAP_VALUES: Crear mapeo de valores malos a buenos
+3. CREATE_CATALOG: Crear catalogo de valores permitidos
+
+PRIORIDAD: MEDIA - Afecta agrupaciones y reportes
+
+=============================================================================
+CATEGORIA 7: ERRORES DE TIPO DE DATO
+=============================================================================
+QUE ES:
+Valores almacenados en un tipo diferente al esperado.
+Ejemplo: numeros guardados como texto, fechas como strings.
+
+COMO SE DETECTA:
+- Valores numericos que no se pueden convertir
+- Fechas que no cumplen formato
+- Texto que parece numero
+
+EJEMPLO EN DATOS REALES:
+Columna "precio": ["100", "200", "N/A", "300", "ERROR"]
+
+ACCIONES DISPONIBLES:
+1. CONVERTIR: Cambiar al tipo correcto
+2. CORREGIR: Corregir valores que no convierten
+3. DEJAR TEXTO: Dejar como texto si es intencional
+
+PRIORIDAD: ALTA - Bloquea operaciones numericas
+
+=============================================================================
+CATEGORIA 8: INCONSISTENCIA DE UNIDADES
+=============================================================================
+QUE ES:
+Valores numericos en la misma columna usando diferentes unidades
+sin documentacion. Ejemplo: kg mezclados con libras.
+
+COMO SE DETECTA:
+- Valores con unidades de texto al final
+- Saltos grandes en el rango de valores
+- Sin columna de unidad separada
+
+EJEMPLO EN DATOS REALES:
+Columna "peso": ["70 kg", "154 lb", "80", "75 kg"]
+
+ACCIONES DISPONIBLES:
+1. ESTANDARIZAR: Convertir todo a una unidad
+2. SEPARAR: Crear columnas separadas para valor y unidad
+3. DOCUMENTAR: Agregar columna de unidades
+
+PRIORIDAD: MEDIA - Afecta calculos estadisticos
+
+=============================================================================
+CATEGORIA 9: PROBLEMAS DE ENCODING
+=============================================================================
+QUE ES:
+Caracteres corruptos por problemas de codificacion del archivo.
+Comun al abrir archivos UTF-8 con codificacion Latin-1 o viceversa.
+
+COMO SE DETECTA:
+- "Ã±" en vez de "ñ"
+- "Ã©" en vez de "é"
+- Caracteres raros o simbolos
+
+EJEMPLO EN DATOS REALES:
+Columna "nombre": ["Juan", "MarÃa", "Pedro", "JosÃ©"]
+
+ACCIONES DISPONIBLES:
+1. RE-ENCODE: Re-leer con codificacion correcta
+2. REPLACE: Reemplazar caracteres corruptos
+3. DEJAR: Si no afecta el analisis
+
+PRIORIDAD: MEDIA - Afecta legibilidad
+
+=============================================================================
+CATEGORIA 10: VALORES FUERA DE RANGO
+=============================================================================
+QUE ES:
+Valores numericamente correctos pero logisticamente imposibles.
+Ejemplo: edad 250, latitud 100.
+
+COMO SE DETECTA:
+- Valores que exceden limites fisicos
+- Dominios conocidos: edad [0,120], latitud [-90,90]
+- Valores negativos en variables positivas
+
+EJEMPLO EN DATOS REALES:
+Columna "edad": ["25", "30", "300", "45"]
+
+ACCIONES DISPONIBLES:
+1. ELIMINAR: Eliminar filas imposibles
+2. CORREGIR: Si se conoce el valor real
+3. CAP: Limitar al rango maximo/minimo
+
+PRIORIDAD: ALTA - Los valores imposibles invalidan el analisis
+
+=============================================================================
+CATEGORIA 11: ERRORES DE FORMULA DE EXCEL
+=============================================================================
+QUE ES:
+Errores de Excel exportados como texto en lugar de ser resueltos.
+
+COMO SE DETECTA:
+- Valores como "#REF!", "#DIV/0!", "#N/A"
+- "#VALUE!", "#NAME?", "#NULL!"
+
+EJEMPLO EN DATOS REALES:
+Columna "resultado": ["100", "#REF!", "200", "#DIV/0!"]
+
+ACCIONES DISPONIBLES:
+1. CORREGIR: Resolver la formula
+2. IMPUTAR: Reemplazar con valor calculado
+3. ELIMINAR: Eliminar filas con errores
+
+PRIORIDAD: ALTA - Indican problemas en el calculo original
+
+=============================================================================
+CATEGORIA 12: NOTACION CIENTIFICA NO DESEADA
+=============================================================================
+QUE ES:
+Numeros largos convertidos automaticamente a notacion cientifica.
+Comun en codigos de barras, IDs largos, telefonos.
+
+COMO SE DETECTA:
+- Valores como "1.23E+12"
+- Numeros con "E+" o "E-"
+
+EJEMPLO EN DATOS REALES:
+Columna "codigo": ["1234567890", "1.23E+12", "9876543210"]
+
+ACCIONES DISPONIBLES:
+1. CONVERTIR A TEXTO: Guardar como string
+2. FORMATEAR: Usar formato sin notacion
+3. REDONDEAR: Si la precision no es critica
+
+PRIORIDAD: MEDIA - Afecta IDs y codigos
+
+=============================================================================
+CATEGORIA 13: CAMPOS MULTIVALUADOS
+=============================================================================
+QUE ES:
+Multiples valores concatenados en una sola celda.
+Viola la atomicidad de la base de datos.
+
+COMO SE DETECTA:
+- Valores con separadores: ",", ";", "/"
+- Mas de 2 valores separados en una celda
+
+EJEMPLO EN DATOS REALES:
+Columna "habilidades": ["Python, SQL, Excel", "Java; JavaScript"]
+
+ACCIONES DISPONIBLES:
+1. SPLIT: Dividir en multiples filas
+2. SPLIT COLUMN: Crear columnas separadas
+3. DEJAR: Si es intencional (campo JSON)
+
+PRIORIDAD: MEDIA - Afecta busquedas y filtros
+
+=============================================================================
+CATEGORIA 14: MEZCLA DE IDIOMAS
+=============================================================================
+QUE ES:
+Valores en diferentes idiomas en la misma columna categorica.
+
+COMO SE DETECTA:
+- Palabras en espanol e ingles mezcladas
+- Tokens de idiomas diferentes
+
+EJEMPLO EN DATOS REALES:
+Columna "estado": ["Enviado", "Shipped", "Entregado", "Delivered"]
+
+ACCIONES DISPONIBLES:
+1. TRADUCIR: Convertir todo a un idioma
+2. MAPEAR: Crear equivalencias entre idiomas
+3. SEPARAR: Crear columnas por idioma
+
+PRIORIDAD: BAJA - Afecta consistencia, no integridad
+
+=============================================================================
+CATEGORIA 15: CARACTERES FANTASMA
+=============================================================================
+QUE ES:
+Caracteres invisibles o casi invisibles de copiado/pegado.
+
+COMO SE DETECTA:
+- Espacios no rompibles (\u00a0)
+- BOM (\uFEFF) al inicio
+- Caracteres de retorno de carro (\r)
+- Comillas rizadas vs rectas
+
+EJEMPLO EN DATOS REALES:
+Columna "nombre": ["Juan\u00a0Perez"] (espacio no rompible)
+
+ACCIONES DISPONIBLES:
+1. CLEAN: Eliminar caracteres invisibles
+2. REPLACE: Reemplazar por caracteres normales
+3. DEJAR: Si no afecta
+
+PRIORIDAD: BAJA - Causa problemas en joins y busquedas
+
+=============================================================================
+CATEGORIA 16: TRUNCAMIENTO DE TEXTO
+=============================================================================
+QUE ES:
+Texto cortado silenciosamente por limite de longitud del sistema fuente.
+
+COMO SE DETECTA:
+- Multiples valores con exactamente la misma longitud maxima
+- Texto que termina a mitad de palabra
+
+EJEMPLO EN DATOS REALES:
+Columna "direccion": ["Calle 10 #5-20, Apto 502, Ed...", "Carrera 7 #45-10, Ofi..."]
+
+ACCIONES DISPONIBLES:
+1. CONSULTAR FUENTE: Obtener texto completo
+2. DEJAR: Si la informacion trunca es suficiente
+3. MARCAR: Indicar que puede estar incompleto
+
+PRIORIDAD: MEDIA - Pierde informacion
+
+=============================================================================
+CATEGORIA 17: INCONSISTENCIA BOOLEANA
+=============================================================================
+QUE ES:
+Mismo concepto booleano representado de multiples maneras.
+
+COMO SE DETECTA:
+- Mezcla de "Si"/"No", "True"/"False", "1"/"0"
+- Variantes como "Verdadero"/"Falso", "Activo"/"Inactivo"
+
+EJEMPLO EN DATOS REALES:
+Columna "activo": ["Si", "True", "1", "No", "False", "0"]
+
+ACCIONES DISPONIBLES:
+1. STANDARDIZE_TRUE_FALSE: Unificar a True/False
+2. STANDARDIZE_SI_NO: Unificar a Si/No
+3. CONVERTIR NUMERICO: Unificar a 1/0
+
+PRIORIDAD: MEDIA - Afecta filtros y metricas
+
+=============================================================================
+CATEGORIA 18: INCONSISTENCIA DE TIPO POR CELDA
+=============================================================================
+QUE ES:
+Misma columna con tipos de datos diferentes por fila.
+
+COMO SE DETECTA:
+- Columna que deberia ser numerica tiene textos
+- Mezcla de numeros y textos en la misma columna
+
+EJEMPLO EN DATOS REALES:
+Columna "telefono": ["3001234567", "300-123-4567", "(300) 123-4567"]
+
+ACCIONES DISPONIBLES:
+1. STANDARDIZE: Convertir todo a un formato
+2. SEPARAR: Dividir en columnas por tipo
+3. DEJAR TEXTO: Dejar como texto
+
+PRIORIDAD: ALTA - Bloquea conversiones
+
+=============================================================================
+CATEGORIA 19: TIPO INESPERADO
+=============================================================================
+QUE ES:
+Valores que no coinciden con el tipo esperado por el dominio inferido.
+
+COMO SE DETECTA:
+- Columna "edad" tiene textos que no son numeros
+- Columna "fecha" tiene fechas invalidas
+
+EJEMPLO EN DATOS REALES:
+Columna "precio": ["100", "200", "N/A", "300", "caro"]
+
+ACCIONES DISPONIBLES:
+1. CORREGIR: Convertir o eliminar valores invalidos
+2. IMPUTAR: Reemplazar con valor logico
+3. DEJAR: Si es intencional
+
+PRIORIDAD: ALTA - Indica problemas de calidad
+
+=============================================================================
+CATEGORIAS 20-28: ANEXOS (CATEGORIAS ADICIONALES)
+=============================================================================
+
+A.1.1 CLAVES FORANEAS HUERFANAS
+- Registros hijos que referencian padres inexistentes
+- Ejemplo: id_cliente en facturas sin cliente en tabla clientes
+
+A.1.2 INCONSISTENCIA DE GRANULARIDAD
+- Mezcla de filas de detalle y subtotales en la misma tabla
+- Ejemplo: fila "Total mes" procesada como transaccion
+
+A.2.1 AUTOCONVERSION DE TEXTO A FECHA (EXCEL)
+- Excel convierte textos a fechas automaticamente
+- Ejemplo: codigo "3-4" se convierte en "3 de abril"
+
+A.2.2 ERRORES DE FORMULA COMO TEXTO
+- Errores de Excel exportados como texto literal
+- Ejemplo: "#REF!", "#DIV/0!", "#N/A"
+
+A.2.3 NOTACION CIENTIFICA NO DESEADA
+- Numeros largos en notacion cientifica
+- Ejemplo: barcode "1.23E+12"
+
+A.2.4 PERDIDA DE PRECISION DECIMAL
+- Valores truncados por limite de precision
+- Ejemplo: 1.23456789 guardado como 1.23
+
+A.2.5 DELIMITADORES ROTOS EN CSV
+- Valores con comas sin comillas en CSV
+- Ejemplo: "Calle 10, Apto 502" sin comillas
+
+A.3.1 CAMPOS MULTIVALUADOS
+- Multiples valores en una celda
+- Ejemplo: "Python, SQL, Excel"
+
+A.3.2 MEZCLA DE IDIOMAS
+- Valores en diferentes idiomas
+- Ejemplo: "Colombia" / "Brazil" / "Brasil"
+
+A.3.3 CARACTERES FANTASMA
+- Caracteres invisibles de copiado
+- Ejemplo: espacios no rompibles
+
+A.3.4 TRUNCAMIENTO DE TEXTO
+- Texto cortado por limite
+- Ejemplo: "Calle 10 #5-20, Apto 502, Ed..."
+
+A.4.1 BUG DE FECHA 1900/1904
+- Fechas desplazadas por offset fijo
+- Ejemplo: todas las fechas desplazadas 4 anos
+
+A.4.2 SERIES DE TIEMPO CON HUECOS
+- Filas faltantes en serie temporal
+- Ejemplo: ventas diarias con 25 dias faltantes
+
+A.4.3 MEZCLA DE TIMEZONE
+- Timestamps con y sin timezone
+- Ejemplo: "2024-01-15T10:00:00-05:00" vs "2024-01-15T10:00:00"
+
+A.5.1 SCHEMA DRIFT
+- Cambios de esquema entre cargas
+- Ejemplo: columna "telefono" renombrada a "numero_contacto"
+
+A.5.2 CAMBIO DE FORMATO DE ID
+- Formato de ID cambia en el tiempo
+- Ejemplo: cedula de 8 a 10 digitos
+
+=============================================================================
+FIN DE LA GUIA MAESTRA
+=============================================================================

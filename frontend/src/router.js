@@ -5,9 +5,10 @@ export class Router {
       '#/comprender': 0,
       '#/perfilar': 1,
       '#/reglas': 2,
-      '#/depurar': 3,
-      '#/validar': 4,
-      '#/informe': 5
+      '#/validar-ia': 3,
+      '#/depurar': 4,
+      '#/validar': 5,
+      '#/informe': 6
     };
     
     window.addEventListener('hashchange', () => this.handleHashChange());

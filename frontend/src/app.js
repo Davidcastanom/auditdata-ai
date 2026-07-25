@@ -1,6 +1,7 @@
 import { Store } from "./state.js";
 import { Router } from "./router.js";
 import { signInWithGoogle, signOut, getCurrentUser, authAvailable, saveToHistory, getHistory, getHistorySession } from "./auth.js";
+import { NubeValidacion } from "./nube.js";
 
 const loginScreen = document.querySelector("#loginScreen");
 const appContent = document.querySelector("#appContent");
@@ -147,9 +148,25 @@ const els = {
   historyBackdrop: document.querySelector("#historyBackdrop"),
   historyCloseButton: document.querySelector("#historyCloseButton"),
   historyList: document.querySelector("#historyList"),
+  nubeContainer: document.querySelector("#nubeContainer"),
 };
 
 const router = new Router(goToStep);
+
+// Inicializar Nube de Validacion
+const nube = new NubeValidacion({
+  container: els.nubeContainer,
+  onActionReady: (action) => {
+    // Agregar accion a la lista de acciones del store
+    store.addAction(action);
+    renderLog();
+    els.systemStatus.textContent = `Accion aceptada: ${action.kind}`;
+  },
+  onAllReviewed: (actions) => {
+    els.systemStatus.textContent = `${actions.length} acciones listas para depurar`;
+    els.nextButton.disabled = false;
+  },
+});
 
 els.fileInput.addEventListener("change", () => {
   const file = els.fileInput.files[0];
@@ -218,8 +235,8 @@ function init() {
     if (store.state.cleaning) {
       renderValidation();
       renderReportPreview();
-      enableStep(4);
       enableStep(5);
+      enableStep(6);
     }
   }
   router.init();
@@ -721,6 +738,12 @@ function renderReportPreview() {
 
 function onNext() {
   if (store.state.step === 3) {
+    // Step 3: Nube de Validacion - ir a depurar
+    router.navigate(4);
+    return;
+  }
+  if (store.state.step === 4) {
+    // Step 4: Depurar - aplicar limpieza y validar
     if (store.state.actions.length === 0) {
       store.setCleaning({
         before: store.state.analysis,
@@ -730,12 +753,12 @@ function onNext() {
       });
       renderValidation();
       renderReportPreview();
-      enableStep(4);
       enableStep(5);
-      router.navigate(4);
+      enableStep(6);
+      router.navigate(5);
       return;
     }
-    runCleaning().then(() => router.navigate(4)).catch((error) => {
+    runCleaning().then(() => router.navigate(5)).catch((error) => {
       els.systemStatus.textContent = `Error: ${error.message}`;
     });
     return;
@@ -744,7 +767,7 @@ function onNext() {
 }
 
 function goToStep(step) {
-  if (step < 0 || step > 5) return;
+  if (step < 0 || step > 6) return;
   const button = document.querySelector(`[data-step-button="${step}"]`);
   if (button?.disabled) return;
   store.setStep(step);
@@ -757,14 +780,19 @@ function goToStep(step) {
     item.classList.toggle("is-done", index < step);
   });
   els.previousButton.disabled = step === 0;
-  els.nextButton.disabled = !store.state.analysis || step === 5;
-  els.nextButton.textContent = step === 3 ? "Aplicar limpieza y validar" : "Siguiente etapa";
+  els.nextButton.disabled = !store.state.analysis || step === 6;
+  els.nextButton.textContent = step === 4 ? "Aplicar limpieza y validar" : "Siguiente etapa";
+
+  // Cargar recomendaciones de IA al entrar al step 3
+  if (step === 3 && store.state.filename && store.state.fileBase64) {
+    nube.loadRecommendations(store.state.filename, store.state.fileBase64);
+  }
 }
 
 function enableStep(step) {
   const btn = document.querySelector(`[data-step-button="${step}"]`);
   if (btn) btn.disabled = false;
-  if (step <= 3) {
+  if (step <= 4) {
     els.nextButton.disabled = false;
   }
 }

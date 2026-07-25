@@ -78,6 +78,83 @@ def analyze(req: AnalyzeRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.post("/api/diagnose")
+def diagnose(req: AnalyzeRequest):
+    try:
+        payload = base64.b64decode(req.content_base64)
+        if len(payload) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="El archivo excede el limite de 10MB")
+        from data_engine.diagnostic import diagnose_dataset
+        from data_engine.analyzer import load_dataset
+        headers, rows = load_dataset(req.filename, payload)
+        diagnostic = diagnose_dataset(headers, rows)
+        return {"diagnostic": diagnostic.to_dict()}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/ai/recommend")
+def ai_recommend(req: AnalyzeRequest):
+    """
+    Endpoint para obtener recomendaciones de IA basadas en el diagnostico.
+
+    FLUJO:
+    1. Recibe el dataset
+    2. Ejecuta el diagnostico (28 categorias)
+    3. Envia problemas a Groq API (Llama 3.1)
+    4. Retorna recomendaciones de limpieza
+
+    RESPUESTA:
+    {
+        "recommendations": [
+            {
+                "column": "nombre_columna",
+                "issues_summary": "3 problema(s)",
+                "recommendations": [
+                    {
+                        "category": "MISSING",
+                        "count": 15,
+                        "text": "Justificacion tecnica...",
+                        "action": {"kind": "fill_missing", ...},
+                        "confidence": 0.85
+                    }
+                ]
+            }
+        ],
+        "message": "Procesadas N columnas",
+        "status": "success"
+    }
+    """
+    try:
+        payload = base64.b64decode(req.content_base64)
+        if len(payload) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="El archivo excede el limite de 10MB")
+
+        from data_engine.diagnostic import diagnose_dataset
+        from data_engine.analyzer import load_dataset
+        from data_engine.ai_advisor import get_ai_recommendations
+
+        # Paso 1: Cargar dataset
+        headers, rows = load_dataset(req.filename, payload)
+
+        # Paso 2: Diagnosticar
+        diagnostic = diagnose_dataset(headers, rows)
+
+        # Paso 3: Obtener recomendaciones de IA
+        recommendations = get_ai_recommendations(
+            diagnostic=diagnostic.to_dict(),
+            sample_rows=rows[:20]  # Primeras 20 filas como contexto
+        )
+
+        return {"recommendations": recommendations}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.post("/api/clean")
 def clean(req: CleanRequest):
     try:

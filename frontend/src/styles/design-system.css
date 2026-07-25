@@ -1166,3 +1166,510 @@ th {
   background: var(--color-surface-2);
   border: 1px solid var(--color-primary);
 }
+
+/* ============================================================================
+   NUBE DE VALIDACION - Estilos profesionales
+   ============================================================================ */
+
+.panel--nube {
+  background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-2) 100%);
+  border: 1px solid var(--color-border);
+}
+
+.nube-container {
+  margin-top: var(--space-4);
+}
+
+/* Header de la nube */
+.nube-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.nube-header__title {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.nube-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.nube-header h2 {
+  margin: 0 0 var(--space-1);
+  font-size: 1.5rem;
+  background: linear-gradient(to right, #ffffff, #66b3ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.nube-subtitle {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* Botones globales */
+.nube-actions-global {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Barra de progreso */
+.nube-progress {
+  margin-bottom: var(--space-4);
+}
+
+.nube-progress__bar {
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: var(--space-1);
+}
+
+.nube-progress__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  transition: width 0.5s ease;
+}
+
+.nube-progress__text {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+/* Grid de columnas */
+.nube-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: var(--space-4);
+}
+
+/* Tarjeta de columna */
+.nube-column {
+  background: var(--color-black);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.nube-column:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 20px rgba(0, 102, 255, 0.1);
+}
+
+.nube-column__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.nube-column__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.nube-column__name {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--color-text);
+}
+
+.nube-column__domain {
+  font-size: 0.75rem;
+  color: var(--color-accent);
+  background: rgba(0, 212, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+
+.nube-column__count {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.nube-column__body {
+  padding: var(--space-3);
+}
+
+/* Tarjeta de recomendacion */
+.nube-rec {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-3);
+  transition: all 0.3s ease;
+}
+
+.nube-rec:last-child {
+  margin-bottom: 0;
+}
+
+.nube-rec:hover {
+  border-color: var(--color-primary);
+}
+
+.nube-rec--accept {
+  border-color: var(--color-success);
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.nube-rec--modify {
+  border-color: var(--color-warning);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.nube-rec--reject {
+  border-color: var(--color-danger);
+  background: rgba(239, 68, 68, 0.05);
+  opacity: 0.7;
+}
+
+.nube-rec__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.nube-rec__category {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.nube-rec__severity {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+}
+
+.nube-rec__severity--alta {
+  background: rgba(239, 68, 68, 0.2);
+  color: #EF4444;
+}
+
+.nube-rec__severity--media {
+  background: rgba(245, 158, 11, 0.2);
+  color: #F59E0B;
+}
+
+.nube-rec__severity--baja {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22C55E;
+}
+
+.nube-rec__cat-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.nube-rec__confidence {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.nube-confidence-bar {
+  width: 60px;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.nube-confidence-fill {
+  height: 100%;
+  border-radius: 2px;
+}
+
+.nube-confidence-fill--high {
+  background: var(--color-success);
+}
+
+.nube-confidence-fill--medium {
+  background: var(--color-warning);
+}
+
+.nube-confidence-fill--low {
+  background: var(--color-danger);
+}
+
+.nube-rec__body {
+  padding: var(--space-3);
+}
+
+.nube-rec__label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted);
+  margin-bottom: var(--space-1);
+  display: block;
+}
+
+.nube-rec__editable {
+  background: var(--color-black);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: var(--space-2);
+  font-size: 0.9rem;
+  color: var(--color-text);
+  line-height: 1.5;
+  min-height: 60px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.nube-rec__editable:focus {
+  border-color: var(--color-primary);
+}
+
+.nube-rec__action {
+  margin-top: var(--space-3);
+}
+
+.nube-rec__action-preview {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.nube-rec__action-kind {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  background: rgba(0, 212, 255, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+
+.nube-rec__action-method {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+}
+
+.nube-rec__footer {
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.nube-rec__buttons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Botones de la nube */
+.nube-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.nube-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nube-btn--accept {
+  background: var(--color-success);
+  color: white;
+}
+
+.nube-btn--accept:hover:not(:disabled) {
+  background: #16A34A;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+.nube-btn--modify {
+  background: var(--color-warning);
+  color: #0A0A0F;
+}
+
+.nube-btn--modify:hover:not(:disabled) {
+  background: #D97706;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.nube-btn--reject {
+  background: var(--color-danger);
+  color: white;
+}
+
+.nube-btn--reject:hover:not(:disabled) {
+  background: #DC2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.nube-btn--ghost {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.nube-btn--ghost:hover {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+}
+
+.nube-btn--danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.nube-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Estados vacios */
+.nube-empty {
+  text-align: center;
+  padding: var(--space-4);
+  color: var(--color-success);
+}
+
+.nube-empty p {
+  margin: var(--space-2) 0 0;
+  color: var(--color-muted);
+}
+
+.nube-loading {
+  text-align: center;
+  padding: var(--space-6);
+}
+
+.nube-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto var(--space-4);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.nube-loading h3 {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text);
+}
+
+.nube-loading p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.nube-loading__dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: var(--space-4);
+}
+
+.nube-loading__dots span {
+  width: 8px;
+  height: 8px;
+  background: var(--color-primary);
+  border-radius: 50%;
+  animation: bounce 1.4s infinite ease-in-out;
+}
+
+.nube-loading__dots span:nth-child(1) { animation-delay: -0.32s; }
+.nube-loading__dots span:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+.nube-error {
+  text-align: center;
+  padding: var(--space-6);
+  color: var(--color-danger);
+}
+
+.nube-error h3 {
+  margin: var(--space-3) 0 var(--space-2);
+  color: var(--color-text);
+}
+
+.nube-error p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.nube-error__hint {
+  margin-top: var(--space-3) !important;
+  font-size: 0.85rem;
+  color: var(--color-warning) !important;
+}
+
+.nube-success {
+  text-align: center;
+  padding: var(--space-6);
+}
+
+.nube-success__icon {
+  color: var(--color-success);
+  margin-bottom: var(--space-3);
+}
+
+.nube-success h2 {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text);
+}
+
+.nube-success p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.nube-success__hint {
+  margin-top: var(--space-3) !important;
+  color: var(--color-primary) !important;
+}
