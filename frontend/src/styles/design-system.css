@@ -1180,6 +1180,197 @@ th {
   margin-top: var(--space-4);
 }
 
+/* Selector de modo */
+.nube-mode-selector {
+  text-align: center;
+}
+
+.nube-mode-header {
+  margin-bottom: var(--space-5);
+}
+
+.nube-mode-header svg {
+  color: var(--color-primary);
+  margin-bottom: var(--space-3);
+}
+
+.nube-mode-header h2 {
+  margin: 0 0 var(--space-2);
+}
+
+.nube-mode-header p {
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.nube-mode-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.nube-mode-card {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5) var(--space-4);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+  font: inherit;
+  color: var(--color-text);
+  position: relative;
+}
+
+.nube-mode-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+.nube-mode-card--ai {
+  border-color: var(--color-primary);
+}
+
+.nube-mode-card--ai:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 8px 30px rgba(0, 102, 255, 0.15);
+}
+
+.nube-mode-card--ai .nube-mode-card__icon {
+  color: var(--color-primary);
+}
+
+.nube-mode-card--manual:hover {
+  border-color: var(--color-muted);
+}
+
+.nube-mode-card--manual .nube-mode-card__icon {
+  color: var(--color-muted);
+}
+
+.nube-mode-card__icon {
+  margin-bottom: var(--space-3);
+}
+
+.nube-mode-card h3 {
+  margin: 0 0 var(--space-2);
+  font-size: 1.1rem;
+}
+
+.nube-mode-card p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.nube-mode-card__tag {
+  display: inline-block;
+  margin-top: var(--space-3);
+  padding: 0.25rem 0.75rem;
+  background: var(--color-primary);
+  color: white;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Vista manual */
+.nube-icon--manual {
+  background: linear-gradient(135deg, var(--color-muted) 0%, var(--color-surface-2) 100%);
+}
+
+.nube-column--manual {
+  border-color: var(--color-border);
+}
+
+.nube-manual-issue {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.nube-manual-issue:last-child {
+  border-bottom: none;
+}
+
+.nube-manual-issue__label {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  cursor: pointer;
+  color: var(--color-text);
+}
+
+.nube-manual-check {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin-top: 2px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.nube-manual-issue__info {
+  flex: 1;
+}
+
+.nube-manual-issue__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+
+.nube-manual-issue__header strong {
+  font-size: 0.85rem;
+}
+
+.nube-manual-issue__count {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+}
+
+.nube-manual-issue__desc {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-muted);
+  line-height: 1.4;
+}
+
+.nube-manual-issue__examples {
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+.nube-manual-issue__examples code {
+  background: var(--color-surface-2);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.75rem;
+}
+
+.nube-manual-actions {
+  margin-top: var(--space-4);
+  text-align: center;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Error con fallback */
+.nube-error__fallback {
+  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: center;
+}
+
 /* Header de la nube */
 .nube-header {
   display: flex;

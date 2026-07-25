@@ -156,5 +156,3 @@ export async function getHistorySession(sessionId) {
     return null;
   }
 }
-}
-}

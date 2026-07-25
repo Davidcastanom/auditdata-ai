@@ -31,9 +31,9 @@ test.describe("AuditData AI - Carga de pagina", () => {
     await expect(page.locator("#dropzone")).toBeVisible();
   });
 
-  test("muestra los 6 pasos de navegacion", async ({ page }) => {
+  test("muestra los 7 pasos de navegacion", async ({ page }) => {
     await page.goto(URL);
     const navButtons = page.locator("[data-step-button]");
-    await expect(navButtons).toHaveCount(6);
+    await expect(navButtons).toHaveCount(7);
   });
 });

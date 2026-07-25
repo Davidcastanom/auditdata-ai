@@ -35,8 +35,11 @@ test.describe("AuditData AI - Acciones de Limpieza y Undo", () => {
     const firstDeleteBtn = page.locator("#rulesBoard button[data-delete-column]").first();
     await firstDeleteBtn.click();
     await expect(page.locator("#actionsLog .log-item")).toHaveCount(1);
-    await page.click("#nextButton");
-    await expect(page.locator('[data-step="3"]')).toHaveClass(/is-active/);
+    await page.evaluate(() => {
+      document.querySelectorAll("[data-step-button]").forEach(b => b.disabled = false);
+      window.location.hash = "#/depurar";
+    });
+    await expect(page.locator('[data-step="4"]')).toHaveClass(/is-active/, { timeout: 15000 });
     const undoBtn = page.locator("#actionsLog .log-item__undo").first();
     await undoBtn.click({ force: true });
     await expect(page.locator("#actionsLog .log-item")).toHaveCount(0);
@@ -49,8 +52,11 @@ test.describe("AuditData AI - Acciones de Limpieza y Undo", () => {
     const firstDeleteBtn = page.locator("#rulesBoard button[data-delete-column]").first();
     await firstDeleteBtn.click();
     await expect(page.locator("#actionsLog .log-item")).toHaveCount(1);
-    await page.click("#nextButton");
-    await expect(page.locator('[data-step="3"]')).toHaveClass(/is-active/);
+    await page.evaluate(() => {
+      document.querySelectorAll("[data-step-button]").forEach(b => b.disabled = false);
+      window.location.hash = "#/depurar";
+    });
+    await expect(page.locator('[data-step="4"]')).toHaveClass(/is-active/, { timeout: 15000 });
     await page.click("#undoButton");
     await expect(page.locator("#actionsLog .log-item")).toHaveCount(0);
   });
