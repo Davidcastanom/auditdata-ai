@@ -4,19 +4,40 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let supabase = null;
 let authAvailable = false;
 
-try {
-  if (window.supabase && window.supabase.createClient) {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    authAvailable = true;
+function ensureSupabase() {
+  if (supabase) return true;
+  try {
+    if (window.supabase && window.supabase.createClient) {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      authAvailable = true;
+      return true;
+    }
+  } catch {
+    console.warn("Supabase init failed");
   }
+  return false;
+}
+
+try {
+  ensureSupabase();
 } catch {
   console.warn("Supabase not available, running without auth");
+}
+
+if (!authAvailable) {
+  window.addEventListener("load", () => {
+    ensureSupabase();
+  });
 }
 
 export { supabase, authAvailable };
 
 export async function signInWithGoogle() {
-  if (!authAvailable) return null;
+  ensureSupabase();
+  if (!authAvailable) {
+    console.error("Supabase not loaded. Check your network connection.");
+    throw new Error("No se pudo conectar con el servicio de autenticacion. Verifica tu conexion a internet.");
+  }
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
