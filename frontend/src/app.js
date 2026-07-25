@@ -972,6 +972,13 @@ function goToStep(step) {
   if (step === 3 && store.state.filename && store.state.fileBase64) {
     nube.loadRecommendations(store.state.filename, store.state.fileBase64);
   }
+
+  // Re-renderizar tablero de depuracion al entrar al step 4
+  if (step === 4) {
+    renderCleaningBoard();
+    populateAdvancedColumns();
+    renderLog();
+  }
 }
 
 function enableStep(step) {
