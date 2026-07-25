@@ -230,51 +230,11 @@ def get_ai_recommendations(
     sample_rows: list[dict[str, Any]] | None = None
 ) -> dict[str, Any]:
     """
-    FUNCION PRINCIPAL: Genera recomendaciones de IA para cada problema encontrado.
+    Genera recomendaciones de IA para todos los problemas encontrados.
 
-    COMO FUNCIONA:
-    1. Recibe el diagnostico (resultados de las 28 categorias)
-    2. Para cada columna con problemas, construye un prompt
-    3. Envia el prompt a Groq API
-    4. Groq responde con recomendaciones
-    5. Convierte la respuesta a JSON estructurado
-
-    PARAMETROS:
-    - diagnostic: Diccionario con el resultado del diagnostico
-      Ejemplo: {"columns": [...], "summary": {...}}
-    - sample_rows: Lista de filas de ejemplo para contexto
-      Ejemplo: [{"nombre": "Juan", "edad": "25"}, ...]
-
-    RETORNA:
-    - Diccionario con recomendaciones para cada columna
-      Ejemplo: {"recommendations": [...]}
-
-    SI NO HAY API KEY:
-    - Retorna un mensaje indicando que la IA esta deshabilitada
-    - El sistema funciona normalmente sin IA
-
-    EJEMPLO DE USO:
-    >>> from data_engine.diagnostic import diagnose_dataset
-    >>> from data_engine.ai_advisor import get_ai_recommendations
-    >>>
-    >>> # 1. Diagnosticar el dataset
-    >>> diagnostic = diagnose_dataset(headers, rows)
-    >>>
-    >>> # 2. Obtener recomendaciones de IA
-    >>> recommendations = get_ai_recommendations(
-    >>>     diagnostic=diagnostic.to_dict(),
-    >>>     sample_rows=rows[:5]
-    >>> )
-    >>>
-    >>> # 3. Mostrar recomendaciones
-    >>> for rec in recommendations["recommendations"]:
-    >>>     print(f"Columna: {rec['column']}")
-    >>>     print(f"Problemas: {rec['issues_summary']}")
-    >>>     for r in rec["recommendations"]:
-    >>>         print(f"  - {r['text']}")
-    >>>         print(f"    Accion: {r['action']}")
+    OPTIMIZACION: Envia TODAS las columnas en UN SOLO prompt a Groq
+    en vez de una llamada por columna. Esto reduce N llamadas API a 1.
     """
-    # Paso 1: Verificar si hay cliente Groq disponible
     client = init_groq_client()
     if not client:
         return {
@@ -283,74 +243,120 @@ def get_ai_recommendations(
             "status": "no_api_key"
         }
 
-    # Paso 2: Preparar el contexto con la guia maestra
     system_prompt = build_system_prompt()
-
-    # Paso 3: Procesar cada columna que tenga problemas
-    all_recommendations = []
     columns = diagnostic.get("columns", [])
 
-    for col_data in columns:
-        column_name = col_data.get("column", "")
-        issues = col_data.get("issues", [])
-        inferred_domain = col_data.get("inferred_domain", "")
+    columns_with_issues = [
+        col for col in columns if col.get("issues")
+    ]
 
-        # Solo procesar columnas que tengan problemas
-        if not issues:
-            continue
+    if not columns_with_issues:
+        return {
+            "recommendations": [],
+            "message": "No se encontraron problemas de calidad",
+            "status": "success"
+        }
 
-        # Paso 4: Obtener valores de ejemplo de esta columna
-        sample_values = _get_sample_values(column_name, sample_rows)
+    user_prompt = _build_batch_prompt(columns_with_issues, sample_rows)
 
-        # Paso 5: Construir el prompt para esta columna
-        user_prompt = _build_prompt_for_column(
-            column_name=column_name,
-            issues=issues,
-            sample_values=sample_values,
-            inferred_domain=inferred_domain,
-            total_rows=col_data.get("total_rows", 0)
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_tokens=MAX_TOKENS,
+            temperature=TEMPERATURE,
+            response_format={"type": "json_object"}
         )
 
-        # Paso 6: Enviar a Groq y obtener respuesta
-        try:
-            response = client.chat.completions.create(
-                model=MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
+        response_text = response.choices[0].message.content
+        parsed = json.loads(response_text)
+
+        raw_recs = parsed.get("recommendations", [])
+        if isinstance(parsed, dict) and not raw_recs and any(
+            k in parsed for k in ("columns", "column")
+        ):
+            raw_recs = [parsed]
+
+        grouped: dict[str, list[dict]] = {}
+        for rec in raw_recs:
+            if not isinstance(rec, dict):
+                continue
+            col_name = rec.get("column", "unknown")
+            clean_rec = {
+                "category": rec.get("category", "UNKNOWN"),
+                "count": rec.get("count", 0),
+                "text": rec.get("text", "Sin justificacion"),
+                "action": rec.get("action", {}),
+                "confidence": min(max(rec.get("confidence", 0.5), 0.0), 1.0),
+            }
+            grouped.setdefault(col_name, []).append(clean_rec)
+
+        all_recommendations = []
+        for col_data in columns_with_issues:
+            col_name = col_data.get("column", "")
+            issues = col_data.get("issues", [])
+            recs_for_col = grouped.get(col_name, [])
+
+            if not recs_for_col:
+                recs_for_col = [
+                    {
+                        "category": iss.get("category", iss.get("category_code", "UNKNOWN")),
+                        "count": iss.get("count", 0),
+                        "text": f"Problema {iss.get('category_code', iss.get('category', ''))}: "
+                                f"{iss.get('count', 0)} ocurrencias. "
+                                f"Requiere revision manual.",
+                        "action": {
+                            "kind": "review_issue",
+                            "column": col_name,
+                            "reason": f"Problema {iss.get('category_code', '')} detectado por diagnostico",
+                        },
+                        "confidence": 0.3,
+                    }
+                    for iss in issues
+                ]
+
+            all_recommendations.append({
+                "column": col_name,
+                "inferred_domain": col_data.get("inferred_domain", ""),
+                "issues_summary": f"{len(issues)} problema(s) detectado(s)",
+                "recommendations": recs_for_col,
+            })
+
+        return {
+            "recommendations": all_recommendations,
+            "message": f"Procesadas {len(all_recommendations)} columnas con problemas",
+            "status": "success",
+        }
+
+    except Exception as e:
+        logger.error("Error en batch AI recommendation: %s", e)
+        all_recommendations = []
+        for col_data in columns_with_issues:
+            col_name = col_data.get("column", "")
+            issues = col_data.get("issues", [])
+            all_recommendations.append({
+                "column": col_name,
+                "inferred_domain": col_data.get("inferred_domain", ""),
+                "issues_summary": f"{len(issues)} problema(s) detectado(s)",
+                "recommendations": [
+                    {
+                        "category": iss.get("category_code", "UNKNOWN"),
+                        "count": iss.get("count", 0),
+                        "text": f"Error de IA: {e}. Problema detectado pero sin recomendacion automatica.",
+                        "action": {},
+                        "confidence": 0.1,
+                    }
+                    for iss in issues
                 ],
-                max_tokens=MAX_TOKENS,
-                temperature=TEMPERATURE,
-                response_format={"type": "json_object"}
-            )
-
-            # Paso 7: Extraer y parsear la respuesta
-            response_text = response.choices[0].message.content
-            parsed = _parse_ai_response(response_text)
-
-            # Paso 8: Agregar a la lista de recomendaciones
-            all_recommendations.append({
-                "column": column_name,
-                "inferred_domain": inferred_domain,
-                "issues_summary": f"{len(issues)} problema(s) detectado(s)",
-                "recommendations": parsed.get("recommendations", [])
             })
-
-        except Exception as e:
-            logger.error("Error al obtener recomendaciones para %s: %s", column_name, e)
-            all_recommendations.append({
-                "column": column_name,
-                "inferred_domain": inferred_domain,
-                "issues_summary": f"{len(issues)} problema(s) detectado(s)",
-                "recommendations": [],
-                "error": str(e)
-            })
-
-    return {
-        "recommendations": all_recommendations,
-        "message": f"Procesadas {len(all_recommendations)} columnas con problemas",
-        "status": "success"
-    }
+        return {
+            "recommendations": all_recommendations,
+            "message": f"Error de IA. {len(all_recommendations)} columnas con fallback manual.",
+            "status": "error",
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -366,30 +372,6 @@ def _build_prompt_for_column(
 ) -> str:
     """
     Construye el prompt especifico para una columna con problemas.
-
-    QUE HACE:
-    - Toma el nombre de la columna, los problemas y ejemplos
-    - Los formatea en un prompt claro para la IA
-    - Incluye informacion del dominio inferido
-
-    PARAMETROS:
-    - column_name: Nombre de la columna (ej: "edad")
-    - issues: Lista de problemas encontrados
-    - sample_values: Valores de ejemplo de la columna
-    - inferred_domain: Dominio inferido (ej: "age", "currency")
-    - total_rows: Numero total de filas
-
-    RETORNA:
-    - String con el prompt formateado
-
-    EJEMPLO:
-    >>> prompt = _build_prompt_for_column(
-    ...     column_name="edad",
-    ...     issues=[{"category_code": "MISSING", "count": 15}],
-    ...     sample_values=["25", "NA", "30"],
-    ...     inferred_domain="age",
-    ...     total_rows=100
-    ... )
     """
     issues_text = "\n".join([
         f"- {issue.get('category', '')}: {issue.get('count', 0)} ocurrencias ({issue.get('percentage', 0):.1f}%)"
@@ -419,6 +401,70 @@ IMPORTANTE:
 - Si hay multiples problemas, recomienda acciones para CADA uno
 - Prioriza acciones que no pierdan datos (imputar antes que eliminar)
 - Si hay dudas, indica confidence baja (< 0.5)"""
+
+
+def _build_batch_prompt(
+    columns_with_issues: list[dict[str, Any]],
+    sample_rows: list[dict[str, Any]] | None
+) -> str:
+    """
+    Construye UN SOLO prompt para todas las columnas con problemas.
+    Esto permite que Groq responda todo en una sola llamada.
+    """
+    parts = [
+        "ANALIZA TODAS LAS SIGUIENTES COLUMNAS Y RECOMIENDA ACCIONES DE LIMPIEZA PARA CADA UNA.",
+        "Responde con UN SOLO JSON que contenga todas las recomendaciones agrupadas por columna.",
+        "",
+    ]
+
+    for col_data in columns_with_issues:
+        col_name = col_data.get("column", "")
+        issues = col_data.get("issues", [])
+        domain = col_data.get("inferred_domain", "")
+        total = col_data.get("total_rows", 0)
+        sample_values = _get_sample_values(col_name, sample_rows)
+
+        issues_text = "\n".join([
+            f"  - {iss.get('category_code', iss.get('category', ''))}: "
+            f"{iss.get('count', 0)} ocurrencias ({iss.get('percentage', 0):.1f}%)"
+            for iss in issues
+        ])
+
+        samples_text = ", ".join(sample_values[:8]) if sample_values else "No disponibles"
+
+        parts.append(f"--- COLUMNA: {col_name} ---")
+        parts.append(f"Dominio: {domain or 'desconocido'} | Filas: {total}")
+        parts.append("Problemas:")
+        parts.append(issues_text)
+        parts.append(f"Ejemplos: {samples_text}")
+        parts.append("")
+
+    parts.append("FORMATO DE RESPUESTA JSON:")
+    parts.append("""{
+  "recommendations": [
+    {
+      "column": "nombre_columna",
+      "category": "MISSING",
+      "count": 10,
+      "text": "Justificacion tecnica (1-2 oraciones)",
+      "action": {
+        "kind": "tipo_de_accion",
+        "column": "nombre_columna",
+        "method": "metodo",
+        "reason": "Justificacion de la accion"
+      },
+      "confidence": 0.85
+    }
+  ]
+}""")
+
+    parts.append("")
+    parts.append("REGLAS:")
+    parts.append("- Genera recomendaciones para TODOS los problemas de TODAS las columnas")
+    parts.append("- Prioriza acciones que no pierdan datos")
+    parts.append("- Si hay dudas, confidence < 0.5")
+
+    return "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------
