@@ -7,6 +7,7 @@ export class Store {
       rowMeaning: "",
       analysisObjective: "",
       analysis: null,
+      diagnostic: null,
       cleaning: null,
       actions: [],
     };
@@ -38,6 +39,7 @@ export class Store {
       rowMeaning: "",
       analysisObjective: "",
       analysis: null,
+      diagnostic: null,
       cleaning: null,
       actions: [],
     };
@@ -63,6 +65,11 @@ export class Store {
     this.state.analysis = analysis;
     this.state.cleaning = null;
     this.state.actions = [];
+    this.saveState();
+  }
+
+  setDiagnostic(diagnostic) {
+    this.state.diagnostic = diagnostic;
     this.saveState();
   }
 

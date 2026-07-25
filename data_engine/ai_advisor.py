@@ -291,6 +291,7 @@ def get_ai_recommendations(
                 "text": rec.get("text", "Sin justificacion"),
                 "action": rec.get("action", {}),
                 "confidence": min(max(rec.get("confidence", 0.5), 0.0), 1.0),
+                "affected_rows": rec.get("affected_rows", []),
             }
             grouped.setdefault(col_name, []).append(clean_rec)
 
@@ -307,6 +308,7 @@ def get_ai_recommendations(
                         "count": iss.get("count", 0),
                         "text": f"Problema {iss.get('category_code', iss.get('category', ''))}: "
                                 f"{iss.get('count', 0)} ocurrencias. "
+                                f"Filas afectadas: {iss.get('affected_rows', [])[:10]}. "
                                 f"Requiere revision manual.",
                         "action": {
                             "kind": "review_issue",
@@ -314,6 +316,7 @@ def get_ai_recommendations(
                             "reason": f"Problema {iss.get('category_code', '')} detectado por diagnostico",
                         },
                         "confidence": 0.3,
+                        "affected_rows": iss.get("affected_rows", []),
                     }
                     for iss in issues
                 ]
@@ -409,11 +412,12 @@ def _build_batch_prompt(
 ) -> str:
     """
     Construye UN SOLO prompt para todas las columnas con problemas.
-    Esto permite que Groq responda todo en una sola llamada.
+    Incluye filas afectadas y valores específicos para cada problema.
     """
     parts = [
         "ANALIZA TODAS LAS SIGUIENTES COLUMNAS Y RECOMIENDA ACCIONES DE LIMPIEZA PARA CADA UNA.",
         "Responde con UN SOLO JSON que contenga todas las recomendaciones agrupadas por columna.",
+        "IMPORTANTE: Cada recomendacion debe incluir 'affected_rows' con los numeros de fila afectados.",
         "",
     ]
 
@@ -430,13 +434,39 @@ def _build_batch_prompt(
             for iss in issues
         ])
 
+        examples_text = ""
+        for iss in issues:
+            cat = iss.get('category_code', iss.get('category', ''))
+            exs = iss.get('examples', [])
+            rows = iss.get('affected_rows', [])
+            if exs:
+                ex_strs = []
+                for e in exs[:3]:
+                    if isinstance(e, dict):
+                        if 'row' in e and 'value' in e:
+                            ex_strs.append(f"    Fila {e['row']}: valor='{e['value']}'")
+                        elif 'row' in e and 'detail' in e:
+                            ex_strs.append(f"    Fila {e['row']}: {e['detail']}")
+                        elif 'row' in e and 'original' in e:
+                            ex_strs.append(f"    Fila {e['row']}: '{e['original']}' -> '{e.get('standard', '')}'")
+                        elif 'row' in e and 'format' in e:
+                            ex_strs.append(f"    Fila {e['row']}: formato='{e['format']}'")
+                        elif 'rows' in e:
+                            ex_strs.append(f"    Filas {e['rows']}: coinciden al {e.get('match', '?')}")
+                if ex_strs:
+                    examples_text += f"\n  [{cat}]:\n" + "\n".join(ex_strs)
+            elif rows:
+                examples_text += f"\n  [{cat}]: Filas afectadas: {rows[:8]}"
+
         samples_text = ", ".join(sample_values[:8]) if sample_values else "No disponibles"
 
         parts.append(f"--- COLUMNA: {col_name} ---")
         parts.append(f"Dominio: {domain or 'desconocido'} | Filas: {total}")
         parts.append("Problemas:")
         parts.append(issues_text)
-        parts.append(f"Ejemplos: {samples_text}")
+        if examples_text:
+            parts.append("Detalles por fila:" + examples_text)
+        parts.append(f"Ejemplos generales: {samples_text}")
         parts.append("")
 
     parts.append("FORMATO DE RESPUESTA JSON:")
@@ -446,7 +476,8 @@ def _build_batch_prompt(
       "column": "nombre_columna",
       "category": "MISSING",
       "count": 10,
-      "text": "Justificacion tecnica (1-2 oraciones)",
+      "affected_rows": [3, 7, 12, 15],
+      "text": "Justificacion tecnica (1-2 oraciones) con referencia a filas especificas",
       "action": {
         "kind": "tipo_de_accion",
         "column": "nombre_columna",
@@ -461,6 +492,8 @@ def _build_batch_prompt(
     parts.append("")
     parts.append("REGLAS:")
     parts.append("- Genera recomendaciones para TODOS los problemas de TODAS las columnas")
+    parts.append("- Cada recomendacion DEBE incluir 'affected_rows' con los numeros de fila")
+    parts.append("- En 'text', referencia las filas especificas (ej: 'Filas 3,7,12 tienen valores negativos')")
     parts.append("- Prioriza acciones que no pierdan datos")
     parts.append("- Si hay dudas, confidence < 0.5")
 

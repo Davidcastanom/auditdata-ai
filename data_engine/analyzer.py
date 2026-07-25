@@ -141,6 +141,7 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
         kind = action.get("kind")
         column = action.get("column", "")
         reason = action.get("reason", "").strip() or "Decision registrada sin detalle adicional."
+        target_rows = action.get("rows")  # Optional list[int] of 0-based row indices
 
         # Generate professional justification using Gemini if key is provided
         ai_reason = generate_ai_justification(column or "Dataset", kind, reason)
@@ -161,8 +162,11 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
             before_count = len(rows)
             dropped_rows = []
             kept_rows = []
-            for row in rows:
-                if _normalize_missing(row.get(column, "")) == "":
+            target_set = set(target_rows) if target_rows is not None else None
+            for idx, row in enumerate(rows):
+                is_missing = _normalize_missing(row.get(column, "")) == ""
+                in_target = target_set is None or idx in target_set
+                if is_missing and in_target:
                     dropped_rows.append(dict(row))
                 else:
                     kept_rows.append(row)
@@ -175,14 +179,18 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
                     "reason": ai_reason,
                     "changes": [{"row": str(row_id), "column": column, "old": "(vacio)", "new": "(fila eliminada)"}],
                 })
-            log.append(_log_entry(column, "Eliminar filas con faltantes", ai_reason, f"{before_count - len(rows)} filas eliminadas."))
+            scope = "filas especificas" if target_rows else "todas las filas"
+            log.append(_log_entry(column, "Eliminar filas con faltantes", ai_reason, f"{before_count - len(rows)} filas eliminadas ({scope})."))
 
         elif kind == "impute_missing" and column in headers:
             method = action.get("method", "mode")
             value = _imputation_value(rows, column, method, action.get("value"))
             changed = 0
-            for row in rows:
-                if _normalize_missing(row.get(column, "")) == "":
+            target_set = set(target_rows) if target_rows is not None else None
+            for idx, row in enumerate(rows):
+                is_missing = _normalize_missing(row.get(column, "")) == ""
+                in_target = target_set is None or idx in target_set
+                if is_missing and in_target:
                     old_val = row.get(column, "")
                     row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
                     changelog.append({
@@ -193,12 +201,17 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
                     })
                     row[column] = value
                     changed += 1
-            log.append(_log_entry(column, f"Imputar faltantes con {method}", ai_reason, f"{changed} valores reemplazados."))
+            scope = "filas especificas" if target_rows else "todas las vacias"
+            log.append(_log_entry(column, f"Imputar faltantes con {method}", ai_reason, f"{changed} valores reemplazados ({scope})."))
 
         elif kind == "standardize_text" and column in headers:
             mode = action.get("method", "title")
             changed = 0
-            for row in rows:
+            target_set = set(target_rows) if target_rows is not None else None
+            for idx, row in enumerate(rows):
+                in_target = target_set is None or idx in target_set
+                if not in_target:
+                    continue
                 original = str(row.get(column, ""))
                 updated = _standardize_text(original, mode)
                 if original != updated:
@@ -211,30 +224,72 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
                     })
                     row[column] = updated
                     changed += 1
-            log.append(_log_entry(column, f"Estandarizar texto ({mode})", ai_reason, f"{changed} celdas normalizadas."))
+            scope = "filas especificas" if target_rows else "todas las filas"
+            log.append(_log_entry(column, f"Estandarizar texto ({mode})", ai_reason, f"{changed} celdas normalizadas ({scope})."))
 
         elif kind == "remove_duplicate_rows":
             before_count = len(rows)
-            seen: set[tuple[str, ...]] = set()
-            clean_rows = []
-            for row in rows:
-                key = tuple(str(row.get(h, "")).strip() for h in headers)
-                if key not in seen:
-                    seen.add(key)
-                    clean_rows.append(row)
-                else:
-                    row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
-                    changelog.append({
-                        "action": "Eliminar duplicado",
-                        "column": "Dataset",
-                        "reason": ai_reason,
-                        "changes": [{"row": str(row_id), "column": "*", "old": "(fila duplicada)", "new": "(fila eliminada)"}],
-                    })
-            rows = clean_rows
-            log.append(_log_entry("Dataset", "Eliminar filas duplicadas", ai_reason, f"{before_count - len(rows)} filas duplicadas eliminadas."))
+            target_set = set(target_rows) if target_rows is not None else None
+            if target_set is not None:
+                clean_rows = []
+                for idx, row in enumerate(rows):
+                    if idx in target_set:
+                        row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+                        changelog.append({
+                            "action": "Eliminar duplicado (seleccionado)",
+                            "column": "Dataset",
+                            "reason": ai_reason,
+                            "changes": [{"row": str(row_id), "column": "*", "old": "(fila duplicada)", "new": "(fila eliminada)"}],
+                        })
+                    else:
+                        clean_rows.append(row)
+                rows = clean_rows
+                log.append(_log_entry("Dataset", "Eliminar filas duplicadas", ai_reason, f"{before_count - len(rows)} filas eliminadas (seleccionadas)."))
+            else:
+                seen: set[tuple[str, ...]] = set()
+                clean_rows = []
+                for row in rows:
+                    key = tuple(str(row.get(h, "")).strip() for h in headers)
+                    if key not in seen:
+                        seen.add(key)
+                        clean_rows.append(row)
+                    else:
+                        row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+                        changelog.append({
+                            "action": "Eliminar duplicado",
+                            "column": "Dataset",
+                            "reason": ai_reason,
+                            "changes": [{"row": str(row_id), "column": "*", "old": "(fila duplicada)", "new": "(fila eliminada)"}],
+                        })
+                rows = clean_rows
+                log.append(_log_entry("Dataset", "Eliminar filas duplicadas", ai_reason, f"{before_count - len(rows)} filas duplicadas eliminadas."))
 
         elif kind == "flag_outliers" and column in headers:
-            log.append(_log_entry(column, "Marcar outliers para revision", ai_reason, "Sin cambios destructivos en el dataset."))
+            if target_rows:
+                log.append(_log_entry(column, "Marcar outliers para revision", ai_reason, f"{len(target_rows)} filas marcadas para revision manual."))
+            else:
+                log.append(_log_entry(column, "Marcar outliers para revision", ai_reason, "Sin cambios destructivos en el dataset."))
+
+        elif kind == "replace_with_null" and column in headers:
+            changed = 0
+            target_set = set(target_rows) if target_rows is not None else None
+            for idx, row in enumerate(rows):
+                in_target = target_set is None or idx in target_set
+                if not in_target:
+                    continue
+                old_val = row.get(column, "")
+                if old_val:
+                    row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+                    changelog.append({
+                        "action": "Reemplazar con NULL",
+                        "column": column,
+                        "reason": ai_reason,
+                        "changes": [{"row": str(row_id), "column": column, "old": str(old_val), "new": "(null)"}],
+                    })
+                    row[column] = ""
+                    changed += 1
+            scope = "filas especificas" if target_rows else "todas las filas"
+            log.append(_log_entry(column, "Reemplazar valores con NULL", ai_reason, f"{changed} valores reemplazados ({scope})."))
 
         elif kind == "rename_column" and column in headers:
             new_name = action.get("value", "").strip()

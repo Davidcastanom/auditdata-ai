@@ -158,7 +158,6 @@ const router = new Router(goToStep);
 const nube = new NubeValidacion({
   container: els.nubeContainer,
   onActionReady: (action) => {
-    // Agregar accion a la lista de acciones del store
     store.addAction(action);
     renderLog();
     els.systemStatus.textContent = `Accion aceptada: ${action.kind}`;
@@ -166,6 +165,9 @@ const nube = new NubeValidacion({
   onAllReviewed: (actions) => {
     els.systemStatus.textContent = `${actions.length} acciones listas para depurar`;
     els.nextButton.disabled = false;
+  },
+  onDiagnosticReady: (diagnostic) => {
+    store.setDiagnostic(diagnostic);
   },
 });
 
@@ -381,8 +383,9 @@ const ACTION_DESCRIPTIONS = {
 };
 
 function renderCleaningBoard() {
+  const diagnostic = store.state.diagnostic;
   const analysis = store.state.analysis;
-  if (!analysis) return;
+  if (!diagnostic && !analysis) return;
   const cards = [];
   const appliedActions = store.state.actions;
 
@@ -390,124 +393,206 @@ function renderCleaningBoard() {
     return appliedActions.some(a => a.kind === kind && a.column === column);
   }
 
-  if (analysis.duplicate_rows > 0) {
-    const applied = isActionApplied("remove_duplicate_rows", "Dataset");
-    cards.push(`
-      <article class="decision-card decision-card--critical ${applied ? "decision-card--done" : ""}">
-        <span class="tag">Unicidad</span>
-        <h3>Filas duplicadas completas</h3>
-        <p class="action-desc">${ACTION_DESCRIPTIONS.remove_duplicate_rows}</p>
-        <p class="action-detail">Se detectaron <strong>${analysis.duplicate_rows}</strong> filas duplicadas.</p>
-        ${applied ? `
-          <div class="action-done">
-            <span class="status status--ok">Acción aplicada</span>
-          </div>
-        ` : `
-          <label>¿Por qué eliminas los duplicados?<input type="text" id="dedupeReason" placeholder="Ej. cada fila es un participante único" /></label>
-          <button class="button button--primary" type="button" id="dedupeButton">Eliminar duplicados</button>
-        `}
-      </article>`);
+  function isGroupActionApplied(kind, column, rowsKey) {
+    return appliedActions.some(a => a.kind === kind && a.column === column && a._rowsKey === rowsKey);
   }
 
-  for (const column of analysis.columns) {
-    const hasMissing = column.missing > 0;
-    const hasFormatIssues = column.detected_type !== "number" && column.format_issues > 0;
-    const hasOutliers = column.outliers > 0;
+  function renderIssueGroup(columnName, issue) {
+    const code = issue.category_code;
+    const rows = issue.affected_rows || [];
+    const examples = issue.examples || [];
+    const rowsKey = `${code}_${rows.join(',')}`;
+    const groupApplied = isGroupActionApplied(getActionForCategory(code), columnName, rowsKey);
 
-    if (!hasMissing && !hasFormatIssues && !hasOutliers) continue;
+    let rowsHtml = '';
+    if (rows.length > 0) {
+      const rowPreview = rows.slice(0, 8).join(', ');
+      const more = rows.length > 8 ? ` (+${rows.length - 8} mas)` : '';
+      rowsHtml = `<div class="depur-rows"><strong>Filas afectadas (${rows.length}):</strong> <code>${escapeHtml(rowPreview)}${more}</code></div>`;
+    }
 
-    let issuesList = [];
-    if (hasMissing) issuesList.push(`${column.missing} valores vacíos`);
-    if (hasFormatIssues) issuesList.push(`${column.format_issues} variantes de formato`);
-    if (hasOutliers) issuesList.push(`${column.outliers} valores atípicos`);
+    let examplesHtml = '';
+    if (examples.length > 0) {
+      const exStrs = examples.slice(0, 3).map(e => {
+        if (typeof e === 'object' && e !== null) {
+          if (e.row !== undefined && e.value !== undefined) return `Fila ${e.row}: ${escapeHtml(String(e.value))}`;
+          if (e.row !== undefined && e.detail) return `Fila ${e.row}: ${escapeHtml(e.detail)}`;
+          if (e.row !== undefined && e.original) return `Fila ${e.row}: "${escapeHtml(e.original)}" → "${escapeHtml(e.standard || '')}"`;
+          if (e.rows) return `Filas [${e.rows.join(', ')}]`;
+          if (e.value) return escapeHtml(String(e.value));
+          if (e.format) return escapeHtml(e.format);
+          if (e.error) return escapeHtml(e.error);
+        }
+        return escapeHtml(String(e));
+      });
+      examplesHtml = `<div class="depur-examples">Ejemplos: <code>${exStrs.join('</code>, <code>')}</code></div>`;
+    }
 
-    let actionsHtml = "";
-
-    if (hasMissing) {
-      const imputeApplied = isActionApplied("impute_missing", column.name);
-      const dropApplied = isActionApplied("drop_missing_rows", column.name);
-      actionsHtml += `
-        <div class="action-group">
-          <p class="action-group__title">Valores vacíos → ¿Qué hacemos?</p>
-          <p class="action-desc">${ACTION_DESCRIPTIONS.impute_missing}</p>
-          ${imputeApplied ? `
-            <div class="action-done">
-              <span class="status status--ok">Imputación aplicada</span>
-            </div>
-          ` : `
-            <div class="inline-controls">
-              <select data-impute-method="${escapeAttr(column.name)}">
-                <option value="mode">Rellenar con la moda (más frecuente)</option>
-                <option value="mean">Rellenar con el promedio</option>
-                <option value="median">Rellenar con la mediana</option>
-                <option value="custom">Rellenar con un valor que yo defina</option>
-              </select>
-              <input type="text" data-custom-value="${escapeAttr(column.name)}" placeholder="Valor personalizado (si aplica)" />
-            </div>
-            <label>¿Por qué imputas este valor?<input type="text" data-impute-reason="${escapeAttr(column.name)}" placeholder="Ej. solo el 5% están vacíos, es seguro rellenar" /></label>
-            <button class="button button--primary" type="button" data-impute="${escapeAttr(column.name)}">Imputar valores vacíos</button>
-          `}
-          ${!imputeApplied && !dropApplied ? `<p class="action-desc" style="margin-top:0.5rem">${ACTION_DESCRIPTIONS.drop_missing_rows}</p>` : ""}
-          ${dropApplied ? `
-            <div class="action-done">
-              <span class="status status--ok">Filas eliminadas</span>
-            </div>
-          ` : !imputeApplied ? `
-            <button class="button button--ghost" type="button" data-drop-missing="${escapeAttr(column.name)}">Eliminar filas con vacío</button>
-          ` : ""}
+    if (groupApplied) {
+      return `
+        <div class="depur-group depur-group--done">
+          <div class="depur-group__header">
+            <span class="depur-group__code">${escapeHtml(code)}</span>
+            <span class="depur-group__severity depur-group__severity--${issue.severity?.toLowerCase() || 'baja'}">${issue.severity || ''}</span>
+          </div>
+          <p class="depur-group__desc">${escapeHtml(issue.description || '')}</p>
+          ${rowsHtml}
+          ${examplesHtml}
+          <div class="action-done"><span class="status status--ok">Accion aplicada</span></div>
         </div>`;
     }
 
-    if (hasFormatIssues) {
-      const stdApplied = isActionApplied("standardize_text", column.name);
-      actionsHtml += `
-        <div class="action-group">
-          <p class="action-group__title">Variantes de texto → ¿Unificamos?</p>
-          <p class="action-desc">${ACTION_DESCRIPTIONS.standardize_text}</p>
-          ${stdApplied ? `
-            <div class="action-done">
-              <span class="status status--ok">Texto estandarizado</span>
-            </div>
-          ` : `
-            <div class="inline-controls">
-              <select data-standardize-method="${escapeAttr(column.name)}">
-                <option value="title">Capitalizar (primera letra mayúscula)</option>
-                <option value="upper">TODO EN MAYÚSCULAS</option>
-                <option value="lower">todo en minúsculas</option>
-              </select>
-            </div>
-            <label>¿Por qué unificas la escritura?<input type="text" data-standardize-reason="${escapeAttr(column.name)}" placeholder="Ej. 'Bogota' y 'bogota' son lo mismo" /></label>
-            <button class="button button--primary" type="button" data-standardize="${escapeAttr(column.name)}">Unificar escritura</button>
-          `}
-        </div>`;
-    }
-
-    if (hasOutliers) {
-      const flagApplied = isActionApplied("flag_outliers", column.name);
-      actionsHtml += `
-        <div class="action-group">
-          <p class="action-group__title">Valores atípicos → ¿Qué hacemos?</p>
-          <p class="action-desc">${ACTION_DESCRIPTIONS.flag_outliers}</p>
-          ${flagApplied ? `
-            <div class="action-done">
-              <span class="status status--ok">Marcado para revisión</span>
-            </div>
-          ` : `
-            <label>¿Por qué marcas estos valores?<input type="text" data-outlier-reason="${escapeAttr(column.name)}" placeholder="Ej. edad 450 no es posible, revisar fuente" /></label>
-            <button class="button button--ghost" type="button" data-flag-outliers="${escapeAttr(column.name)}">Marcar para revisión</button>
-          `}
-        </div>`;
-    }
-
-    cards.push(`
-      <article class="decision-card">
-        <div>
-          <span class="tag">${escapeHtml(column.name)}</span>
-          <h3>${escapeHtml(column.name)}</h3>
-          <p class="action-detail">${issuesList.join(" · ")}</p>
+    const actions = getActionsForCategory(code, columnName, rows, rowsKey);
+    return `
+      <div class="depur-group" data-code="${escapeHtml(code)}" data-column="${escapeHtml(columnName)}" data-rows-key="${escapeHtml(rowsKey)}">
+        <div class="depur-group__header">
+          <span class="depur-group__code">${escapeHtml(code)}</span>
+          <span class="depur-group__severity depur-group__severity--${issue.severity?.toLowerCase() || 'baja'}">${issue.severity || ''}</span>
+          <span class="depur-group__count">${issue.count} filas</span>
         </div>
-        ${actionsHtml}
-      </article>`);
+        <p class="depur-group__desc">${escapeHtml(issue.description || '')}</p>
+        ${rowsHtml}
+        ${examplesHtml}
+        <div class="depur-group__actions">${actions}</div>
+      </div>`;
+  }
+
+  function getActionForCategory(code) {
+    const map = {
+      'MISSING': 'impute_missing', 'HIDDEN_MISSING': 'impute_missing',
+      'NUMERIC_DOMAIN': 'replace_value', 'OUT_OF_RANGE': 'replace_value',
+      'DATE_INVALID': 'replace_value', 'TYPE_ERROR': 'convert_type',
+      'TEXT_ERROR': 'standardize_text', 'CATEGORICAL': 'standardize_synonyms',
+      'ENCODING': 'fix_encoding', 'SCIENTIFIC': 'convert_type',
+      'MULTI_VALUE': 'split_column', 'FORMULA_ERROR': 'replace_value',
+      'GHOST_CHAR': 'clean_ghost', 'BOOL_INCONSISTENCY': 'standardize_text',
+      'UNEXPECTED_TYPE': 'convert_type', 'TYPE_PER_CELL': 'convert_type',
+      'TEXT_TRUNCATION': 'flag_outliers', 'MIXED_LANG': 'standardize_text',
+      'UNIT_ERROR': 'standardize_text', 'DUPLICATE': 'remove_duplicate_rows',
+    };
+    return map[code] || 'flag_outliers';
+  }
+
+  function getActionsForCategory(code, column, rows, rowsKey) {
+    const rowStr = rows.slice(0, 10).join(', ');
+    const more = rows.length > 10 ? ` (+${rows.length - 10} mas)` : '';
+
+    if (code === 'MISSING' || code === 'HIDDEN_MISSING') {
+      return `
+        <div class="depur-actions-row">
+          <select class="depur-select" data-depur-method="${escapeAttr(column)}">
+            <option value="mode">Moda</option><option value="mean">Promedio</option>
+            <option value="median">Mediana</option><option value="custom">Valor custom</option>
+          </select>
+          <button class="button button--primary button--sm" data-depur-impute="${escapeAttr(column)}" data-rows="${escapeAttr(rows.join(','))}" data-rows-key="${escapeAttr(rowsKey)}" type="button">Imputar</button>
+          <button class="button button--ghost button--sm" data-depur-drop="${escapeAttr(column)}" data-rows="${escapeAttr(rows.join(','))}" data-rows-key="${escapeAttr(rowsKey)}" type="button">Eliminar filas</button>
+        </div>`;
+    }
+    if (code === 'TEXT_ERROR' || code === 'CATEGORICAL' || code === 'BOOL_INCONSISTENCY' || code === 'MIXED_LANG') {
+      return `
+        <div class="depur-actions-row">
+          <select class="depur-select" data-depur-std-method="${escapeAttr(column)}">
+            <option value="title">Title Case</option><option value="upper">MAYUSCULAS</option>
+            <option value="lower">minusculas</option>
+          </select>
+          <button class="button button--primary button--sm" data-depur-standardize="${escapeAttr(column)}" data-rows="${escapeAttr(rows.join(','))}" data-rows-key="${escapeAttr(rowsKey)}" type="button">Unificar</button>
+        </div>`;
+    }
+    if (['NUMERIC_DOMAIN', 'OUT_OF_RANGE', 'DATE_INVALID', 'FORMULA_ERROR'].includes(code)) {
+      return `
+        <div class="depur-actions-row">
+          <button class="button button--primary button--sm" data-depur-replace-null="${escapeAttr(column)}" data-rows="${escapeAttr(rows.join(','))}" data-rows-key="${escapeAttr(rowsKey)}" type="button">Reemplazar con NULL</button>
+          <button class="button button--ghost button--sm" data-depur-drop="${escapeAttr(column)}" data-rows="${escapeAttr(rows.join(','))}" data-rows-key="${escapeAttr(rowsKey)}" type="button">Eliminar filas</button>
+        </div>`;
+    }
+    if (code === 'DUPLICATE') {
+      return `
+        <div class="depur-actions-row">
+          <button class="button button--primary button--sm" data-depur-dedup data-rows="${escapeAttr(rows.join(','))}" data-rows-key="${escapeAttr(rowsKey)}" type="button">Eliminar duplicados</button>
+        </div>`;
+    }
+    return `
+      <div class="depur-actions-row">
+        <button class="button button--ghost button--sm" data-depur-flag="${escapeAttr(column)}" data-rows="${escapeAttr(rows.join(','))}" data-rows-key="${escapeAttr(rowsKey)}" type="button">Marcar para revision</button>
+      </div>`;
+  }
+
+  if (diagnostic && diagnostic.columns) {
+    for (const col of diagnostic.columns) {
+      if (col.column === '__dataset__') {
+        for (const issue of (col.issues || [])) {
+          const rows = issue.affected_rows || [];
+          const groupApplied = isActionApplied("remove_duplicate_rows", "Dataset");
+          cards.push(`
+            <article class="decision-card decision-card--critical ${groupApplied ? "decision-card--done" : ""}">
+              <span class="tag">Unicidad</span>
+              <h3>Filas duplicadas completas</h3>
+              <p class="action-desc">${escapeHtml(issue.description || '')}</p>
+              ${groupApplied ? `<div class="action-done"><span class="status status--ok">Accion aplicada</span></div>` : `
+                <div class="depur-rows"><strong>Filas duplicadas (${rows.length}):</strong> <code>${escapeHtml(rows.slice(0, 15).join(', '))}${rows.length > 15 ? ` (+${rows.length - 15})` : ''}</code></div>
+                <label>Justificacion:<input type="text" id="dedupeReason" placeholder="Ej. cada fila es un participante unico" /></label>
+                <button class="button button--primary" type="button" id="dedupeButton">Eliminar duplicados</button>
+              `}
+            </article>`);
+        }
+        continue;
+      }
+
+      const issues = (col.issues || []).filter(i => i.count > 0);
+      if (issues.length === 0) continue;
+
+      cards.push(`
+        <article class="decision-card">
+          <div>
+            <span class="tag">${escapeHtml(col.column)}</span>
+            <h3>${escapeHtml(col.column)}</h3>
+            <p class="action-detail">${col.inferred_domain ? `Dominio: ${escapeHtml(col.inferred_domain)} · ` : ''}${issues.length} problema${issues.length !== 1 ? 's' : ''} de ${new Set(issues.map(i => i.category_code)).size} categorias</p>
+          </div>
+          <div class="depur-issues-list">
+            ${issues.map(issue => renderIssueGroup(col.column, issue)).join('')}
+          </div>
+        </article>`);
+    }
+  } else if (analysis) {
+    if (analysis.duplicate_rows > 0) {
+      const applied = isActionApplied("remove_duplicate_rows", "Dataset");
+      cards.push(`
+        <article class="decision-card decision-card--critical ${applied ? "decision-card--done" : ""}">
+          <span class="tag">Unicidad</span>
+          <h3>Filas duplicadas completas</h3>
+          <p class="action-desc">${ACTION_DESCRIPTIONS.remove_duplicate_rows}</p>
+          <p class="action-detail">Se detectaron <strong>${analysis.duplicate_rows}</strong> filas duplicadas.</p>
+          ${applied ? `<div class="action-done"><span class="status status--ok">Accion aplicada</span></div>` : `
+            <label>Justificacion:<input type="text" id="dedupeReason" placeholder="Ej. cada fila es un participante unico" /></label>
+            <button class="button button--primary" type="button" id="dedupeButton">Eliminar duplicados</button>
+          `}
+        </article>`);
+    }
+    for (const column of analysis.columns) {
+      const hasMissing = column.missing > 0;
+      const hasFormatIssues = column.detected_type !== "number" && column.format_issues > 0;
+      const hasOutliers = column.outliers > 0;
+      if (!hasMissing && !hasFormatIssues && !hasOutliers) continue;
+      let issuesList = [];
+      if (hasMissing) issuesList.push(`${column.missing} valores vacios`);
+      if (hasFormatIssues) issuesList.push(`${column.format_issues} variantes de formato`);
+      if (hasOutliers) issuesList.push(`${column.outliers} valores atipicos`);
+      let actionsHtml = "";
+      if (hasMissing) {
+        const imputeApplied = isActionApplied("impute_missing", column.name);
+        const dropApplied = isActionApplied("drop_missing_rows", column.name);
+        actionsHtml += `<div class="action-group"><p class="action-group__title">Valores vacios</p>${imputeApplied ? `<div class="action-done"><span class="status status--ok">Imputacion aplicada</span></div>` : `<div class="inline-controls"><select data-impute-method="${escapeAttr(column.name)}"><option value="mode">Moda</option><option value="mean">Promedio</option><option value="median">Mediana</option><option value="custom">Custom</option></select><input type="text" data-custom-value="${escapeAttr(column.name)}" placeholder="Valor custom" /></div><label>Justificacion:<input type="text" data-impute-reason="${escapeAttr(column.name)}" placeholder="Ej. solo 5% vacios" /></label><button class="button button--primary" type="button" data-impute="${escapeAttr(column.name)}">Imputar</button>`}${!imputeApplied && !dropApplied ? `<button class="button button--ghost" type="button" data-drop-missing="${escapeAttr(column.name)}">Eliminar filas</button>` : ''}</div>`;
+      }
+      if (hasFormatIssues) {
+        const stdApplied = isActionApplied("standardize_text", column.name);
+        actionsHtml += `<div class="action-group"><p class="action-group__title">Formato</p>${stdApplied ? `<div class="action-done"><span class="status status--ok">Estandarizado</span></div>` : `<div class="inline-controls"><select data-standardize-method="${escapeAttr(column.name)}"><option value="title">Title</option><option value="upper">UPPER</option><option value="lower">lower</option></select></div><button class="button button--primary" type="button" data-standardize="${escapeAttr(column.name)}">Unificar</button>`}</div>`;
+      }
+      if (hasOutliers) {
+        const flagApplied = isActionApplied("flag_outliers", column.name);
+        actionsHtml += `<div class="action-group"><p class="action-group__title">Outliers</p>${flagApplied ? `<div class="action-done"><span class="status status--ok">Marcado</span></div>` : `<button class="button button--ghost" type="button" data-flag-outliers="${escapeAttr(column.name)}">Marcar para revision</button>`}</div>`;
+      }
+      cards.push(`<article class="decision-card"><div><span class="tag">${escapeHtml(column.name)}</span><h3>${escapeHtml(column.name)}</h3><p class="action-detail">${issuesList.join(' . ')}</p></div>${actionsHtml}</article>`);
+    }
   }
 
   els.cleaningBoard.innerHTML = cards.length ? cards.join("") : `<p class="empty-state">No se detectaron problemas. Puedes avanzar a la siguiente etapa.</p>`;
@@ -531,7 +616,7 @@ function bindCleaningActions() {
         column,
         method: document.querySelector(`[data-impute-method="${cssEscape(column)}"]`)?.value || "mode",
         value: document.querySelector(`[data-custom-value="${cssEscape(column)}"]`)?.value || "",
-        reason: document.querySelector(`[data-impute-reason="${cssEscape(column)}"]`)?.value || "Imputación documentada por el analista.",
+        reason: document.querySelector(`[data-impute-reason="${cssEscape(column)}"]`)?.value || "Imputacion documentada por el analista.",
       });
     });
   });
@@ -542,7 +627,7 @@ function bindCleaningActions() {
       addAction({
         kind: "drop_missing_rows",
         column,
-        reason: document.querySelector(`[data-impute-reason="${cssEscape(column)}"]`)?.value || "Filas eliminadas por faltante crítico.",
+        reason: document.querySelector(`[data-impute-reason="${cssEscape(column)}"]`)?.value || "Filas eliminadas por faltante critico.",
       });
     });
   });
@@ -554,7 +639,7 @@ function bindCleaningActions() {
         kind: "standardize_text",
         column,
         method: document.querySelector(`[data-standardize-method="${cssEscape(column)}"]`)?.value || "title",
-        reason: document.querySelector(`[data-standardize-reason="${cssEscape(column)}"]`)?.value || "Estandarización para consistencia categórica.",
+        reason: document.querySelector(`[data-standardize-reason="${cssEscape(column)}"]`)?.value || "Estandarizacion para consistencia.",
       });
     });
   });
@@ -565,8 +650,107 @@ function bindCleaningActions() {
       addAction({
         kind: "flag_outliers",
         column,
-        reason: document.querySelector(`[data-outlier-reason="${cssEscape(column)}"]`)?.value || "Outlier marcado para validación con negocio.",
+        reason: document.querySelector(`[data-outlier-reason="${cssEscape(column)}"]`)?.value || "Outlier marcado para validacion.",
       });
+    });
+  });
+
+  document.querySelectorAll("[data-depur-impute]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const column = button.dataset.depurImpute;
+      const rows = (button.dataset.rows || "").split(",").map(Number).filter(n => !isNaN(n));
+      const method = document.querySelector(`[data-depur-method="${cssEscape(column)}"]`)?.value || "mode";
+      const rowsKey = button.dataset.rowsKey || "";
+      addAction({
+        kind: "impute_missing",
+        column,
+        method,
+        rows,
+        _rowsKey: rowsKey,
+        reason: `Imputacion de ${rows.length} filas especificas con metodo ${method}.`,
+      });
+      renderCleaningBoard();
+    });
+  });
+
+  document.querySelectorAll("[data-depur-drop]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const column = button.dataset.depurDrop;
+      const rows = (button.dataset.rows || "").split(",").map(Number).filter(n => !isNaN(n));
+      const rowsKey = button.dataset.rowsKey || "";
+      addAction({
+        kind: "drop_missing_rows",
+        column,
+        rows,
+        _rowsKey: rowsKey,
+        reason: `Eliminacion de ${rows.length} filas con inconsistencias.`,
+      });
+      renderCleaningBoard();
+    });
+  });
+
+  document.querySelectorAll("[data-depur-standardize]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const column = button.dataset.depurStandardize;
+      const rows = (button.dataset.rows || "").split(",").map(Number).filter(n => !isNaN(n));
+      const method = document.querySelector(`[data-depur-std-method="${cssEscape(column)}"]`)?.value || "title";
+      const rowsKey = button.dataset.rowsKey || "";
+      addAction({
+        kind: "standardize_text",
+        column,
+        method,
+        rows,
+        _rowsKey: rowsKey,
+        reason: `Estandarizacion de ${rows.length} filas con metodo ${method}.`,
+      });
+      renderCleaningBoard();
+    });
+  });
+
+  document.querySelectorAll("[data-depur-replace-null]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const column = button.dataset.depurReplaceNull;
+      const rows = (button.dataset.rows || "").split(",").map(Number).filter(n => !isNaN(n));
+      const rowsKey = button.dataset.rowsKey || "";
+      addAction({
+        kind: "replace_with_null",
+        column,
+        rows,
+        _rowsKey: rowsKey,
+        reason: `Reemplazo con NULL de ${rows.length} valores problematicos.`,
+      });
+      renderCleaningBoard();
+    });
+  });
+
+  document.querySelectorAll("[data-depur-flag]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const column = button.dataset.depurFlag;
+      const rows = (button.dataset.rows || "").split(",").map(Number).filter(n => !isNaN(n));
+      const rowsKey = button.dataset.rowsKey || "";
+      addAction({
+        kind: "flag_outliers",
+        column,
+        rows,
+        _rowsKey: rowsKey,
+        reason: `Marcado ${rows.length} filas para revision manual.`,
+      });
+      renderCleaningBoard();
+    });
+  });
+
+  document.querySelectorAll("[data-depur-dedup]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const rows = (button.dataset.rows || "").split(",").map(Number).filter(n => !isNaN(n));
+      const rowsKey = button.dataset.rowsKey || "";
+      addAction({
+        kind: "remove_duplicate_rows",
+        column: "Dataset",
+        rows,
+        _rowsKey: rowsKey,
+        reason: `Eliminacion de ${rows.length} filas duplicadas.`,
+      });
+      renderCleaningBoard();
     });
   });
 }

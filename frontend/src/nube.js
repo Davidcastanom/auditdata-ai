@@ -20,6 +20,7 @@ export class NubeValidacion {
     this.container = options.container;
     this.onActionReady = options.onActionReady || (() => {});
     this.onAllReviewed = options.onAllReviewed || (() => {});
+    this.onDiagnosticReady = options.onDiagnosticReady || (() => {});
 
     this.recommendations = [];
     this.reviewedCount = 0;
@@ -42,6 +43,36 @@ export class NubeValidacion {
     const d = document.createElement('div');
     d.textContent = str;
     return d.innerHTML;
+  }
+
+  _renderExample(e) {
+    if (typeof e === 'string') return this._escHtml(e);
+    if (!e || typeof e !== 'object') return String(e);
+    if (e.row !== undefined && e.value !== undefined) {
+      return `Fila ${e.row}: ${this._escHtml(String(e.value))}`;
+    }
+    if (e.row !== undefined && e.detail !== undefined) {
+      return `Fila ${e.row}: ${this._escHtml(e.detail)}`;
+    }
+    if (e.row !== undefined && e.format !== undefined) {
+      return `Fila ${e.row}: ${this._escHtml(e.format)} (${e.count || 0})`;
+    }
+    if (e.row !== undefined && e.original !== undefined && e.standard !== undefined) {
+      return `Fila ${e.row}: "${this._escHtml(e.original)}" → "${this._escHtml(e.standard)}"`;
+    }
+    if (e.row !== undefined && e.meaning !== undefined) {
+      return `Fila ${e.row}: ${this._escHtml(e.value)} = ${this._escHtml(e.meaning)}`;
+    }
+    if (e.row !== undefined && e.error !== undefined) {
+      return `Fila ${e.row}: ${this._escHtml(e.error)} (${e.count || 0})`;
+    }
+    if (e.rows !== undefined && e.match !== undefined) {
+      return `Filas [${e.rows.join(", ")}] (${e.match})`;
+    }
+    if (e.value !== undefined) return this._escHtml(String(e.value));
+    if (e.format !== undefined) return `${this._escHtml(e.format)} (${e.count || 0})`;
+    if (e.error !== undefined) return `${this._escHtml(e.error)} (${e.count || 0})`;
+    return this._escHtml(JSON.stringify(e));
   }
 
   /**
@@ -153,6 +184,7 @@ export class NubeValidacion {
       this.diagnosticData = data.diagnostic;
       this.reviewedCount = 0;
       this.acceptedActions = [];
+      this.onDiagnosticReady(this.diagnosticData);
 
       this._renderManualView();
     } catch (error) {
@@ -180,6 +212,7 @@ export class NubeValidacion {
           </div>
         </div>
         <div class="nube-actions-global">
+          <button class="nube-btn nube-btn--ghost nube-btn--skip" id="nubeSkipValidation" type="button">Omitir validación</button>
           <button class="nube-btn nube-btn--ghost" id="nubeAcceptAll" type="button">Aceptar todas</button>
           <button class="nube-btn nube-btn--ghost nube-btn--danger" id="nubeRejectAll" type="button">Rechazar todas</button>
         </div>
@@ -223,6 +256,7 @@ export class NubeValidacion {
           </div>
         </div>
         <div class="nube-actions-global">
+          <button class="nube-btn nube-btn--ghost nube-btn--skip" id="nubeSkipManual" type="button">Omitir validación</button>
           <button class="nube-btn nube-btn--ghost" id="nubeSelectAllManual" type="button">Seleccionar todo</button>
           <button class="nube-btn nube-btn--ghost nube-btn--danger" id="nubeDeselectAll" type="button">Limpiar seleccion</button>
         </div>
@@ -272,7 +306,12 @@ export class NubeValidacion {
                   <p class="nube-manual-issue__desc">${this._escHtml(issue.description || '')}</p>
                   ${issue.examples && issue.examples.length > 0 ? `
                     <div class="nube-manual-issue__examples">
-                      Ejemplos: <code>${issue.examples.slice(0, 3).map(e => this._escHtml(String(e))).join('</code>, <code>')}</code>
+                      Ejemplos: <code>${issue.examples.slice(0, 3).map(e => this._renderExample(e)).join('</code>, <code>')}</code>
+                    </div>
+                  ` : ''}
+                  ${issue.affected_rows && issue.affected_rows.length > 0 ? `
+                    <div class="nube-manual-issue__affected">
+                      Filas afectadas: <code>${issue.affected_rows.slice(0, 10).join(', ')}</code>${issue.affected_rows.length > 10 ? ` (+${issue.affected_rows.length - 10} mas)` : ''}
                     </div>
                   ` : ''}
                 </div>
@@ -291,6 +330,7 @@ export class NubeValidacion {
     const selectAll = this.container.querySelector('#nubeSelectAllManual');
     const deselectAll = this.container.querySelector('#nubeDeselectAll');
     const confirmBtn = this.container.querySelector('#nubeManualConfirm');
+    const skipManual = this.container.querySelector('#nubeSkipManual');
 
     if (selectAll) selectAll.addEventListener('click', () => {
       checks.forEach(ch => { ch.checked = true; });
@@ -301,6 +341,7 @@ export class NubeValidacion {
       this._updateManualProgress();
     });
     if (confirmBtn) confirmBtn.addEventListener('click', () => this._confirmManualSelection());
+    if (skipManual) skipManual.addEventListener('click', () => this._handleSkipValidation());
   }
 
   _updateManualProgress() {
@@ -347,8 +388,10 @@ export class NubeValidacion {
 
     const acceptAll = this.container.querySelector('#nubeAcceptAll');
     const rejectAll = this.container.querySelector('#nubeRejectAll');
+    const skipValidation = this.container.querySelector('#nubeSkipValidation');
     if (acceptAll) acceptAll.addEventListener('click', () => this._handleAcceptAll());
     if (rejectAll) rejectAll.addEventListener('click', () => this._handleRejectAll());
+    if (skipValidation) skipValidation.addEventListener('click', () => this._handleSkipValidation());
   }
 
   _handleAIAction(action, id) {
@@ -360,9 +403,19 @@ export class NubeValidacion {
     const rec = this._findRec(id);
     if (!rec) return;
 
+    const prevStatus = el.dataset.status;
     el.dataset.status = action;
     el.classList.add(`nube-rec--${action}`);
-    el.querySelectorAll('.nube-btn').forEach(b => b.disabled = true);
+
+    const buttons = el.querySelectorAll('.nube-btn');
+    buttons.forEach(b => b.disabled = true);
+
+    const undoBtn = document.createElement('button');
+    undoBtn.className = 'nube-btn nube-btn--undo';
+    undoBtn.type = 'button';
+    undoBtn.textContent = 'Deshacer';
+    undoBtn.addEventListener('click', () => this._handleUndoAI(id, prevStatus, rec, action));
+    el.querySelector('.nube-rec__buttons').appendChild(undoBtn);
 
     this.reviewedCount++;
     this._updateProgress();
@@ -376,6 +429,7 @@ export class NubeValidacion {
         value: rec.action?.value || '',
         original_confidence: rec.confidence || 0.5,
         ai_text: rec.text || '',
+        _recId: id,
       };
       this.acceptedActions.push(actionData);
       this.onActionReady(actionData);
@@ -383,6 +437,34 @@ export class NubeValidacion {
 
     if (this.reviewedCount >= this._getTotalRecs()) {
       this.onAllReviewed(this.acceptedActions);
+    }
+  }
+
+  _handleUndoAI(id, prevStatus, rec, prevAction) {
+    const el = this.container.querySelector(`[data-rec-id="${id}"]`);
+    if (!el) return;
+
+    el.dataset.status = 'pending';
+    el.classList.remove(`nube-rec--${prevAction}`);
+
+    const undoBtn = el.querySelector('.nube-btn--undo');
+    if (undoBtn) undoBtn.remove();
+
+    el.querySelectorAll('.nube-btn').forEach(b => {
+      if (b.dataset.action) b.disabled = false;
+    });
+
+    this.reviewedCount = Math.max(0, this.reviewedCount - 1);
+
+    if (prevAction === 'accept' || prevAction === 'modify') {
+      this.acceptedActions = this.acceptedActions.filter(a => a._recId !== id);
+    }
+
+    this._updateProgress();
+
+    const nextBtn = document.querySelector('#nextButton') || document.querySelector('[data-action="next"]');
+    if (nextBtn && this.reviewedCount < this._getTotalRecs()) {
+      nextBtn.disabled = true;
     }
   }
 
@@ -396,6 +478,12 @@ export class NubeValidacion {
     this.container.querySelectorAll('.nube-rec[data-status="pending"]').forEach(el => {
       this._handleAIAction('reject', el.dataset.recId);
     });
+  }
+
+  _handleSkipValidation() {
+    this.acceptedActions = [];
+    this.reviewedCount = this._getTotalRecs();
+    this.onAllReviewed([]);
   }
 
   // --- Renderers IA ---
@@ -429,6 +517,7 @@ export class NubeValidacion {
     const confidence = Math.round((rec.confidence || 0.5) * 100);
     const cClass = confidence >= 80 ? 'high' : confidence >= 50 ? 'medium' : 'low';
     const sev = this._getSeverity(rec.category);
+    const affectedRows = rec.affected_rows || [];
 
     return `
       <div class="nube-rec" data-rec-id="${id}" data-status="pending">
@@ -436,6 +525,7 @@ export class NubeValidacion {
           <div class="nube-rec__category">
             <span class="nube-rec__severity nube-rec__severity--${sev}">${sev}</span>
             <span class="nube-rec__cat-name">${this._escHtml(rec.category)}</span>
+            ${affectedRows.length > 0 ? `<span class="nube-rec__affected-count">${affectedRows.length} filas</span>` : ''}
           </div>
           <div class="nube-rec__confidence">
             <div class="nube-confidence-bar"><div class="nube-confidence-fill nube-confidence-fill--${cClass}" style="width:${confidence}%"></div></div>
@@ -447,6 +537,14 @@ export class NubeValidacion {
             <label class="nube-rec__label">Recomendacion de IA:</label>
             <div class="nube-rec__editable" contenteditable="true" data-field="text">${this._escHtml(rec.text || '')}</div>
           </div>
+          ${affectedRows.length > 0 ? `
+            <div class="nube-rec__affected">
+              <label class="nube-rec__label">Filas afectadas:</label>
+              <div class="nube-rec__affected-rows">
+                <code>${affectedRows.slice(0, 12).join(', ')}${affectedRows.length > 12 ? ` (+${affectedRows.length - 12} mas)` : ''}</code>
+              </div>
+            </div>
+          ` : ''}
           ${rec.action && Object.keys(rec.action).length > 0 ? `
             <div class="nube-rec__action">
               <label class="nube-rec__label">Accion sugerida:</label>
