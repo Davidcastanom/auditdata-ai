@@ -10,6 +10,9 @@ matplotlib>=3.7.0
 supabase>=2.0.0
 PyJWT[crypto]>=2.8.0
 
+# AI
+groq>=0.13.0
+
 # Dev / CI
 ruff>=0.1.0
 # pytest>=7.0.0

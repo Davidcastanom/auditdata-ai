@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 DOMAIN_PATTERNS: list[dict[str, Any]] = [
     {
         "domain": "age",
@@ -185,7 +184,6 @@ COUNTRY_SYNONYMS: dict[str, str] = {
     "uruguay": "Uruguay", "uy": "Uruguay",
     "espana": "Espana", "españa": "Espana", "es": "Espana", "spain": "Espana",
     "portugal": "Portugal", "pt": "Portugal",
-    "brasil": "Brasil", "brazil": "Brasil",
     "china": "China", "cn": "China",
     "japon": "Japon", "japón": "Japon", "jp": "Japon",
     "alemania": "Alemania", "de": "Alemania", "germany": "Alemania",
@@ -223,8 +221,7 @@ MISSING_TOKENS_EXTENDED: set[str] = {
     "", "na", "n/a", "null", "none", "nan", "-", "n/d", "nd",
     "sin dato", "sin datos", "no aplica", "no disponible",
     "desconocido", "pendiente", "no reportado", "missing",
-    "?", "9999", "-1", "--", "n/a", "na",
-    "s/d", "s/dato", "no aplica", "n/r",
+    "?", "9999", "-1", "--", "s/d", "s/dato", "n/r",
     " ", "  ", "\t", "\n",
 }
 

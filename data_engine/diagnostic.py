@@ -11,18 +11,12 @@ Each column returns a verdict:
 from __future__ import annotations
 
 import re
-import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
 from .domain_rules import (
-    BOOLEAN_SYNONYMS,
-    COUNTRY_SYNONYMS,
-    DATE_FORMATS,
     EXCEL_FORMULA_ERRORS,
-    GENDER_SYNONYMS,
-    MISSING_TOKENS_EXTENDED,
     MULTIVALUE_SEPARATORS,
     detect_date_format,
     get_country_synonym,
@@ -305,9 +299,7 @@ def _check_numeric_domain_violations(
             continue
         try:
             num = float(v_stripped.replace(",", "."))
-            if min_val is not None and num < min_val:
-                violations.append(v_stripped)
-            elif max_val is not None and num > max_val:
+            if min_val is not None and num < min_val or max_val is not None and num > max_val:
                 violations.append(v_stripped)
         except (ValueError, TypeError):
             continue
@@ -384,8 +376,6 @@ def _check_categorical_inconsistency(
     non_empty = [v.strip() for v in values if v.strip()]
     if not non_empty:
         return issues
-
-    counter = Counter(v.lower() for v in non_empty)
 
     if domain_info and domain_info["domain"] == "gender":
         synonyms = Counter()
@@ -543,9 +533,7 @@ def _check_out_of_range(
             continue
         try:
             num = float(v_stripped.replace(",", "."))
-            if min_val is not None and num < min_val:
-                out_of_range.append(v_stripped)
-            elif max_val is not None and num > max_val:
+            if min_val is not None and num < min_val or max_val is not None and num > max_val:
                 out_of_range.append(v_stripped)
         except (ValueError, TypeError):
             continue
@@ -778,7 +766,7 @@ def _check_coleccion_inconsistencia(
                 category="Inconsistencia de tipo por celda",
                 category_code="TYPE_PER_CELL",
                 severity="ALTA",
-                count=text_count if numeric_count > text_count else numeric_count,
+                count=min(numeric_count, text_count),
                 total_rows=total,
                 percentage=min(numeric_count, text_count) / total * 100 if total > 0 else 0,
                 description=f"Columna mezcla tipos: {numeric_count} numeros, {text_count} textos",
@@ -803,9 +791,7 @@ def _check_type_per_cell(
 
     wrong_type = []
     for v in non_empty:
-        if expected == "number" and not _is_numeric(v):
-            wrong_type.append(v)
-        elif expected == "date" and not date_pattern.search(v):
+        if expected == "number" and not _is_numeric(v) or expected == "date" and not date_pattern.search(v):
             wrong_type.append(v)
 
     if wrong_type and len(wrong_type) < len(non_empty):

@@ -50,8 +50,8 @@ VERSION: 1.0
 from __future__ import annotations
 
 import json
-import os
 import logging
+import os
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -552,7 +552,7 @@ def _parse_ai_response(response_text: str) -> dict[str, Any]:
             "recommendations": [{
                 "category": "ERROR",
                 "count": 0,
-                "text": f"Error al procesar respuesta: {str(e)}",
+                "text": f"Error al procesar respuesta: {e!s}",
                 "action": {},
                 "confidence": 0.0
             }]

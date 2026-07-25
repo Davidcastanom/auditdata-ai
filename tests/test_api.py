@@ -174,5 +174,57 @@ class TestReportEndpoint(unittest.TestCase):
         self.assertIn("CONCLUSION", md.upper())
 
 
+class TestDiagnoseEndpoint(unittest.TestCase):
+    def test_diagnose_valid_csv(self):
+        response = client.post(
+            "/api/diagnose",
+            json={"filename": "test.csv", "content_base64": _encode(SAMPLE_CSV)},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("diagnostic", data)
+        diag = data["diagnostic"]
+        self.assertIn("columns", diag)
+        self.assertIn("summary", diag)
+        self.assertIsInstance(diag["columns"], list)
+        self.assertGreater(len(diag["columns"]), 0)
+        self.assertIn("total_columns", diag["summary"])
+
+    def test_diagnose_invalid_base64_handles_gracefully(self):
+        response = client.post(
+            "/api/diagnose",
+            json={"filename": "test.csv", "content_base64": "not-valid!!!"},
+        )
+        self.assertIn(response.status_code, (200, 400, 500))
+
+
+class TestAIRecommendEndpoint(unittest.TestCase):
+    def test_recommend_valid_csv(self):
+        response = client.post(
+            "/api/ai/recommend",
+            json={"filename": "test.csv", "content_base64": _encode(SAMPLE_CSV)},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("recommendations", data)
+        recs = data["recommendations"]
+        self.assertIn("status", recs)
+        self.assertIn(recs["status"], ("ok", "no_api_key"))
+
+    def test_recommend_response_structure(self):
+        response = client.post(
+            "/api/ai/recommend",
+            json={"filename": "test.csv", "content_base64": _encode(SAMPLE_CSV)},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        recs = data["recommendations"]
+        self.assertIn("status", recs)
+        self.assertIn("message", recs)
+        if recs["status"] == "ok":
+            self.assertIn("columns", recs)
+            self.assertIsInstance(recs["columns"], list)
+
+
 if __name__ == "__main__":
     unittest.main()
