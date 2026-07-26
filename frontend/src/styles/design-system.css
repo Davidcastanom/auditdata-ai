@@ -2416,3 +2416,200 @@ th {
   flex: 1;
   font-size: 0.85rem;
 }
+
+/* =================== ANALYST NOTES PANEL =================== */
+.analyst-notes-panel {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.analyst-notes-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-2);
+}
+
+.analyst-notes-panel__header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--color-text);
+}
+
+.analyst-notes-panel__hint {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.analyst-notes-panel__input {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+
+.analyst-notes-panel__input textarea {
+  flex: 1;
+  font-family: inherit;
+  font-size: 0.85rem;
+  background: var(--color-black);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  padding: var(--space-2);
+  resize: vertical;
+  min-height: 60px;
+}
+
+.analyst-notes-panel__input textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.analyst-notes-panel__input .button {
+  flex-shrink: 0;
+  min-height: 42px;
+}
+
+.analyst-notes-list {
+  margin-top: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.analyst-note-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  background: var(--color-black);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+.analyst-note-item__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.analyst-note-item__text {
+  font-size: 0.85rem;
+  color: var(--color-text);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.analyst-note-item__time {
+  font-size: 0.7rem;
+  color: var(--color-muted);
+  margin-top: 2px;
+}
+
+.analyst-note-item__actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.analyst-note-item__actions button {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  transition: all 0.2s;
+}
+
+.analyst-note-item__actions button:hover {
+  color: var(--color-text);
+  border-color: var(--color-text);
+}
+
+.analyst-note-item__actions button[data-remove-note]:hover {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+/* =================== ADVANCED TOOLS (visible) =================== */
+.advanced-tools-panel {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  margin-bottom: var(--space-3);
+}
+
+.advanced-tools-panel__title {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: 0.95rem;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.advanced-tools-panel__body {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+.advanced-tools-panel__body textarea {
+  font-family: inherit;
+  font-size: 0.85rem;
+  background: var(--color-black);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  padding: var(--space-2);
+  resize: vertical;
+  min-height: 60px;
+  width: 100%;
+}
+
+.advanced-tools-panel__body textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* =================== DRAWER REASON TEXTAREA =================== */
+.drawer-rec-reason {
+  margin-top: var(--space-2);
+}
+
+.drawer-rec-reason textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.8rem;
+  background: var(--color-black);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  padding: var(--space-2);
+  resize: vertical;
+  min-height: 44px;
+}
+
+.drawer-rec-reason textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* =================== LOG ITEM NOTE VARIANT =================== */
+.log-item--note {
+  border-left: 3px solid var(--color-accent);
+}
+
+.log-item--note .log-item__text strong {
+  color: var(--color-accent);
+}
+
+.log-item--note .log-item__text p {
+  font-style: italic;
+}

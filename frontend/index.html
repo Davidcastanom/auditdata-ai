@@ -64,9 +64,10 @@
                   <div class="mock__bar-bg"><div class="mock__bar-fill"></div></div>
                   <span class="mock__bar-label">Calidad: 87%</span>
                 </div>
+                </div>
               </div>
+
             </div>
-          </div>
         </div>
       </section>
 
@@ -324,12 +325,21 @@
           <div class="depuration-layout">
             <div class="depuration-layout__left">
               <div id="datasetSummaryCard" class="dataset-summary-card"></div>
-              <div id="depurColumnGrid" class="master-column-grid"></div>
 
-              <details class="advanced-tools-panel" id="advancedToolsPanel">
-                <summary class="advanced-tools-panel__summary">
-                  Herramientas de Transformacion Libre
-                </summary>
+              <div id="analystNotesPanel" class="analyst-notes-panel">
+                <div class="analyst-notes-panel__header">
+                  <h3>Notas del Analista</h3>
+                  <span class="analyst-notes-panel__hint">Documenta observaciones y razones mientras depuras</span>
+                </div>
+                <div class="analyst-notes-panel__input">
+                  <textarea id="analystNoteInput" rows="3" placeholder="Escribe observaciones, razones o decisiones..."></textarea>
+                  <button class="button button--primary button--sm" id="addAnalystNoteBtn" type="button">Agregar nota</button>
+                </div>
+                <div id="analystNotesList" class="analyst-notes-list"></div>
+              </div>
+
+              <div class="advanced-tools-panel" id="advancedToolsPanel">
+                <h3 class="advanced-tools-panel__title">Herramientas de Transformacion Libre</h3>
                 <div class="advanced-tools-panel__body">
                   <div class="form-grid" style="grid-template-columns: repeat(3, 1fr); margin-top: var(--space-2);">
                     <label>
@@ -361,12 +371,14 @@
                   <div class="form-grid" style="grid-template-columns: 1fr auto; margin-top: var(--space-3); align-items: end; gap: var(--space-3);">
                     <label>
                       Justificacion de la decision
-                      <input id="advReasonInput" type="text" placeholder="Justifica esta decision tecnica..." />
+                      <textarea id="advReasonInput" rows="3" placeholder="Justifica esta decision tecnica..."></textarea>
                     </label>
                     <button class="button button--secondary" id="applyAdvActionButton" type="button" style="min-height: 42px;">Aplicar accion libre</button>
                   </div>
                 </div>
-              </details>
+              </div>
+
+              <div id="depurColumnGrid" class="master-column-grid"></div>
             </div>
 
             <aside class="audit-log">

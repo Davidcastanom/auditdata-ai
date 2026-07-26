@@ -218,6 +218,9 @@ els.downloadCsvButton.addEventListener("click", downloadCleanCsv);
 els.undoButton.addEventListener("click", undoLastAction);
 els.resetButton.addEventListener("click", resetProject);
 
+const addNoteBtn = document.getElementById('addAnalystNoteBtn');
+if (addNoteBtn) addNoteBtn.addEventListener('click', addAnalystNote);
+
 document.querySelectorAll("[data-step-button]").forEach((button) => {
   button.addEventListener("click", () => router.navigate(Number(button.dataset.stepButton)));
 });
@@ -475,6 +478,7 @@ function renderDepurationBoard() {
 
   bindCleaningActions();
   renderLog();
+  renderAnalystNotes();
   populateAdvancedColumns();
 }
 
@@ -583,6 +587,9 @@ async function fetchDepurRecommendations(columnName, colDiag, recsBox) {
       <div class="drawer-rec-card" data-rec-idx="${idx}">
         <p style="margin:0 0 6px;"><strong>${escapeHtml(rec.category || '')}:</strong> ${escapeHtml(rec.text || '')}</p>
         ${rec.affected_rows?.length > 0 ? `<p style="margin:0 0 6px;font-size:0.75rem;color:var(--color-muted);">Filas: <code>${rec.affected_rows.slice(0,8).join(', ')}${rec.affected_rows.length > 8 ? '...' : ''}</code></p>` : ''}
+        <div class="drawer-rec-reason">
+          <textarea rows="2" placeholder="Justifica esta decision (opcional)..." data-rec-reason="${idx}"></textarea>
+        </div>
         <div class="drawer-rec-actions">
           <button class="button button--primary button--sm" type="button" data-accept-rec="${idx}" data-col="${escapeAttr(columnName)}" data-kind="${escapeAttr(rec.action?.kind || 'flag_outliers')}" data-method="${escapeAttr(rec.action?.method || '')}" data-rows="${escapeAttr(JSON.stringify(rec.affected_rows || []))}">Aplicar</button>
           <button class="button button--ghost button--sm" type="button" data-dismiss-rec="${idx}">Ignorar</button>
@@ -596,13 +603,17 @@ async function fetchDepurRecommendations(columnName, colDiag, recsBox) {
         const col = btn.dataset.col;
         const method = btn.dataset.method;
         const rows = JSON.parse(btn.dataset.rows || '[]');
+        const idx = Number(btn.dataset.acceptRec);
+        const reasonTextarea = recsBox.querySelector(`[data-rec-reason="${idx}"]`);
+        const userReason = reasonTextarea?.value?.trim() || '';
+        const autoReason = `Aceptado desde Copiloto IA: ${btn.closest('.drawer-rec-card')?.querySelector('p')?.textContent || ''}`;
         addAction({
           kind,
           column: col,
           method,
           rows,
           _rowsKey: `${kind}_${rows.join(',')}`,
-          reason: `Aceptado desde Copiloto IA: ${btn.closest('.drawer-rec-card')?.querySelector('p')?.textContent || ''}`,
+          reason: userReason || autoReason,
         });
         btn.disabled = true;
         btn.textContent = 'Aplicada';
@@ -668,7 +679,8 @@ function bindCleaningActions() {
 function addAction(action) {
   store.addAction(action);
   renderLog();
-  els.systemStatus.textContent = `${store.state.actions.length} decisión(es) documentada(s)`;
+  renderAnalystNotes();
+  els.systemStatus.textContent = `${store.state.actions.length} decision(es) documentada(s)`;
 }
 
 function undoLastAction() {
@@ -687,22 +699,27 @@ function renderLog() {
   els.undoButton.disabled = actions.length === 0;
 
   if (!actions.length) {
-    els.actionsLog.innerHTML = `<p class="empty-state">Aún no hay acciones registradas.</p>`;
+    els.actionsLog.innerHTML = `<p class="empty-state">Aun no hay acciones registradas.</p>`;
     return;
   }
   els.actionsLog.innerHTML = actions
     .map(
-      (action, index) => `
-      <div class="log-item">
+      (action, index) => {
+        const isNote = action.kind === 'analyst_note';
+        const itemClass = isNote ? 'log-item log-item--note' : 'log-item';
+        const ts = action.timestamp ? new Date(action.timestamp).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '';
+        return `
+      <div class="${itemClass}">
         <div class="log-item__row">
           <div class="log-item__text">
             <strong>${index + 1}. ${labelForAction(action.kind)}</strong>
-            <span>${escapeHtml(action.column || "Dataset")}</span>
+            ${action.column ? `<span>${escapeHtml(action.column)}</span>` : (isNote ? `<span style="font-size:0.7rem;color:var(--color-accent);">${ts}</span>` : '')}
             <p>${escapeHtml(action.reason || "")}</p>
           </div>
-          <button class="log-item__undo" data-undo-index="${index}" type="button" title="Deshacer esta acción">✕</button>
+          <button class="log-item__undo" data-undo-index="${index}" type="button" title="Deshacer">&#10005;</button>
         </div>
-      </div>`,
+      </div>`;
+      },
     )
     .join("");
 
@@ -717,6 +734,76 @@ function renderLog() {
       els.systemStatus.textContent = `${store.state.actions.length} decisión(es) documentada(s)`;
     });
   });
+}
+
+function renderAnalystNotes() {
+  const list = document.getElementById('analystNotesList');
+  if (!list) return;
+
+  const notes = store.state.actions.filter(a => a.kind === 'analyst_note');
+  if (!notes.length) {
+    list.innerHTML = '';
+    return;
+  }
+
+  list.innerHTML = notes.map((note, idx) => {
+    const realIndex = store.state.actions.indexOf(note);
+    const ts = note.timestamp ? new Date(note.timestamp).toLocaleString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    return `
+      <div class="analyst-note-item" data-note-idx="${realIndex}">
+        <div class="analyst-note-item__content">
+          <div class="analyst-note-item__text">${escapeHtml(note.reason || '')}</div>
+          <div class="analyst-note-item__time">${ts}</div>
+        </div>
+        <div class="analyst-note-item__actions">
+          <button data-edit-note="${realIndex}" type="button" title="Editar nota">&#9998;</button>
+          <button data-remove-note="${realIndex}" type="button" title="Eliminar nota">&#10005;</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('[data-edit-note]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.editNote);
+      const action = store.state.actions[idx];
+      if (!action) return;
+      const textarea = document.getElementById('analystNoteInput');
+      if (textarea) {
+        textarea.value = action.reason || '';
+        textarea.focus();
+      }
+      store.removeAction(idx);
+      renderAnalystNotes();
+      renderLog();
+    });
+  });
+
+  list.querySelectorAll('[data-remove-note]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.removeNote);
+      store.removeAction(idx);
+      renderAnalystNotes();
+      renderLog();
+    });
+  });
+}
+
+function addAnalystNote() {
+  const textarea = document.getElementById('analystNoteInput');
+  if (!textarea) return;
+  const text = textarea.value.trim();
+  if (!text) return;
+
+  addAction({
+    kind: 'analyst_note',
+    column: null,
+    reason: text,
+    timestamp: new Date().toISOString(),
+  });
+
+  textarea.value = '';
+  renderAnalystNotes();
 }
 
 async function runCleaning() {
@@ -981,6 +1068,7 @@ function validationRow(label, pass, description) {
 
 function labelForAction(kind) {
   const labels = {
+    analyst_note: "Nota del Analista",
     delete_column: "Eliminar columna",
     drop_missing_rows: "Eliminar filas con faltantes",
     impute_missing: "Imputar faltantes",
