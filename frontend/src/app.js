@@ -147,6 +147,15 @@ const els = {
   historyPanel: document.querySelector("#historyPanel"),
   historyBackdrop: document.querySelector("#historyBackdrop"),
   historyCloseButton: document.querySelector("#historyCloseButton"),
+  filePreviewModal: document.querySelector("#filePreviewModal"),
+  filePreviewBackdrop: document.querySelector("#filePreviewBackdrop"),
+  filePreviewClose: document.querySelector("#filePreviewClose"),
+  filePreviewMeta: document.querySelector("#filePreviewMeta"),
+  filePreviewTable: document.querySelector("#filePreviewTable"),
+  filePreviewConfirm: document.querySelector("#filePreviewConfirm"),
+  filePreviewCancel: document.querySelector("#filePreviewCancel"),
+  previewDelimiter: document.querySelector("#previewDelimiter"),
+  previewHeaderRow: document.querySelector("#previewHeaderRow"),
   historyList: document.querySelector("#historyList"),
   nubeContainer: document.querySelector("#nubeContainer"),
 };
@@ -178,9 +187,7 @@ els.fileInput.addEventListener("change", () => {
   const file = els.fileInput.files[0];
   if (file) {
     fileToBase64(file).then(base64 => {
-      store.setFile(file.name, base64);
-      els.analyzeButton.disabled = false;
-      els.systemStatus.textContent = `Archivo listo: ${file.name}`;
+      showFilePreview(file.name, base64);
     });
   }
 });
@@ -200,9 +207,7 @@ els.dropzone.addEventListener("drop", (e) => {
   const file = e.dataTransfer.files[0];
   if (file) {
     fileToBase64(file).then(base64 => {
-      store.setFile(file.name, base64);
-      els.analyzeButton.disabled = false;
-      els.systemStatus.textContent = `Archivo listo: ${file.name}`;
+      showFilePreview(file.name, base64);
     });
   }
 });
@@ -297,6 +302,72 @@ async function analyzeSelectedFile() {
     els.analyzeButton.disabled = false;
     hideLoading();
   }
+}
+
+let _previewSettings = {};
+
+async function showFilePreview(filename, base64) {
+  store.setFile(filename, base64);
+  els.filePreviewBackdrop.classList.add("is-active");
+  els.filePreviewModal.classList.add("is-active");
+  els.filePreviewMeta.innerHTML = '<span>Cargando vista previa...</span>';
+  els.filePreviewTable.querySelector("thead").innerHTML = "";
+  els.filePreviewTable.querySelector("tbody").innerHTML = "";
+
+  try {
+    const data = await postJson("/api/file/preview", { filename, content_base64: base64 });
+
+    if (data.error) {
+      els.filePreviewMeta.innerHTML = `<span style="color:var(--color-danger);">${escapeHtml(data.error)}</span>`;
+      return;
+    }
+
+    _previewSettings = { encoding: data.encoding, delimiter: data.delimiter, headerRow: data.detected_header_row };
+
+    els.filePreviewMeta.innerHTML = `
+      <span><strong>Archivo:</strong> ${escapeHtml(filename)}</span>
+      <span><strong>Formato:</strong> ${escapeHtml(data.format)}</span>
+      <span><strong>Codificacion:</strong> ${escapeHtml(data.encoding)}</span>
+      <span><strong>Filas:</strong> ${data.total_rows}</span>
+      <span><strong>Columnas:</strong> ${data.headers.length}</span>
+    `;
+
+    els.previewDelimiter.value = data.delimiter;
+
+    els.previewHeaderRow.innerHTML = "";
+    for (let i = 0; i < Math.min(5, (data.total_rows || 10) + 1); i++) {
+      const opt = document.createElement("option");
+      opt.value = i;
+      opt.textContent = i === data.detected_header_row ? `Fila ${i + 1} (detectada como encabezado)` : `Fila ${i + 1}`;
+      if (i === data.detected_header_row) opt.selected = true;
+      els.previewHeaderRow.appendChild(opt);
+    }
+
+    const thead = els.filePreviewTable.querySelector("thead");
+    const tbody = els.filePreviewTable.querySelector("tbody");
+    thead.innerHTML = `<tr>${data.headers.map(h => `<th>${escapeHtml(h)}</th>`).join("")}</tr>`;
+    tbody.innerHTML = data.preview.map(row =>
+      `<tr>${data.headers.map(h => `<td>${escapeHtml(String(row[h] ?? ""))}</td>`).join("")}</tr>`
+    ).join("");
+  } catch (err) {
+    els.filePreviewMeta.innerHTML = `<span style="color:var(--color-danger);">Error: ${escapeHtml(err.message)}</span>`;
+  }
+}
+
+function hideFilePreview() {
+  els.filePreviewBackdrop.classList.remove("is-active");
+  els.filePreviewModal.classList.remove("is-active");
+}
+
+if (els.filePreviewClose) els.filePreviewClose.addEventListener("click", hideFilePreview);
+if (els.filePreviewCancel) els.filePreviewCancel.addEventListener("click", hideFilePreview);
+if (els.filePreviewBackdrop) els.filePreviewBackdrop.addEventListener("click", hideFilePreview);
+
+if (els.filePreviewConfirm) {
+  els.filePreviewConfirm.addEventListener("click", () => {
+    hideFilePreview();
+    analyzeSelectedFile();
+  });
 }
 
 function renderProfile() {
@@ -1000,8 +1071,17 @@ function onNext() {
       router.navigate(5);
     }).catch((error) => {
       els.systemStatus.textContent = `Error: ${error.message}. Intenta de nuevo.`;
+      store.setCleaning({
+        before: store.state.analysis,
+        after: store.state.analysis,
+        actions: store.state.actions,
+        clean_csv: "",
+      });
+      renderValidation();
+      renderReportPreview();
       enableStep(5);
       enableStep(6);
+      router.navigate(5);
     });
     return;
   }
@@ -1023,7 +1103,13 @@ function goToStep(step) {
   });
   els.previousButton.disabled = step === 0;
   els.nextButton.disabled = !store.state.analysis || step === 6;
-  els.nextButton.textContent = step === 4 ? "Aplicar limpieza y validar" : "Siguiente etapa";
+  if (step === 4) {
+    els.nextButton.textContent = "Aplicar limpieza y validar";
+  } else if (step === 5) {
+    els.nextButton.textContent = "Generar informe";
+  } else {
+    els.nextButton.textContent = "Siguiente etapa";
+  }
 
   // Cargar recomendaciones de IA al entrar al step 3
   if (step === 3 && store.state.filename && store.state.fileBase64) {
@@ -1039,7 +1125,7 @@ function goToStep(step) {
 function enableStep(step) {
   const btn = document.querySelector(`[data-step-button="${step}"]`);
   if (btn) btn.disabled = false;
-  if (step <= 4) {
+  if (step <= 5) {
     els.nextButton.disabled = false;
   }
 }

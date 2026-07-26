@@ -686,6 +686,92 @@ def _load_xlsx(payload: bytes) -> tuple[list[str], list[dict[str, Any]], int]:
     return headers, rows, header_idx
 
 
+def detect_file_settings(filename: str, payload: bytes) -> dict[str, Any]:
+    """Detect encoding, delimiter, header row and return a preview of the file."""
+    lowered = filename.lower()
+    is_xlsx = lowered.endswith((".xlsx", ".xlsm"))
+
+    if is_xlsx:
+        if openpyxl is None:
+            return {"error": "openpyxl no disponible"}
+        if not zipfile.is_zipfile(io.BytesIO(payload)):
+            return {"error": "Archivo XLSX no valido"}
+        workbook = openpyxl.load_workbook(io.BytesIO(payload), read_only=True, data_only=True)
+        sheet = workbook[workbook.sheetnames[0]]
+        raw_rows = list(sheet.iter_rows(values_only=True))
+        if not raw_rows:
+            return {"error": "Archivo vacio"}
+        header_idx = _find_header_row(raw_rows)
+        headers = [str(v).strip() if v is not None else f"col_{i+1}" for i, v in enumerate(raw_rows[header_idx])]
+        preview = []
+        for raw in raw_rows[header_idx + 1:header_idx + 11]:
+            row = {}
+            for i, h in enumerate(headers):
+                row[h] = raw[i] if i < len(raw) and raw[i] is not None else ""
+            preview.append(row)
+        return {
+            "encoding": "utf-8",
+            "delimiter": ",",
+            "detected_header_row": header_idx,
+            "total_rows": len(raw_rows) - header_idx - 1,
+            "headers": headers,
+            "preview": preview,
+            "format": "xlsx",
+        }
+
+    encodings_to_try = ["utf-8-sig", "utf-8", "latin-1", "cp1252", "iso-8859-1"]
+    detected_encoding = "utf-8"
+    text = ""
+    for enc in encodings_to_try:
+        try:
+            text = payload.decode(enc)
+            detected_encoding = enc.replace("-sig", "")
+            break
+        except (UnicodeDecodeError, LookupError):
+            continue
+
+    lines = text.splitlines()
+    if not lines:
+        return {"error": "Archivo vacio"}
+
+    delimiter_counts: dict[str, int] = {}
+    for delim_name, delim_char in [("comma", ","), ("semicolon", ";"), ("tab", "\t"), ("pipe", "|")]:
+        if lines[0].count(delim_char) >= 2:
+            delimiter_counts[delim_name] = sum(line.count(delim_char) for line in lines[:20])
+    detected_delimiter = "comma"
+    if delimiter_counts:
+        detected_delimiter = max(delimiter_counts, key=delimiter_counts.get)
+
+    delim_map = {"comma": ",", "semicolon": ";", "tab": "\t", "pipe": "|"}
+    delim_char = delim_map[detected_delimiter]
+
+    header_idx = 0
+    for i, line in enumerate(lines[:5]):
+        fields = [f.strip() for f in line.split(delim_char) if f.strip()]
+        if len(fields) >= 3:
+            header_idx = i
+            break
+
+    trimmed = "\n".join(lines[header_idx:])
+    reader = csv.DictReader(io.StringIO(trimmed), delimiter=delim_char)
+    headers = reader.fieldnames or []
+    preview = []
+    for i, row in enumerate(reader):
+        if i >= 10:
+            break
+        preview.append({h: row.get(h, "") for h in headers})
+
+    return {
+        "encoding": detected_encoding,
+        "delimiter": detected_delimiter,
+        "detected_header_row": header_idx,
+        "total_rows": len(lines) - header_idx - 1,
+        "headers": headers,
+        "preview": preview,
+        "format": "csv",
+    }
+
+
 def _profile_column(header: str, rows: list[dict[str, Any]]) -> ColumnProfile:
     values = [row.get(header, "") for row in rows]
     normalized = [_normalize_missing(value) for value in values]

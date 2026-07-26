@@ -13,6 +13,7 @@ from data_engine.analyzer import (
     apply_cleaning_actions,
     build_cleaning_markdown_report,
     build_markdown_report,
+    detect_file_settings,
     generate_audit_log,
 )
 
@@ -89,6 +90,22 @@ def diagnose(req: AnalyzeRequest):
         headers, rows, header_row_index = load_dataset(req.filename, payload)
         diagnostic = diagnose_dataset(headers, rows, header_row_index)
         return {"diagnostic": diagnostic.to_dict()}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/file/preview")
+def file_preview(req: AnalyzeRequest):
+    """Detect encoding, delimiter, header row and return preview of the file."""
+    try:
+        payload = base64.b64decode(req.content_base64)
+        if len(payload) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="El archivo excede el limite de 10MB")
+        from data_engine.analyzer import detect_file_settings
+        settings = detect_file_settings(req.filename, payload)
+        return settings
     except HTTPException:
         raise
     except Exception as e:

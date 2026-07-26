@@ -490,7 +490,7 @@ def _check_text_errors(values: list[str], total: int) -> list[IssueGroup]:
     trailing_rows: list[int] = []
     double_space_rows: list[int] = []
     inconsistent_case: Counter = Counter()
-    case_rows: dict[str, list[int]] = {}
+    case_rows: dict[str, list[tuple[int, str]]] = {}
 
     for i, v in enumerate(values):
         if not v.strip():
@@ -506,7 +506,7 @@ def _check_text_errors(values: list[str], total: int) -> list[IssueGroup]:
         normalized = v.strip().lower()
         if normalized:
             inconsistent_case[normalized] += 1
-            case_rows.setdefault(normalized, []).append(i)
+            case_rows.setdefault(normalized, []).append((i, v.strip()))
 
     case_issues = {k: v for k, v in inconsistent_case.items() if v > 1 and k != k.title()}
     if case_issues:
@@ -514,8 +514,13 @@ def _check_text_errors(values: list[str], total: int) -> list[IssueGroup]:
         examples: list[dict[str, Any]] = []
         for k, v in list(case_issues.items())[:5]:
             rows_for_val = case_rows.get(k, [])
-            all_rows.extend(rows_for_val)
-            examples.append({"row": rows_for_val[0] if rows_for_val else 0, "value": k, "variants": v})
+            all_rows.extend(r[0] for r in rows_for_val)
+            original_vals = list({r[1] for r in rows_for_val})
+            examples.append({
+                "row": rows_for_val[0][0] if rows_for_val else 0,
+                "value": " / ".join(original_vals[:4]),
+                "variants": v,
+            })
         issues.append(IssueGroup(
             category="Errores de redaccion y formato",
             category_code="TEXT_ERROR",

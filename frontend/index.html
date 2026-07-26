@@ -216,13 +216,13 @@
           <span>03</span><strong>Reglas</strong>
         </button>
         <button class="stepper__item" data-step-button="3" type="button" disabled>
-          <span>04</span><strong>Validar</strong>
+          <span>04</span><strong>Diagnostico</strong>
         </button>
         <button class="stepper__item" data-step-button="4" type="button" disabled>
           <span>05</span><strong>Depurar</strong>
         </button>
         <button class="stepper__item" data-step-button="5" type="button" disabled>
-          <span>06</span><strong>Validar</strong>
+          <span>06</span><strong>Validacion</strong>
         </button>
         <button class="stepper__item" data-step-button="6" type="button" disabled>
           <span>07</span><strong>Informe</strong>
@@ -303,7 +303,7 @@
 
       <section class="stage" data-step="3">
         <article class="panel panel--nube">
-          <p class="section-kicker">Etapa 04 - Validacion de Calidad</p>
+            <p class="section-kicker">Etapa 04 - Diagnostico de Calidad</p>
           <h2>Valida los problemas encontrados en tu dataset.</h2>
           <p>
             Revisa el diagnostico de 28 categorias de calidad y selecciona
@@ -396,7 +396,7 @@
 
       <section class="stage" data-step="5">
         <article class="panel">
-          <p class="section-kicker">Etapa 06 - Validacion de Calidad</p>
+            <p class="section-kicker">Etapa 06 - Validacion Post-limpieza</p>
           <h2>Demuestra la calidad antes de declarar el dataset listo.</h2>
           <div class="comparison-grid" id="comparisonGrid"></div>
           <div class="table-wrap">
@@ -504,6 +504,36 @@
     </aside>
     <div class="side-drawer-backdrop" id="aiColumnDrawerBackdrop"></div>
 
+    <!-- FILE PREVIEW MODAL -->
+    <div class="file-preview-backdrop" id="filePreviewBackdrop"></div>
+    <div class="file-preview-modal" id="filePreviewModal">
+      <div class="file-preview-modal__header">
+        <h3>Vista Previa del Archivo</h3>
+        <button class="button button--ghost button--sm" id="filePreviewClose" type="button">&times;</button>
+      </div>
+      <div class="file-preview-modal__meta" id="filePreviewMeta"></div>
+      <div class="file-preview-modal__settings">
+        <div class="file-preview-modal__setting">
+          <label>Delimitador</label>
+          <select id="previewDelimiter">
+            <option value="comma">Coma (,)</option>
+            <option value="semicolon">Punto y coma (;)</option>
+            <option value="tab">Tabulador</option>
+            <option value="pipe">Pipe (|)</option>
+          </select>
+        </div>
+        <div class="file-preview-modal__setting">
+          <label>Fila de encabezado</label>
+          <select id="previewHeaderRow"></select>
+        </div>
+      </div>
+      <div class="file-preview-modal__table-wrap">
+        <table id="filePreviewTable"><thead></thead><tbody></tbody></table>
+      </div>
+      <div class="file-preview-modal__footer">
+        <button class="button button--ghost" id="filePreviewCancel" type="button">Cancelar</button>
+        <button class="button button--primary" id="filePreviewConfirm" type="button">Confirmar y Analizar</button>
+      </div>
     </div>
 
     <script type="module" src="/frontend/src/app.js"></script>
