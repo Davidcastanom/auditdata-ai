@@ -833,12 +833,12 @@ function renderReportPreview() {
 
 function onNext() {
   if (store.state.step === 3) {
-    // Step 3: Nube de Validacion - ir a depurar
+    enableStep(4);
+    nube._handleSkipValidation();
     router.navigate(4);
     return;
   }
   if (store.state.step === 4) {
-    // Step 4: Depurar - aplicar limpieza y validar
     if (store.state.actions.length === 0) {
       store.setCleaning({
         before: store.state.analysis,
@@ -853,8 +853,14 @@ function onNext() {
       router.navigate(5);
       return;
     }
-    runCleaning().then(() => router.navigate(5)).catch((error) => {
-      els.systemStatus.textContent = `Error: ${error.message}`;
+    runCleaning().then(() => {
+      enableStep(5);
+      enableStep(6);
+      router.navigate(5);
+    }).catch((error) => {
+      els.systemStatus.textContent = `Error: ${error.message}. Intenta de nuevo.`;
+      enableStep(5);
+      enableStep(6);
     });
     return;
   }
