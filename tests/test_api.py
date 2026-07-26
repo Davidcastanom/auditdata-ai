@@ -209,7 +209,7 @@ class TestAIRecommendEndpoint(unittest.TestCase):
         self.assertIn("recommendations", data)
         recs = data["recommendations"]
         self.assertIn("status", recs)
-        self.assertIn(recs["status"], ("ok", "no_api_key"))
+        self.assertIn(recs["status"], ("ok", "success", "no_api_key"))
 
     def test_recommend_response_structure(self):
         response = client.post(

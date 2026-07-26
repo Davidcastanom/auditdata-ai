@@ -507,12 +507,24 @@ function openDepurDrawer(columnName) {
   if (issues.length === 0) {
     diagBox.innerHTML = `<p class="empty-state">No se detectaron problemas en esta columna.</p>`;
   } else {
-    diagBox.innerHTML = issues.map(iss => `
-      <div class="drawer-issue-item">
-        <strong>${escapeHtml(iss.category_code)}</strong>: ${iss.count || 0} filas (${(iss.percentage || 0).toFixed(1)}%)
-        <div style="margin-top:4px;font-size:0.8rem;color:var(--color-muted);">${escapeHtml(iss.description || '')}</div>
-      </div>
-    `).join('');
+    diagBox.innerHTML = issues.map(iss => {
+      const sevClass = iss.severity === 'CRITICA' ? 'severity--critica' : iss.severity === 'ALTA' ? 'severity--alta' : iss.severity === 'MEDIA' ? 'severity--media' : 'severity--baja';
+      const exHtml = (iss.examples || []).slice(0, 3).map(e => `<div class="drawer-issue-example">${renderExample(e)}</div>`).join('');
+      const rowsHtml = iss.affected_rows?.length > 0
+        ? `<div class="drawer-issue-rows">Filas: <code>${escapeHtml(abbreviateRows(iss.affected_rows, 6))}</code></div>`
+        : '';
+      return `
+        <div class="drawer-issue-item">
+          <div class="drawer-issue-item__header">
+            <strong>${escapeHtml(iss.category || iss.category_code)}</strong>
+            <span class="drawer-issue-severity ${sevClass}">${escapeHtml(iss.severity || '')}</span>
+            <span class="drawer-issue-count">${iss.count || 0} filas (${(iss.percentage || 0).toFixed(1)}%)</span>
+          </div>
+          <div class="drawer-issue-desc">${escapeHtml(iss.description || '')}</div>
+          ${exHtml ? `<div class="drawer-issue-examples">${exHtml}</div>` : ''}
+          ${rowsHtml}
+        </div>`;
+    }).join('');
   }
 
   recsBox.innerHTML = '<div class="nube-loading" style="padding:var(--space-3);"><div class="nube-spinner"></div><p style="font-size:0.8rem;">Cargando recomendaciones...</p></div>';
@@ -583,30 +595,73 @@ async function fetchDepurRecommendations(columnName, colDiag, recsBox) {
       return;
     }
 
-    recsBox.innerHTML = recs.map((rec, idx) => `
+    recsBox.innerHTML = recs.map((rec, idx) => {
+      const rows = rec.affected_rows || [];
+      const rowsText = rows.length > 0 ? rows.slice(0, 8).join(', ') + (rows.length > 8 ? ` (+${rows.length - 8})` : '') : 'N/A';
+      const actionKind = rec.action?.kind || 'flag_outliers';
+      const actionMethod = rec.action?.method || 'N/A';
+      const actionLabel = labelForAction(actionKind);
+      return `
       <div class="drawer-rec-card" data-rec-idx="${idx}">
         <p style="margin:0 0 6px;"><strong>${escapeHtml(rec.category || '')}:</strong> ${escapeHtml(rec.text || '')}</p>
-        ${rec.affected_rows?.length > 0 ? `<p style="margin:0 0 6px;font-size:0.75rem;color:var(--color-muted);">Filas: <code>${rec.affected_rows.slice(0,8).join(', ')}${rec.affected_rows.length > 8 ? '...' : ''}</code></p>` : ''}
+        ${rows.length > 0 ? `<p style="margin:0 0 6px;font-size:0.75rem;color:var(--color-muted);">Filas: <code>${escapeHtml(rowsText)}</code></p>` : ''}
         <div class="drawer-rec-reason">
           <textarea rows="2" placeholder="Justifica esta decision (opcional)..." data-rec-reason="${idx}"></textarea>
         </div>
         <div class="drawer-rec-actions">
-          <button class="button button--primary button--sm" type="button" data-accept-rec="${idx}" data-col="${escapeAttr(columnName)}" data-kind="${escapeAttr(rec.action?.kind || 'flag_outliers')}" data-method="${escapeAttr(rec.action?.method || '')}" data-rows="${escapeAttr(JSON.stringify(rec.affected_rows || []))}">Aplicar</button>
+          <button class="button button--primary button--sm" type="button" data-accept-rec="${idx}" data-col="${escapeAttr(columnName)}" data-kind="${escapeAttr(actionKind)}" data-method="${escapeAttr(actionMethod)}" data-rows="${escapeAttr(JSON.stringify(rows))}">Revisar y Aplicar</button>
           <button class="button button--ghost button--sm" type="button" data-dismiss-rec="${idx}">Ignorar</button>
         </div>
-      </div>
-    `).join('');
+        <div class="drawer-rec-validation" id="recValidation-${idx}" style="display:none;">
+          <div class="rec-validation__summary">
+            <div class="rec-validation__row"><span class="rec-validation__label">Accion:</span> <strong>${escapeHtml(actionLabel)}</strong></div>
+            <div class="rec-validation__row"><span class="rec-validation__label">Columna:</span> ${escapeHtml(columnName)}</div>
+            ${actionMethod !== 'N/A' ? `<div class="rec-validation__row"><span class="rec-validation__label">Metodo:</span> ${escapeHtml(actionMethod)}</div>` : ''}
+            <div class="rec-validation__row"><span class="rec-validation__label">Filas afectadas:</span> <code>${escapeHtml(rowsText)}</code> (${rows.length} total)</div>
+          </div>
+          <div class="drawer-rec-actions" style="margin-top:var(--space-2);">
+            <button class="button button--success button--sm" type="button" data-confirm-rec="${idx}">Confirmar y Documentar</button>
+            <button class="button button--ghost button--sm" type="button" data-cancel-validation="${idx}">Cancelar</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
 
     recsBox.querySelectorAll('[data-accept-rec]').forEach(btn => {
       btn.onclick = () => {
-        const kind = btn.dataset.kind;
-        const col = btn.dataset.col;
-        const method = btn.dataset.method;
-        const rows = JSON.parse(btn.dataset.rows || '[]');
         const idx = Number(btn.dataset.acceptRec);
-        const reasonTextarea = recsBox.querySelector(`[data-rec-reason="${idx}"]`);
+        const card = btn.closest('.drawer-rec-card');
+        const validation = card.querySelector(`#recValidation-${idx}`);
+        if (validation) {
+          btn.style.display = 'none';
+          validation.style.display = 'block';
+        }
+      };
+    });
+
+    recsBox.querySelectorAll('[data-cancel-validation]').forEach(btn => {
+      btn.onclick = () => {
+        const idx = Number(btn.dataset.cancelValidation);
+        const card = btn.closest('.drawer-rec-card');
+        const validation = card.querySelector(`#recValidation-${idx}`);
+        const applyBtn = card.querySelector(`[data-accept-rec="${idx}"]`);
+        if (validation) validation.style.display = 'none';
+        if (applyBtn) applyBtn.style.display = '';
+      };
+    });
+
+    recsBox.querySelectorAll('[data-confirm-rec]').forEach(btn => {
+      btn.onclick = () => {
+        const idx = Number(btn.dataset.confirmRec);
+        const card = btn.closest('.drawer-rec-card');
+        const applyBtn = card.querySelector(`[data-accept-rec="${idx}"]`);
+        const kind = applyBtn.dataset.kind;
+        const col = applyBtn.dataset.col;
+        const method = applyBtn.dataset.method;
+        const rows = JSON.parse(applyBtn.dataset.rows || '[]');
+        const reasonTextarea = card.querySelector(`[data-rec-reason="${idx}"]`);
         const userReason = reasonTextarea?.value?.trim() || '';
-        const autoReason = `Aceptado desde Copiloto IA: ${btn.closest('.drawer-rec-card')?.querySelector('p')?.textContent || ''}`;
+        const autoReason = `Validado y confirmado desde Copiloto IA: ${card.querySelector('p')?.textContent || ''}`;
         addAction({
           kind,
           column: col,
@@ -615,8 +670,7 @@ async function fetchDepurRecommendations(columnName, colDiag, recsBox) {
           _rowsKey: `${kind}_${rows.join(',')}`,
           reason: userReason || autoReason,
         });
-        btn.disabled = true;
-        btn.textContent = 'Aplicada';
+        card.innerHTML = `<div class="rec-confirmed"><span class="status status--ok">Aplicada y documentada en bitacora</span></div>`;
         renderDepurationBoard();
       };
     });
@@ -1075,6 +1129,12 @@ function labelForAction(kind) {
     standardize_text: "Estandarizar texto",
     remove_duplicate_rows: "Eliminar duplicados",
     flag_outliers: "Marcar outliers",
+    fill_missing: "Imputar faltantes",
+    drop_duplicates: "Eliminar duplicados",
+    convert_type: "Convertir tipo de dato",
+    drop_rows: "Eliminar filas",
+    fix_format: "Corregir formato",
+    replace_value: "Reemplazar valor",
   };
   return labels[kind] || kind;
 }
@@ -1126,6 +1186,38 @@ function escapeHtml(value) {
     const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" };
     return map[character];
   });
+}
+
+function renderExample(e) {
+  if (typeof e === 'string') return escapeHtml(e);
+  if (!e || typeof e !== 'object') return String(e);
+  if (e.row !== undefined && e.original !== undefined && e.standard !== undefined)
+    return `Fila ${e.row}: "${escapeHtml(e.original)}" → "${escapeHtml(e.standard)}"`;
+  if (e.row !== undefined && e.meaning !== undefined)
+    return `Fila ${e.row}: ${escapeHtml(e.value)} = ${escapeHtml(e.meaning)}`;
+  if (e.row !== undefined && e.detail !== undefined)
+    return `Fila ${e.row}: ${escapeHtml(e.detail)}`;
+  if (e.row !== undefined && e.format !== undefined)
+    return `Fila ${e.row}: ${escapeHtml(e.format)} (${e.count || 0})`;
+  if (e.row !== undefined && e.error !== undefined)
+    return `Fila ${e.row}: ${escapeHtml(e.error)} (${e.count || 0})`;
+  if (e.row !== undefined && e.variants !== undefined)
+    return `Fila ${e.row}: "${escapeHtml(e.value)}" (${e.variants.length} variantes)`;
+  if (e.row !== undefined && e.value !== undefined)
+    return `Fila ${e.row}: ${escapeHtml(String(e.value))}`;
+  if (e.rows !== undefined && e.match !== undefined)
+    return `Filas [${e.rows.join(', ')}] (${e.match})`;
+  if (e.value !== undefined) return escapeHtml(String(e.value));
+  if (e.format !== undefined) return `${escapeHtml(e.format)} (${e.count || 0})`;
+  if (e.error !== undefined) return `${escapeHtml(e.error)} (${e.count || 0})`;
+  return escapeHtml(JSON.stringify(e));
+}
+
+function abbreviateRows(rows, maxShow) {
+  maxShow = maxShow || 8;
+  if (!rows || rows.length === 0) return '';
+  if (rows.length <= maxShow) return rows.join(', ');
+  return rows.slice(0, maxShow).join(', ') + ` (+${rows.length - maxShow} mas)`;
 }
 
 function escapeAttr(value) {

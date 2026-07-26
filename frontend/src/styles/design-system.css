@@ -2175,6 +2175,10 @@ th {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  max-height: 85vh;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  padding-right: var(--space-1);
 }
 
 .advanced-tools-panel {
@@ -2227,6 +2231,24 @@ th {
   .depuration-layout {
     grid-template-columns: 1fr;
   }
+  .depuration-layout__left {
+    max-height: none;
+    overflow-y: visible;
+  }
+}
+
+.depuration-layout__left::-webkit-scrollbar {
+  width: 5px;
+}
+.depuration-layout__left::-webkit-scrollbar-track {
+  background: transparent;
+}
+.depuration-layout__left::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+.depuration-layout__left::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
 }
 
 /* SIDE DRAWER COMPONENT */
@@ -2349,6 +2371,79 @@ th {
   margin-bottom: 0;
   padding-bottom: 0;
   border-bottom: none;
+}
+
+.drawer-issue-item__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.drawer-issue-item__header strong {
+  color: var(--color-text);
+  font-size: 0.88rem;
+}
+
+.drawer-issue-severity {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+
+.severity--critica { background: var(--color-danger); color: #fff; }
+.severity--alta { background: rgba(239,68,68,0.18); color: var(--color-danger); }
+.severity--media { background: rgba(245,158,11,0.18); color: var(--color-warning); }
+.severity--baja { background: rgba(144,144,160,0.15); color: var(--color-muted); }
+
+.drawer-issue-count {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  margin-left: auto;
+}
+
+.drawer-issue-desc {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  line-height: 1.4;
+}
+
+.drawer-issue-examples {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.drawer-issue-example {
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  color: var(--color-accent);
+  background: var(--color-black);
+  border: 1px solid var(--color-border);
+  border-left: 2px solid var(--color-accent);
+  border-radius: 4px;
+  padding: 3px 8px;
+  word-break: break-word;
+}
+
+.drawer-issue-rows {
+  margin-top: 5px;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.drawer-issue-rows code {
+  font-size: 0.73rem;
+  color: var(--color-text);
+  background: var(--color-black);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  padding: 1px 4px;
 }
 
 .drawer-rec-card {
@@ -2540,12 +2635,17 @@ th {
   border-color: var(--color-danger);
 }
 
-/* =================== ADVANCED TOOLS (visible) =================== */
+/* =================== ADVANCED TOOLS (visible + sticky) =================== */
 .advanced-tools-panel {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
   margin-bottom: var(--space-3);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: box-shadow 0.2s ease;
 }
 
 .advanced-tools-panel__title {
@@ -2612,4 +2712,48 @@ th {
 
 .log-item--note .log-item__text p {
   font-style: italic;
+}
+
+/* =================== RECOMMENDATION VALIDATION =================== */
+.drawer-rec-validation {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-black);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+}
+
+.rec-validation__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rec-validation__row {
+  font-size: 0.8rem;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.rec-validation__label {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-right: 4px;
+}
+
+.rec-confirmed {
+  padding: var(--space-2);
+  text-align: center;
+}
+
+.button--success {
+  background: var(--color-success);
+  color: #fff;
+  border: 1px solid var(--color-success);
+}
+
+.button--success:hover {
+  background: #1aab50;
 }
