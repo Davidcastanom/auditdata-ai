@@ -157,14 +157,18 @@ const router = new Router(goToStep);
 // Inicializar Nube de Validacion
 const nube = new NubeValidacion({
   container: els.nubeContainer,
-  onActionReady: (action) => {
-    store.addAction(action);
+  onActionReady: (actionOrList) => {
+    const list = Array.isArray(actionOrList) ? actionOrList : [actionOrList];
+    list.forEach(act => {
+      if (act && act.kind) store.addAction(act);
+    });
     renderLog();
-    els.systemStatus.textContent = `Accion aceptada: ${action.kind}`;
+    els.systemStatus.textContent = `Acciones registradas en bitácora: ${store.state.actions.length}`;
   },
   onAllReviewed: (actions) => {
     els.systemStatus.textContent = `${actions.length} acciones listas para depurar`;
     els.nextButton.disabled = false;
+    enableStep(4);
   },
   onDiagnosticReady: (diagnostic) => {
     store.setDiagnostic(diagnostic);

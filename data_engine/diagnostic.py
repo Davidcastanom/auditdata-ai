@@ -87,6 +87,29 @@ class DatasetDiagnostic:
         }
 
 
+EXCEL_ROW_OFFSET = 2
+
+
+def _to_excel_row(index: int) -> int:
+    """Convert 0-based data index to Excel row number (header=row 1, data starts row 2)."""
+    return index + EXCEL_ROW_OFFSET
+
+
+def _shift_issue_rows(issue: IssueGroup) -> IssueGroup:
+    """Shift all row indices in affected_rows and examples by the Excel offset."""
+    issue.affected_rows = [_to_excel_row(r) for r in issue.affected_rows]
+    new_examples: list[dict[str, Any]] = []
+    for ex in issue.examples:
+        ex = dict(ex)
+        if "row" in ex:
+            ex["row"] = _to_excel_row(ex["row"])
+        if "rows" in ex:
+            ex["rows"] = [_to_excel_row(r) for r in ex["rows"]]
+        new_examples.append(ex)
+    issue.examples = new_examples
+    return issue
+
+
 def diagnose_column(header: str, values: list[str], total_rows: int) -> ColumnDiagnostic:
     """Run all 28 category checks on a single column and return results."""
     domain_info = match_column_name(header)
@@ -104,7 +127,6 @@ def diagnose_column(header: str, values: list[str], total_rows: int) -> ColumnDi
     issues.extend(_check_type_errors(values, total_rows, domain_info))
     issues.extend(_check_unit_inconsistency(values, total_rows, domain_info))
     issues.extend(_check_encoding(values, total_rows))
-    issues.extend(_check_out_of_range(values, total_rows, domain_info))
     issues.extend(_check_formula_errors(values, total_rows))
     issues.extend(_check_scientific_notation(values, total_rows))
     issues.extend(_check_multivalue_cells(values, total_rows))
@@ -123,6 +145,9 @@ def diagnose_column(header: str, values: list[str], total_rows: int) -> ColumnDi
             verdict="LIMPIA",
             total_rows=total_rows,
         )
+
+    for issue in issues:
+        _shift_issue_rows(issue)
 
     return ColumnDiagnostic(
         column=header,
@@ -155,6 +180,8 @@ def diagnose_dataset(headers: list[str], rows: list[dict[str, Any]]) -> DatasetD
 
     row_dup_issues = _check_row_duplicates(headers, rows)
     if row_dup_issues:
+        for issue in row_dup_issues:
+            _shift_issue_rows(issue)
         total_issues += row_dup_issues[0].count
         category_counts["DUPLICATE"] += 1
         column_diagnostics.insert(0, ColumnDiagnostic(
@@ -623,50 +650,6 @@ def _check_encoding(values: list[str], total: int) -> list[IssueGroup]:
             description=f"Caracteres corruptos por encoding: {len(corrupt_rows)} valores afectados",
             examples=examples,
             affected_rows=corrupt_rows,
-        ))
-
-    return issues
-
-
-def _check_out_of_range(
-    values: list[str], total: int, domain_info: dict | None
-) -> list[IssueGroup]:
-    issues: list[IssueGroup] = []
-
-    if not domain_info or not domain_info.get("range"):
-        return issues
-
-    min_val, max_val = domain_info["range"]
-    if min_val is None and max_val is None:
-        return issues
-
-    oor_rows: list[int] = []
-    oor_vals: list[str] = []
-    for i, v in enumerate(values):
-        v_stripped = v.strip()
-        if not v_stripped or is_hidden_missing(v_stripped):
-            continue
-        try:
-            num = float(v_stripped.replace(",", "."))
-            if min_val is not None and num < min_val or max_val is not None and num > max_val:
-                oor_rows.append(i)
-                oor_vals.append(v_stripped)
-        except (ValueError, TypeError):
-            continue
-
-    if oor_rows:
-        domain_name = domain_info.get("domain", "dominio")
-        examples = [{"row": oor_rows[j], "value": oor_vals[j]} for j in range(min(5, len(oor_rows)))]
-        issues.append(IssueGroup(
-            category="Valores fuera de rango",
-            category_code="OUT_OF_RANGE",
-            severity="ALTA",
-            count=len(oor_rows),
-            total_rows=total,
-            percentage=len(oor_rows) / total * 100 if total > 0 else 0,
-            description=f"Valores fuera de rango logico para '{domain_name}': {len(oor_rows)} ocurrencias",
-            examples=examples,
-            affected_rows=oor_rows,
         ))
 
     return issues

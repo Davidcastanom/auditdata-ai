@@ -442,6 +442,51 @@
     </aside>
     <div class="history-backdrop" id="historyBackdrop"></div>
 
+    <!-- Side Drawer Component: Inspector de Columna y Chat con IA -->
+    <aside class="side-drawer" id="aiColumnDrawer" aria-label="Inspector y Chat de Columna">
+      <div class="side-drawer__header">
+        <div class="side-drawer__title-wrap">
+          <span class="side-drawer__badge" id="drawerColBadge">Columna</span>
+          <h3 id="drawerColTitle">Selecciona una columna</h3>
+          <span class="side-drawer__meta" id="drawerColMeta">Sin datos</span>
+        </div>
+        <button class="side-drawer__close" id="drawerCloseButton" type="button" title="Cerrar panel">&times;</button>
+      </div>
+
+      <div class="side-drawer__body">
+        <!-- Tarjeta de Diagnóstico Rápido -->
+        <div class="drawer-section">
+          <h4>Diagnóstico de Calidad</h4>
+          <div id="drawerDiagnostics" class="drawer-diagnostics-box">
+            <p class="empty-state">Selecciona una columna para inspeccionar.</p>
+          </div>
+        </div>
+
+        <!-- Sugerencias del Copiloto IA -->
+        <div class="drawer-section">
+          <h4>Recomendaciones del Copiloto IA</h4>
+          <div id="drawerAIRecs" class="drawer-recs-box">
+            <p class="empty-state">No hay recomendaciones activas.</p>
+          </div>
+        </div>
+
+        <!-- Chat Interactivo en Lenguaje Natural -->
+        <div class="drawer-section drawer-section--chat">
+          <h4>Conversar con el Copiloto IA</h4>
+          <div id="drawerChatFeed" class="chat-feed">
+            <div class="chat-bubble chat-bubble--ai">
+              <strong>Copiloto IA:</strong> ¡Hola! Soy tu asistente técnico de calidad de datos. Pregúntame cualquier duda sobre cómo tratar las inconsistencias de esta columna. Recuerda que la decisión final es tuya.
+            </div>
+          </div>
+          <div class="chat-input-row">
+            <input type="text" id="drawerChatInput" placeholder="Haz una pregunta técnica sobre esta columna..." />
+            <button class="button button--primary" id="drawerChatSendButton" type="button">Enviar</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+    <div class="side-drawer-backdrop" id="aiColumnDrawerBackdrop"></div>
+
     </div>
 
     <script type="module" src="/frontend/src/app.js"></script>

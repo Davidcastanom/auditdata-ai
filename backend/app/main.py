@@ -95,60 +95,74 @@ def diagnose(req: AnalyzeRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+class AIChatRequest(BaseModel):
+    filename: str
+    content_base64: str
+    column: str
+    user_query: str
+
+
 @app.post("/api/ai/recommend")
-def ai_recommend(req: AnalyzeRequest):
+async def ai_recommend(req: AnalyzeRequest):
     """
-    Endpoint para obtener recomendaciones de IA basadas en el diagnostico.
-
-    FLUJO:
-    1. Recibe el dataset
-    2. Ejecuta el diagnostico (28 categorias)
-    3. Envia problemas a Groq API (Llama 3.1)
-    4. Retorna recomendaciones de limpieza
-
-    RESPUESTA:
-    {
-        "recommendations": [
-            {
-                "column": "nombre_columna",
-                "issues_summary": "3 problema(s)",
-                "recommendations": [
-                    {
-                        "category": "MISSING",
-                        "count": 15,
-                        "text": "Justificacion tecnica...",
-                        "action": {"kind": "fill_missing", ...},
-                        "confidence": 0.85
-                    }
-                ]
-            }
-        ],
-        "message": "Procesadas N columnas",
-        "status": "success"
-    }
+    Endpoint asíncrono para obtener recomendaciones de IA rápidas.
     """
     try:
         payload = base64.b64decode(req.content_base64)
         if len(payload) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail="El archivo excede el limite de 10MB")
+            raise HTTPException(status_code=400, detail="El archivo excede el límite de 10MB")
 
         from data_engine.diagnostic import diagnose_dataset
         from data_engine.analyzer import load_dataset
-        from data_engine.ai_advisor import get_ai_recommendations
+        from data_engine.ai_advisor import get_ai_recommendations_async
 
-        # Paso 1: Cargar dataset
         headers, rows = load_dataset(req.filename, payload)
-
-        # Paso 2: Diagnosticar
         diagnostic = diagnose_dataset(headers, rows)
 
-        # Paso 3: Obtener recomendaciones de IA
-        recommendations = get_ai_recommendations(
+        recommendations = await get_ai_recommendations_async(
             diagnostic=diagnostic.to_dict(),
-            sample_rows=rows[:20]  # Primeras 20 filas como contexto
+            sample_rows=rows[:20]
         )
 
         return {"recommendations": recommendations}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/ai/chat-column")
+async def ai_chat_column(req: AIChatRequest):
+    """
+    Endpoint para chatear interactivamente con el Copiloto de IA sobre una columna o el dataset.
+    """
+    try:
+        payload = base64.b64decode(req.content_base64)
+        if len(payload) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="El archivo excede el límite de 10MB")
+
+        from data_engine.diagnostic import diagnose_dataset
+        from data_engine.analyzer import load_dataset
+        from data_engine.ai_advisor import chat_with_column_advisor
+
+        headers, rows = load_dataset(req.filename, payload)
+        diagnostic = diagnose_dataset(headers, rows)
+        diag_dict = diagnostic.to_dict()
+
+        col_diag = None
+        for col in diag_dict.get("columns", []):
+            if col.get("column") == req.column:
+                col_diag = col
+                break
+
+        res = await chat_with_column_advisor(
+            column_name=req.column,
+            user_query=req.user_query,
+            column_diagnostic=col_diag,
+            sample_rows=rows[:20]
+        )
+        return res
 
     except HTTPException:
         raise

@@ -283,25 +283,33 @@ export class NubeValidacion {
     const issues = colData.issues || [];
     if (issues.length === 0) return '';
 
+    const rawCol = colData.column || colData.column_name || 'Dataset';
+    const isDataset = rawCol === '__dataset__';
+    const displayName = isDataset ? 'Dataset Global (Filas Duplicadas)' : rawCol;
+    const displayDomain = isDataset ? 'Multicolumna' : (colData.inferred_domain || 'general');
+
     return `
-      <div class="nube-column nube-column--manual" data-column="${this._escHtml(colData.column_name)}">
+      <div class="nube-column nube-column--manual" data-column="${this._escHtml(rawCol)}">
         <div class="nube-column__header">
           <div class="nube-column__title">
-            <span class="nube-column__name">${this._escHtml(colData.column_name)}</span>
-            <span class="nube-column__domain">${this._escHtml(colData.column_type || 'texto')}</span>
+            <span class="nube-column__name" style="font-weight: 700; font-size: 1.05rem; color: var(--color-primary);">${this._escHtml(displayName)}</span>
+            <span class="nube-column__domain">${this._escHtml(displayDomain)}</span>
           </div>
-          <span class="nube-column__count">${issues.length} problema${issues.length !== 1 ? 's' : ''}</span>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span class="nube-column__count">${issues.length} problema${issues.length !== 1 ? 's' : ''}</span>
+            <button class="button button--ghost button--sm" data-inspect-col="${this._escHtml(rawCol)}" type="button">Inspeccionar</button>
+          </div>
         </div>
         <div class="nube-column__body">
           ${issues.map(issue => `
             <div class="nube-manual-issue" data-category="${this._escHtml(issue.category_code)}">
               <label class="nube-manual-issue__label">
-                <input type="checkbox" class="nube-manual-check" data-column="${this._escHtml(colData.column_name)}" data-category="${this._escHtml(issue.category_code)}" data-count="${issue.count || 0}" />
+                <input type="checkbox" class="nube-manual-check" data-column="${this._escHtml(rawCol)}" data-category="${this._escHtml(issue.category_code)}" data-count="${issue.count || 0}" checked />
                 <div class="nube-manual-issue__info">
                   <div class="nube-manual-issue__header">
                     <span class="nube-rec__severity nube-rec__severity--${this._getSeverity(issue.category_code)}">${this._getSeverity(issue.category_code)}</span>
                     <strong>${this._escHtml(issue.category_code)}</strong>
-                    <span class="nube-manual-issue__count">${issue.count || 0} filas afectadas (${issue.percentage || 0}%)</span>
+                    <span class="nube-manual-issue__count">${issue.count || 0} filas afectadas (${(issue.percentage || 0).toFixed(1)}%)</span>
                   </div>
                   <p class="nube-manual-issue__desc">${this._escHtml(issue.description || '')}</p>
                   ${issue.examples && issue.examples.length > 0 ? `
@@ -311,7 +319,7 @@ export class NubeValidacion {
                   ` : ''}
                   ${issue.affected_rows && issue.affected_rows.length > 0 ? `
                     <div class="nube-manual-issue__affected">
-                      Filas afectadas: <code>${issue.affected_rows.slice(0, 10).join(', ')}</code>${issue.affected_rows.length > 10 ? ` (+${issue.affected_rows.length - 10} mas)` : ''}
+                      Filas afectadas: <code>${issue.affected_rows.slice(0, 10).join(', ')}</code>${issue.affected_rows.length > 10 ? ` (+${issue.affected_rows.length - 10} más)` : ''}
                     </div>
                   ` : ''}
                 </div>
@@ -331,6 +339,13 @@ export class NubeValidacion {
     const deselectAll = this.container.querySelector('#nubeDeselectAll');
     const confirmBtn = this.container.querySelector('#nubeManualConfirm');
     const skipManual = this.container.querySelector('#nubeSkipManual');
+
+    this.container.querySelectorAll('[data-inspect-col]').forEach(btn => {
+      btn.onclick = () => {
+        const col = btn.getAttribute('data-inspect-col');
+        this.openDrawerForColumn(col);
+      };
+    });
 
     if (selectAll) selectAll.addEventListener('click', () => {
       checks.forEach(ch => { ch.checked = true; });
@@ -659,4 +674,168 @@ export class NubeValidacion {
 
   getAcceptedActions() { return this.acceptedActions; }
   isComplete() { return this.mode === 'manual' || this.reviewedCount >= this._getTotalRecs(); }
+
+  // --- Side Drawer & Interactive Column Chat Logic ---
+
+  initDrawerEvents() {
+    const drawer = document.querySelector('#aiColumnDrawer');
+    const backdrop = document.querySelector('#aiColumnDrawerBackdrop');
+    const closeBtn = document.querySelector('#drawerCloseButton');
+    const sendBtn = document.querySelector('#drawerChatSendButton');
+    const input = document.querySelector('#drawerChatInput');
+
+    if (closeBtn) closeBtn.onclick = () => this.closeDrawer();
+    if (backdrop) backdrop.onclick = () => this.closeDrawer();
+
+    if (sendBtn && input) {
+      const handleSend = () => {
+        const query = input.value.trim();
+        if (!query || !this.currentDrawerColumn) return;
+        input.value = '';
+        this.sendDrawerChatMessage(this.currentDrawerColumn, query);
+      };
+      sendBtn.onclick = handleSend;
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') handleSend();
+      };
+    }
+  }
+
+  openDrawerForColumn(columnName) {
+    this.currentDrawerColumn = columnName;
+    const drawer = document.querySelector('#aiColumnDrawer');
+    const backdrop = document.querySelector('#aiColumnDrawerBackdrop');
+    const badge = document.querySelector('#drawerColBadge');
+    const title = document.querySelector('#drawerColTitle');
+    const meta = document.querySelector('#drawerColMeta');
+    const diagBox = document.querySelector('#drawerDiagnostics');
+    const recsBox = document.querySelector('#drawerAIRecs');
+    const chatFeed = document.querySelector('#drawerChatFeed');
+
+    if (!drawer || !backdrop) return;
+
+    this.initDrawerEvents();
+
+    if (columnName === '__dataset__') {
+      badge.textContent = 'Dataset Global';
+      title.textContent = 'Filas Duplicadas en Dataset';
+      meta.textContent = 'Anomalía de Unicidad de Registro Completo';
+    } else {
+      badge.textContent = 'Columna';
+      title.textContent = columnName;
+      meta.textContent = `Inspector de Celdas y Calidad`;
+    }
+
+    // Cargar Diagnóstico Técnico en el Drawer
+    let colDiag = null;
+    if (this.diagnosticData?.columns) {
+      colDiag = this.diagnosticData.columns.find(c => c.column === columnName);
+    }
+    const issues = colDiag?.issues || [];
+
+    if (issues.length === 0) {
+      diagBox.innerHTML = `<p class="empty-state">No se registraron problemas técnicos en esta columna.</p>`;
+    } else {
+      diagBox.innerHTML = issues.map(iss => `
+        <div class="drawer-issue-item">
+          <strong>${this._escHtml(iss.category || iss.category_code)}</strong>: ${iss.count || 0} ocurrencias (${(iss.percentage || 0).toFixed(1)}%).
+          <div class="depur-examples" style="margin-top: 4px;">
+            ${(iss.examples || []).slice(0, 3).map(e => `<div>${this._renderExample(e)}</div>`).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Cargar Recomendaciones de IA en el Drawer
+    const colRecObj = this.recommendations.find(r => r.column === columnName);
+    const recs = colRecObj?.recommendations || [];
+
+    if (recs.length === 0) {
+      recsBox.innerHTML = `<p class="empty-state">Sin recomendaciones automáticas pendientes.</p>`;
+    } else {
+      recsBox.innerHTML = recs.map(rec => `
+        <div class="drawer-rec-card">
+          <p><strong>${this._escHtml(rec.category)}:</strong> ${this._escHtml(rec.text)}</p>
+          <div class="drawer-rec-actions">
+            <button class="button button--primary button--sm" type="button" data-drawer-action="accept" data-col="${this._escHtml(columnName)}" data-kind="${this._escHtml(rec.action?.kind || '')}">Aceptar recomendación</button>
+            <button class="button button--ghost button--sm" type="button" data-drawer-action="dismiss">Ignorar</button>
+          </div>
+        </div>
+      `).join('');
+
+      recsBox.querySelectorAll('[data-drawer-action="accept"]').forEach(btn => {
+        btn.onclick = () => {
+          const kind = btn.getAttribute('data-kind');
+          const col = btn.getAttribute('data-col');
+          this.acceptedActions.push({ kind, column: col, reason: `Aceptado desde Inspector Lateral de IA` });
+          btn.disabled = true;
+          btn.textContent = 'Acción Aceptada';
+          this.onActionReady(this.acceptedActions);
+        };
+      });
+
+      recsBox.querySelectorAll('[data-drawer-action="dismiss"]').forEach(btn => {
+        btn.onclick = (e) => {
+          e.target.closest('.drawer-rec-card').remove();
+        };
+      });
+    }
+
+    // Reiniciar feed del chat con mensaje inicial ético de Copiloto
+    chatFeed.innerHTML = `
+      <div class="chat-bubble chat-bubble--ai">
+        <strong>Copiloto IA:</strong> Hola, estoy analizando la columna <code>${this._escHtml(columnName)}</code>. Pregúntame cualquier duda técnica sobre cómo depurar sus datos. Tú tienes el control final.
+      </div>
+    `;
+
+    drawer.classList.add('is-active');
+    backdrop.classList.add('is-active');
+  }
+
+  closeDrawer() {
+    const drawer = document.querySelector('#aiColumnDrawer');
+    const backdrop = document.querySelector('#aiColumnDrawerBackdrop');
+    if (drawer) drawer.classList.remove('is-active');
+    if (backdrop) backdrop.classList.remove('is-active');
+  }
+
+  async sendDrawerChatMessage(columnName, query) {
+    const chatFeed = document.querySelector('#drawerChatFeed');
+    if (!chatFeed) return;
+
+    // Agregar mensaje del usuario
+    const userMsgDiv = document.createElement('div');
+    userMsgDiv.className = 'chat-bubble chat-bubble--user';
+    userMsgDiv.innerHTML = `<strong>Tú:</strong> ${this._escHtml(query)}`;
+    chatFeed.appendChild(userMsgDiv);
+
+    // Agregar indicador de pensando
+    const thinkingDiv = document.createElement('div');
+    thinkingDiv.className = 'chat-bubble chat-bubble--ai';
+    thinkingDiv.innerHTML = `<strong>Copiloto IA:</strong> <em>Analizando...</em>`;
+    chatFeed.appendChild(thinkingDiv);
+    chatFeed.scrollTop = chatFeed.scrollHeight;
+
+    try {
+      const response = await fetch('/api/ai/chat-column', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: this.filename,
+          content_base64: this.contentBase64,
+          column: columnName,
+          user_query: query
+        })
+      });
+
+      if (!response.ok) throw new Error('Error de conexión con la IA');
+
+      const data = await response.json();
+      thinkingDiv.innerHTML = `<strong>Copiloto IA:</strong> ${this._escHtml(data.response || 'Sin respuesta')}`;
+    } catch (e) {
+      thinkingDiv.innerHTML = `<strong>Copiloto IA:</strong> Error al consultar: ${this._escHtml(e.message)}`;
+    }
+    chatFeed.scrollTop = chatFeed.scrollHeight;
+  }
 }
+

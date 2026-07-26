@@ -226,5 +226,22 @@ class TestAIRecommendEndpoint(unittest.TestCase):
             self.assertIsInstance(recs["columns"], list)
 
 
+class TestAIChatColumnEndpoint(unittest.TestCase):
+    def test_chat_column_valid_csv(self):
+        response = client.post(
+            "/api/ai/chat-column",
+            json={
+                "filename": "test.csv",
+                "content_base64": _encode(SAMPLE_CSV),
+                "column": "edad",
+                "user_query": "¿Cómo debo tratar los valores faltantes en esta columna?"
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("response", data)
+        self.assertIn("status", data)
+
+
 if __name__ == "__main__":
     unittest.main()

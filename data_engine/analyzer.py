@@ -141,7 +141,9 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
         kind = action.get("kind")
         column = action.get("column", "")
         reason = action.get("reason", "").strip() or "Decision registrada sin detalle adicional."
-        target_rows = action.get("rows")  # Optional list[int] of 0-based row indices
+        target_rows = action.get("rows")  # Excel row numbers from frontend
+        if target_rows is not None:
+            target_rows = [r - 2 for r in target_rows]  # Convert to 0-based data indices
 
         # Generate professional justification using Gemini if key is provided
         ai_reason = generate_ai_justification(column or "Dataset", kind, reason)
