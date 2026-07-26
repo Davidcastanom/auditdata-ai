@@ -3,15 +3,16 @@
  * NUBE DE VALIDACION - AuditData AI
  * ============================================================================
  *
- * DOS MODOS DE OPERACION:
- * -----------------------
- * 1. CON IA: Groq/Llama analiza y genera recomendaciones automaticas
- * 2. SIN IA: El analista revisa el diagnostico 28 categorias manualmente
+ * MODO DE OPERACION:
+ * ------------------
+ * Validacion manual: El analista revisa el diagnostico 28 categorias
+ * y selecciona que problemas quiere abordar en la depuracion.
  *
- * Ambos modos permiten continuar al paso 4 (Depuracion).
+ * La IA se utiliza exclusivamente en el Step 4 (Depuracion) como
+ * Copiloto Conversacional en el Side Drawer.
  *
  * AUTOR: AuditData AI
- * VERSION: 2.0
+ * VERSION: 3.0
  * ============================================================================
  */
 
@@ -22,20 +23,13 @@ export class NubeValidacion {
     this.onAllReviewed = options.onAllReviewed || (() => {});
     this.onDiagnosticReady = options.onDiagnosticReady || (() => {});
 
-    this.recommendations = [];
     this.reviewedCount = 0;
     this.acceptedActions = [];
-    this.mode = null;
     this.filename = null;
     this.contentBase64 = null;
     this.diagnosticData = null;
-
-    this._init();
-  }
-
-  _init() {
-    if (!this.container) return;
-    this._renderModeSelector();
+    this.currentDrawerColumn = null;
+    this.drawerChatHistory = {};
   }
 
   _escHtml(str) {
@@ -76,99 +70,21 @@ export class NubeValidacion {
   }
 
   /**
-   * Paso 1: Mostrar selector de modo
-   */
-  _renderModeSelector() {
-    this.container.innerHTML = `
-      <div class="nube-mode-selector">
-        <div class="nube-mode-header">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-          </svg>
-          <h2>Como quieres validar?</h2>
-          <p>Elige un metodo para revisar la calidad de tu dataset.</p>
-        </div>
-        <div class="nube-mode-cards">
-          <button class="nube-mode-card nube-mode-card--ai" id="nubeModeAI" type="button">
-            <div class="nube-mode-card__icon">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-              </svg>
-            </div>
-            <h3>Analisis con IA</h3>
-            <p>Llama 3.1 analiza tu dataset y genera recomendaciones automaticas para cada problema detectado.</p>
-            <span class="nube-mode-card__tag">Recomendado</span>
-          </button>
-          <button class="nube-mode-card nube-mode-card--manual" id="nubeModeManual" type="button">
-            <div class="nube-mode-card__icon">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-              </svg>
-            </div>
-            <h3>Validacion manual</h3>
-            <p>Revisa el diagnostico de 28 categorias y selecciona que problemas quieres abordar.</p>
-          </button>
-        </div>
-      </div>
-    `;
-
-    this.container.querySelector('#nubeModeAI').addEventListener('click', () => this._startAIMode());
-    this.container.querySelector('#nubeModeManual').addEventListener('click', () => this._startManualMode());
-  }
-
-  /**
-   * Carga datos del dataset y muestra selector
+   * Carga datos del dataset y muestra diagnostico directamente
    */
   loadRecommendations(filename, contentBase64) {
     this.filename = filename;
     this.contentBase64 = contentBase64;
-    this.recommendations = [];
     this.reviewedCount = 0;
     this.acceptedActions = [];
-    this.mode = null;
     this.diagnosticData = null;
-    this._renderModeSelector();
+    this._startManualMode();
   }
 
   /**
-   * Paso 2a: Modo IA - llamar a Groq
-   */
-  async _startAIMode() {
-    this.mode = 'ai';
-    this.container.innerHTML = this._renderLoading();
-
-    try {
-      const response = await fetch("/api/ai/recommend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: this.filename, content_base64: this.contentBase64 }),
-      });
-
-      if (!response.ok) throw new Error("Error al obtener recomendaciones de IA");
-
-      const data = await response.json();
-      this.recommendations = data.recommendations?.recommendations || [];
-      this.reviewedCount = 0;
-      this.acceptedActions = [];
-
-      if (this.recommendations.length === 0) {
-        this.container.innerHTML = this._renderSuccess(data.recommendations?.message || "Sin problemas detectados");
-        this.onAllReviewed([]);
-        return;
-      }
-
-      this._renderAICloud();
-      this._updateProgress();
-    } catch (error) {
-      this.container.innerHTML = this._renderErrorWithFallback(error.message);
-    }
-  }
-
-  /**
-   * Paso 2b: Modo Manual - cargar diagnostico y mostrar checkboxes
+   * Cargar diagnostico y mostrar checkboxes
    */
   async _startManualMode() {
-    this.mode = 'manual';
     this.container.innerHTML = this._renderLoading();
 
     try {
@@ -193,43 +109,6 @@ export class NubeValidacion {
   }
 
   /**
-   * Renderiza la nube IA completa
-   */
-  _renderAICloud() {
-    const total = this.recommendations.reduce((s, c) => s + (c.recommendations?.length || 0), 0);
-
-    this.container.innerHTML = `
-      <div class="nube-header">
-        <div class="nube-header__title">
-          <div class="nube-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-            </svg>
-          </div>
-          <div>
-            <h2>Recomendaciones de IA</h2>
-            <p class="nube-subtitle">${total} recomendacion${total !== 1 ? 'es' : ''} de Llama 3.1 - Tu decides que hacer</p>
-          </div>
-        </div>
-        <div class="nube-actions-global">
-          <button class="nube-btn nube-btn--ghost nube-btn--skip" id="nubeSkipValidation" type="button">Omitir validación</button>
-          <button class="nube-btn nube-btn--ghost" id="nubeAcceptAll" type="button">Aceptar todas</button>
-          <button class="nube-btn nube-btn--ghost nube-btn--danger" id="nubeRejectAll" type="button">Rechazar todas</button>
-        </div>
-      </div>
-      <div class="nube-progress">
-        <div class="nube-progress__bar"><div class="nube-progress__fill" style="width: 0%"></div></div>
-        <span class="nube-progress__text">0 de ${total} revisadas</span>
-      </div>
-      <div class="nube-columns">
-        ${this.recommendations.map(col => this._renderColumnCard(col)).join('')}
-      </div>
-    `;
-
-    this._bindAIEvents();
-  }
-
-  /**
    * Renderiza vista manual con diagnostico 28 categorias
    */
   _renderManualView() {
@@ -251,12 +130,12 @@ export class NubeValidacion {
             </svg>
           </div>
           <div>
-            <h2>Validacion manual</h2>
+            <h2>Validacion de Calidad</h2>
             <p class="nube-subtitle">${cols.length} columnas, ${totalIssues} problema${totalIssues !== 1 ? 's' : ''} detectado${totalIssues !== 1 ? 's' : ''}</p>
           </div>
         </div>
         <div class="nube-actions-global">
-          <button class="nube-btn nube-btn--ghost nube-btn--skip" id="nubeSkipManual" type="button">Omitir validación</button>
+          <button class="nube-btn nube-btn--ghost nube-btn--skip" id="nubeSkipManual" type="button">Omitir validacion</button>
           <button class="nube-btn nube-btn--ghost" id="nubeSelectAllManual" type="button">Seleccionar todo</button>
           <button class="nube-btn nube-btn--ghost nube-btn--danger" id="nubeDeselectAll" type="button">Limpiar seleccion</button>
         </div>
@@ -319,7 +198,7 @@ export class NubeValidacion {
                   ` : ''}
                   ${issue.affected_rows && issue.affected_rows.length > 0 ? `
                     <div class="nube-manual-issue__affected">
-                      Filas afectadas: <code>${issue.affected_rows.slice(0, 10).join(', ')}</code>${issue.affected_rows.length > 10 ? ` (+${issue.affected_rows.length - 10} más)` : ''}
+                      Filas afectadas: <code>${issue.affected_rows.slice(0, 10).join(', ')}</code>${issue.affected_rows.length > 10 ? ` (+${issue.affected_rows.length - 10} mas)` : ''}
                     </div>
                   ` : ''}
                 </div>
@@ -392,221 +271,10 @@ export class NubeValidacion {
     this.onAllReviewed(this.acceptedActions);
   }
 
-  // --- Eventos modo IA ---
-
-  _bindAIEvents() {
-    this.container.querySelectorAll('.nube-btn[data-action]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        this._handleAIAction(e.currentTarget.dataset.action, e.currentTarget.dataset.id);
-      });
-    });
-
-    const acceptAll = this.container.querySelector('#nubeAcceptAll');
-    const rejectAll = this.container.querySelector('#nubeRejectAll');
-    const skipValidation = this.container.querySelector('#nubeSkipValidation');
-    if (acceptAll) acceptAll.addEventListener('click', () => this._handleAcceptAll());
-    if (rejectAll) rejectAll.addEventListener('click', () => this._handleRejectAll());
-    if (skipValidation) skipValidation.addEventListener('click', () => this._handleSkipValidation());
-  }
-
-  _handleAIAction(action, id) {
-    const el = this.container.querySelector(`[data-rec-id="${id}"]`);
-    if (!el || el.dataset.status !== 'pending') return;
-
-    const textEl = el.querySelector('.nube-rec__editable');
-    const finalText = textEl ? textEl.textContent.trim() : '';
-    const rec = this._findRec(id);
-    if (!rec) return;
-
-    const prevStatus = el.dataset.status;
-    el.dataset.status = action;
-    el.classList.add(`nube-rec--${action}`);
-
-    const buttons = el.querySelectorAll('.nube-btn');
-    buttons.forEach(b => b.disabled = true);
-
-    const undoBtn = document.createElement('button');
-    undoBtn.className = 'nube-btn nube-btn--undo';
-    undoBtn.type = 'button';
-    undoBtn.textContent = 'Deshacer';
-    undoBtn.addEventListener('click', () => this._handleUndoAI(id, prevStatus, rec, action));
-    el.querySelector('.nube-rec__buttons').appendChild(undoBtn);
-
-    this.reviewedCount++;
-    this._updateProgress();
-
-    if (action === 'accept' || action === 'modify') {
-      const actionData = {
-        kind: rec.action?.kind || 'unknown',
-        column: this._getColName(id),
-        reason: finalText,
-        method: rec.action?.method || '',
-        value: rec.action?.value || '',
-        original_confidence: rec.confidence || 0.5,
-        ai_text: rec.text || '',
-        _recId: id,
-      };
-      this.acceptedActions.push(actionData);
-      this.onActionReady(actionData);
-    }
-
-    if (this.reviewedCount >= this._getTotalRecs()) {
-      this.onAllReviewed(this.acceptedActions);
-    }
-  }
-
-  _handleUndoAI(id, prevStatus, rec, prevAction) {
-    const el = this.container.querySelector(`[data-rec-id="${id}"]`);
-    if (!el) return;
-
-    el.dataset.status = 'pending';
-    el.classList.remove(`nube-rec--${prevAction}`);
-
-    const undoBtn = el.querySelector('.nube-btn--undo');
-    if (undoBtn) undoBtn.remove();
-
-    el.querySelectorAll('.nube-btn').forEach(b => {
-      if (b.dataset.action) b.disabled = false;
-    });
-
-    this.reviewedCount = Math.max(0, this.reviewedCount - 1);
-
-    if (prevAction === 'accept' || prevAction === 'modify') {
-      this.acceptedActions = this.acceptedActions.filter(a => a._recId !== id);
-    }
-
-    this._updateProgress();
-
-    const nextBtn = document.querySelector('#nextButton') || document.querySelector('[data-action="next"]');
-    if (nextBtn && this.reviewedCount < this._getTotalRecs()) {
-      nextBtn.disabled = true;
-    }
-  }
-
-  _handleAcceptAll() {
-    this.container.querySelectorAll('.nube-rec[data-status="pending"]').forEach(el => {
-      this._handleAIAction('accept', el.dataset.recId);
-    });
-  }
-
-  _handleRejectAll() {
-    this.container.querySelectorAll('.nube-rec[data-status="pending"]').forEach(el => {
-      this._handleAIAction('reject', el.dataset.recId);
-    });
-  }
-
   _handleSkipValidation() {
     this.acceptedActions = [];
-    this.reviewedCount = this._getTotalRecs();
+    this.reviewedCount = 1;
     this.onAllReviewed([]);
-  }
-
-  // --- Renderers IA ---
-
-  _renderColumnCard(colData) {
-    const recs = colData.recommendations || [];
-    const domain = colData.inferred_domain || 'desconocido';
-    return `
-      <div class="nube-column" data-column="${this._escHtml(colData.column)}">
-        <div class="nube-column__header">
-          <div class="nube-column__title">
-            <span class="nube-column__name">${this._escHtml(colData.column)}</span>
-            <span class="nube-column__domain">${this._escHtml(domain)}</span>
-          </div>
-          <span class="nube-column__count">${recs.length} recomendacion${recs.length !== 1 ? 'es' : ''}</span>
-        </div>
-        <div class="nube-column__body">
-          ${recs.length > 0 ? recs.map((rec, idx) => this._renderRec(colData.column, rec, idx)).join('') : `
-            <div class="nube-empty">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              <p>Sin problemas detectados</p>
-            </div>
-          `}
-        </div>
-      </div>
-    `;
-  }
-
-  _renderRec(column, rec, index) {
-    const id = `rec-${column}-${index}`;
-    const confidence = Math.round((rec.confidence || 0.5) * 100);
-    const cClass = confidence >= 80 ? 'high' : confidence >= 50 ? 'medium' : 'low';
-    const sev = this._getSeverity(rec.category);
-    const affectedRows = rec.affected_rows || [];
-
-    return `
-      <div class="nube-rec" data-rec-id="${id}" data-status="pending">
-        <div class="nube-rec__header">
-          <div class="nube-rec__category">
-            <span class="nube-rec__severity nube-rec__severity--${sev}">${sev}</span>
-            <span class="nube-rec__cat-name">${this._escHtml(rec.category)}</span>
-            ${affectedRows.length > 0 ? `<span class="nube-rec__affected-count">${affectedRows.length} filas</span>` : ''}
-          </div>
-          <div class="nube-rec__confidence">
-            <div class="nube-confidence-bar"><div class="nube-confidence-fill nube-confidence-fill--${cClass}" style="width:${confidence}%"></div></div>
-            <span>${confidence}%</span>
-          </div>
-        </div>
-        <div class="nube-rec__body">
-          <div class="nube-rec__text">
-            <label class="nube-rec__label">Recomendacion de IA:</label>
-            <div class="nube-rec__editable" contenteditable="true" data-field="text">${this._escHtml(rec.text || '')}</div>
-          </div>
-          ${affectedRows.length > 0 ? `
-            <div class="nube-rec__affected">
-              <label class="nube-rec__label">Filas afectadas:</label>
-              <div class="nube-rec__affected-rows">
-                <code>${affectedRows.slice(0, 12).join(', ')}${affectedRows.length > 12 ? ` (+${affectedRows.length - 12} mas)` : ''}</code>
-              </div>
-            </div>
-          ` : ''}
-          ${rec.action && Object.keys(rec.action).length > 0 ? `
-            <div class="nube-rec__action">
-              <label class="nube-rec__label">Accion sugerida:</label>
-              <div class="nube-rec__action-preview">
-                <span class="nube-rec__action-kind">${this._escHtml(rec.action.kind || 'N/A')}</span>
-                ${rec.action.method ? `<span class="nube-rec__action-method">${this._escHtml(rec.action.method)}</span>` : ''}
-              </div>
-            </div>
-          ` : ''}
-        </div>
-        <div class="nube-rec__footer">
-          <div class="nube-rec__buttons">
-            <button class="nube-btn nube-btn--accept" data-action="accept" data-id="${id}" type="button">Aceptar</button>
-            <button class="nube-btn nube-btn--modify" data-action="modify" data-id="${id}" type="button">Modificar</button>
-            <button class="nube-btn nube-btn--reject" data-action="reject" data-id="${id}" type="button">Rechazar</button>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  // --- Helpers ---
-
-  _updateProgress() {
-    const total = this._getTotalRecs();
-    const pct = total > 0 ? (this.reviewedCount / total) * 100 : 0;
-    const fill = this.container.querySelector('.nube-progress__fill');
-    const text = this.container.querySelector('.nube-progress__text');
-    if (fill) fill.style.width = `${pct}%`;
-    if (text) text.textContent = `${this.reviewedCount} de ${total} revisadas`;
-  }
-
-  _findRec(id) {
-    const parts = id.split('-');
-    const column = parts.slice(1, -1).join('-');
-    const index = parseInt(parts[parts.length - 1]);
-    const col = this.recommendations.find(c => c.column === column);
-    return col?.recommendations?.[index] || null;
-  }
-
-  _getColName(id) {
-    const parts = id.split('-');
-    return parts.slice(1, -1).join('-');
-  }
-
-  _getTotalRecs() {
-    return this.recommendations.reduce((s, c) => s + (c.recommendations?.length || 0), 0);
   }
 
   _getSeverity(category) {
@@ -639,21 +307,14 @@ export class NubeValidacion {
         <h3>Error</h3>
         <p>${this._escHtml(message)}</p>
         <div class="nube-error__fallback">
-          <p>Puedes intentar con <strong>Validacion manual</strong> en su lugar.</p>
-          <button class="button button--primary" id="nubeFallbackManual" type="button">Usar validacion manual</button>
-          <button class="button button--ghost" id="nubeFallbackRetry" type="button">Reintentar</button>
+          <button class="button button--primary" id="nubeFallbackRetry" type="button">Reintentar</button>
         </div>
       </div>
     `;
 
     setTimeout(() => {
-      const fb = this.container.querySelector('#nubeFallbackManual');
       const retry = this.container.querySelector('#nubeFallbackRetry');
-      if (fb) fb.addEventListener('click', () => this._startManualMode());
-      if (retry) retry.addEventListener('click', () => {
-        if (this.mode === 'ai') this._startAIMode();
-        else this._renderModeSelector();
-      });
+      if (retry) retry.addEventListener('click', () => this._startManualMode());
     }, 0);
   }
 
@@ -673,9 +334,9 @@ export class NubeValidacion {
   }
 
   getAcceptedActions() { return this.acceptedActions; }
-  isComplete() { return this.mode === 'manual' || this.reviewedCount >= this._getTotalRecs(); }
+  isComplete() { return this.reviewedCount > 0; }
 
-  // --- Side Drawer & Interactive Column Chat Logic ---
+  // --- Side Drawer (used in Step 3 for inspection) ---
 
   initDrawerEvents() {
     const drawer = document.querySelector('#aiColumnDrawer');
@@ -719,14 +380,13 @@ export class NubeValidacion {
     if (columnName === '__dataset__') {
       badge.textContent = 'Dataset Global';
       title.textContent = 'Filas Duplicadas en Dataset';
-      meta.textContent = 'Anomalía de Unicidad de Registro Completo';
+      meta.textContent = 'Anomalia de Unicidad de Registro Completo';
     } else {
       badge.textContent = 'Columna';
       title.textContent = columnName;
-      meta.textContent = `Inspector de Celdas y Calidad`;
+      meta.textContent = 'Inspector de Celdas y Calidad';
     }
 
-    // Cargar Diagnóstico Técnico en el Drawer
     let colDiag = null;
     if (this.diagnosticData?.columns) {
       colDiag = this.diagnosticData.columns.find(c => c.column === columnName);
@@ -734,7 +394,7 @@ export class NubeValidacion {
     const issues = colDiag?.issues || [];
 
     if (issues.length === 0) {
-      diagBox.innerHTML = `<p class="empty-state">No se registraron problemas técnicos en esta columna.</p>`;
+      diagBox.innerHTML = `<p class="empty-state">No se registraron problemas tecnicos en esta columna.</p>`;
     } else {
       diagBox.innerHTML = issues.map(iss => `
         <div class="drawer-issue-item">
@@ -746,47 +406,23 @@ export class NubeValidacion {
       `).join('');
     }
 
-    // Cargar Recomendaciones de IA en el Drawer
-    const colRecObj = this.recommendations.find(r => r.column === columnName);
-    const recs = colRecObj?.recommendations || [];
+    recsBox.innerHTML = `<p class="empty-state">Las recomendaciones de IA estan disponibles en el Step 4 (Depuracion).</p>`;
 
-    if (recs.length === 0) {
-      recsBox.innerHTML = `<p class="empty-state">Sin recomendaciones automáticas pendientes.</p>`;
-    } else {
-      recsBox.innerHTML = recs.map(rec => `
-        <div class="drawer-rec-card">
-          <p><strong>${this._escHtml(rec.category)}:</strong> ${this._escHtml(rec.text)}</p>
-          <div class="drawer-rec-actions">
-            <button class="button button--primary button--sm" type="button" data-drawer-action="accept" data-col="${this._escHtml(columnName)}" data-kind="${this._escHtml(rec.action?.kind || '')}">Aceptar recomendación</button>
-            <button class="button button--ghost button--sm" type="button" data-drawer-action="dismiss">Ignorar</button>
-          </div>
+    const history = this.drawerChatHistory[columnName] || [];
+    chatFeed.innerHTML = '';
+    history.forEach(msg => {
+      const div = document.createElement('div');
+      div.className = `chat-bubble chat-bubble--${msg.role === 'assistant' ? 'ai' : 'user'}`;
+      div.innerHTML = `<strong>${msg.role === 'assistant' ? 'Copiloto IA' : 'Tu'}:</strong> ${this._escHtml(msg.content)}`;
+      chatFeed.appendChild(div);
+    });
+    if (history.length === 0) {
+      chatFeed.innerHTML = `
+        <div class="chat-bubble chat-bubble--ai">
+          <strong>Copiloto IA:</strong> Hola, estoy analizando la columna <code>${this._escHtml(columnName)}</code>. Preguntame cualquier duda tecnica sobre como depurar sus datos. Tu tienes el control final.
         </div>
-      `).join('');
-
-      recsBox.querySelectorAll('[data-drawer-action="accept"]').forEach(btn => {
-        btn.onclick = () => {
-          const kind = btn.getAttribute('data-kind');
-          const col = btn.getAttribute('data-col');
-          this.acceptedActions.push({ kind, column: col, reason: `Aceptado desde Inspector Lateral de IA` });
-          btn.disabled = true;
-          btn.textContent = 'Acción Aceptada';
-          this.onActionReady(this.acceptedActions);
-        };
-      });
-
-      recsBox.querySelectorAll('[data-drawer-action="dismiss"]').forEach(btn => {
-        btn.onclick = (e) => {
-          e.target.closest('.drawer-rec-card').remove();
-        };
-      });
+      `;
     }
-
-    // Reiniciar feed del chat con mensaje inicial ético de Copiloto
-    chatFeed.innerHTML = `
-      <div class="chat-bubble chat-bubble--ai">
-        <strong>Copiloto IA:</strong> Hola, estoy analizando la columna <code>${this._escHtml(columnName)}</code>. Pregúntame cualquier duda técnica sobre cómo depurar sus datos. Tú tienes el control final.
-      </div>
-    `;
 
     drawer.classList.add('is-active');
     backdrop.classList.add('is-active');
@@ -803,13 +439,14 @@ export class NubeValidacion {
     const chatFeed = document.querySelector('#drawerChatFeed');
     if (!chatFeed) return;
 
-    // Agregar mensaje del usuario
     const userMsgDiv = document.createElement('div');
     userMsgDiv.className = 'chat-bubble chat-bubble--user';
-    userMsgDiv.innerHTML = `<strong>Tú:</strong> ${this._escHtml(query)}`;
+    userMsgDiv.innerHTML = `<strong>Tu:</strong> ${this._escHtml(query)}`;
     chatFeed.appendChild(userMsgDiv);
 
-    // Agregar indicador de pensando
+    if (!this.drawerChatHistory[columnName]) this.drawerChatHistory[columnName] = [];
+    this.drawerChatHistory[columnName].push({ role: 'user', content: query });
+
     const thinkingDiv = document.createElement('div');
     thinkingDiv.className = 'chat-bubble chat-bubble--ai';
     thinkingDiv.innerHTML = `<strong>Copiloto IA:</strong> <em>Analizando...</em>`;
@@ -824,18 +461,20 @@ export class NubeValidacion {
           filename: this.filename,
           content_base64: this.contentBase64,
           column: columnName,
-          user_query: query
+          user_query: query,
+          chat_history: this.drawerChatHistory[columnName].slice(-10)
         })
       });
 
-      if (!response.ok) throw new Error('Error de conexión con la IA');
+      if (!response.ok) throw new Error('Error de conexion con la IA');
 
       const data = await response.json();
-      thinkingDiv.innerHTML = `<strong>Copiloto IA:</strong> ${this._escHtml(data.response || 'Sin respuesta')}`;
+      const answer = data.response || 'Sin respuesta';
+      thinkingDiv.innerHTML = `<strong>Copiloto IA:</strong> ${this._escHtml(answer)}`;
+      this.drawerChatHistory[columnName].push({ role: 'assistant', content: answer });
     } catch (e) {
       thinkingDiv.innerHTML = `<strong>Copiloto IA:</strong> Error al consultar: ${this._escHtml(e.message)}`;
     }
     chatFeed.scrollTop = chatFeed.scrollHeight;
   }
 }
-

@@ -120,7 +120,6 @@ const els = {
   metrics: document.querySelector("#metrics"),
   profileTable: document.querySelector("#profileTable"),
   rulesBoard: document.querySelector("#rulesBoard"),
-  cleaningBoard: document.querySelector("#cleaningBoard"),
   actionsLog: document.querySelector("#actionsLog"),
   undoButton: document.querySelector("#undoButton"),
   comparisonGrid: document.querySelector("#comparisonGrid"),
@@ -231,7 +230,7 @@ function init() {
     if (store.state.analysis) {
       renderProfile();
       renderRules();
-      renderCleaningBoard();
+      renderDepurationBoard();
       populateAdvancedColumns();
       renderLog();
       enableStep(1);
@@ -280,7 +279,7 @@ async function analyzeSelectedFile() {
     store.setAnalysis(response.analysis);
     renderProfile();
     renderRules();
-    renderCleaningBoard();
+    renderDepurationBoard();
     populateAdvancedColumns();
     renderLog();
     enableStep(1);
@@ -377,386 +376,293 @@ function renderRules() {
   });
 }
 
-const ACTION_DESCRIPTIONS = {
-  remove_duplicate_rows: "Elimina filas que son idénticas en todas las columnas. Solo úsalo si cada fila representa una entidad única (ej. un participante, un cliente).",
-  impute_missing: "Reemplaza valores vacíos con un valor calculado (media, mediana, moda o uno que tú definas). Útil cuando hay pocos datos faltantes.",
-  drop_missing_rows: "Elimina filas completas que tienen al menos un valor vacío en esta columna. Úsalo cuando la fila no tiene sentido sin ese dato.",
-  standardize_text: "Unifica la escritura del texto (mayúsculas, minúsculas o capitalizado). Evita que la misma cosa aparezca como categorías diferentes.",
-  flag_outliers: "Marca valores extremos para que los revises manualmente. No elimina nada: solo te alerta sobre datos inusuales.",
-  delete_column: "Elimina toda la columna del dataset. Úsalo solo si la columna no aporta nada al objetivo del análisis.",
-};
+// --- Step 4: Depuracion Guiada con Chat Lateral ---
 
-function renderCleaningBoard() {
+let depurChatHistory = {};
+
+function renderDepurationBoard() {
   const diagnostic = store.state.diagnostic;
-  const analysis = store.state.analysis;
-  if (!diagnostic && !analysis) return;
-  const cards = [];
-  const appliedActions = store.state.actions;
+  if (!diagnostic) return;
 
-  function isActionApplied(kind, column) {
-    return appliedActions.some(a => a.kind === kind && a.column === column);
-  }
+  const datasetCard = document.getElementById('datasetSummaryCard');
+  const columnGrid = document.getElementById('depurColumnGrid');
+  if (!datasetCard || !columnGrid) return;
 
-  function isGroupActionApplied(kind, column, rowsKey) {
-    return appliedActions.some(a => a.kind === kind && a.column === column && a._rowsKey === rowsKey);
-  }
-
-  function renderIssueGroup(columnName, issue) {
-    const code = issue.category_code;
+  const datasetCol = diagnostic.columns?.find(c => c.column === '__dataset__');
+  if (datasetCol && datasetCol.issues?.length > 0) {
+    const issue = datasetCol.issues[0];
     const rows = issue.affected_rows || [];
-    const examples = issue.examples || [];
-    const rowsKey = `${code}_${rows.join(',')}`;
-    const groupApplied = isGroupActionApplied(getActionForCategory(code), columnName, rowsKey);
-
-    let rowsHtml = '';
-    if (rows.length > 0) {
-      const rowPreview = rows.slice(0, 8).join(', ');
-      const more = rows.length > 8 ? ` (+${rows.length - 8} mas)` : '';
-      rowsHtml = `<div class="depur-rows"><strong>Filas afectadas (${rows.length}):</strong> <code>${escapeHtml(rowPreview)}${more}</code></div>`;
-    }
-
-    let examplesHtml = '';
-    if (examples.length > 0) {
-      const exStrs = examples.slice(0, 3).map(e => {
-        if (typeof e === 'object' && e !== null) {
-          if (e.row !== undefined && e.value !== undefined) return `Fila ${e.row}: ${escapeHtml(String(e.value))}`;
-          if (e.row !== undefined && e.detail) return `Fila ${e.row}: ${escapeHtml(e.detail)}`;
-          if (e.row !== undefined && e.original) return `Fila ${e.row}: "${escapeHtml(e.original)}" → "${escapeHtml(e.standard || '')}"`;
-          if (e.rows) return `Filas [${e.rows.join(', ')}]`;
-          if (e.value) return escapeHtml(String(e.value));
-          if (e.format) return escapeHtml(e.format);
-          if (e.error) return escapeHtml(e.error);
-        }
-        return escapeHtml(String(e));
+    const groupApplied = store.state.actions.some(a => a.kind === 'remove_duplicate_rows');
+    datasetCard.innerHTML = `
+      <div class="dataset-summary-card__info">
+        <h3>Filas Duplicadas en Dataset</h3>
+        <p>${escapeHtml(issue.description || `${rows.length} filas duplicadas detectadas`)}</p>
+        ${!groupApplied && rows.length > 0 ? `
+          <div class="depur-rows" style="margin-top: 8px;">
+            <code>${escapeHtml(rows.slice(0, 15).join(', '))}${rows.length > 15 ? ` (+${rows.length - 15})` : ''}</code>
+          </div>
+        ` : ''}
+      </div>
+      <div>
+        ${groupApplied ? '<span class="status status--ok">Duplicados eliminados</span>' :
+          rows.length > 0 ? `<button class="button button--primary button--sm" id="dedupeButton" type="button">Eliminar duplicados</button>` :
+          '<span class="status status--ok">Sin duplicados</span>'}
+      </div>
+    `;
+    datasetCard.style.display = 'flex';
+    if (!groupApplied && rows.length > 0) {
+      datasetCard.querySelector('#dedupeButton')?.addEventListener('click', () => {
+        addAction({
+          kind: 'remove_duplicate_rows',
+          column: 'Dataset',
+          rows,
+          reason: 'Eliminacion de filas duplicadas documentada por el analista.',
+        });
+        renderDepurationBoard();
       });
-      examplesHtml = `<div class="depur-examples">Ejemplos: <code>${exStrs.join('</code>, <code>')}</code></div>`;
     }
+  } else {
+    datasetCard.innerHTML = '<p class="empty-state">Sin filas duplicadas en el dataset.</p>';
+    datasetCard.style.display = 'block';
+  }
 
-    if (groupApplied) {
-      return `
-        <div class="depur-group depur-group--done">
-          <div class="depur-group__header">
-            <span class="depur-group__code">${escapeHtml(code)}</span>
-            <span class="depur-group__severity depur-group__severity--${issue.severity?.toLowerCase() || 'baja'}">${issue.severity || ''}</span>
-          </div>
-          <p class="depur-group__desc">${escapeHtml(issue.description || '')}</p>
-          ${rowsHtml}
-          ${examplesHtml}
-          <div class="action-done"><span class="status status--ok">Accion aplicada</span></div>
-        </div>`;
-    }
+  const columns = diagnostic.columns?.filter(c => c.column !== '__dataset__') || [];
+  const colCards = columns.map(col => {
+    const issues = (col.issues || []).filter(i => i.count > 0);
+    const issueCount = issues.length;
+    const totalRows = issues.reduce((s, i) => s + (i.count || 0), 0);
+    const domain = col.inferred_domain || 'general';
+    let badgeClass = 'column-card__badge--ok';
+    let badgeText = 'Limpia';
+    if (issueCount > 2 || totalRows > 20) { badgeClass = 'column-card__badge--danger'; badgeText = `${issueCount} problemas`; }
+    else if (issueCount > 0) { badgeClass = 'column-card__badge--warn'; badgeText = `${issueCount} problema${issueCount !== 1 ? 's' : ''}`; }
 
-    const actions = getActionsForCategory(code, columnName, rows, rowsKey);
     return `
-      <div class="depur-group" data-code="${escapeHtml(code)}" data-column="${escapeHtml(columnName)}" data-rows-key="${escapeHtml(rowsKey)}">
-        <div class="depur-group__header">
-          <span class="depur-group__code">${escapeHtml(code)}</span>
-          <span class="depur-group__severity depur-group__severity--${issue.severity?.toLowerCase() || 'baja'}">${issue.severity || ''}</span>
-          <span class="depur-group__count">${issue.count} filas</span>
-        </div>
-        <p class="depur-group__desc">${escapeHtml(issue.description || '')}</p>
-        ${rowsHtml}
-        ${examplesHtml}
-        <div class="depur-group__actions">${actions}</div>
-      </div>`;
-  }
-
-  function getActionForCategory(code) {
-    const map = {
-      'MISSING': 'impute_missing', 'HIDDEN_MISSING': 'impute_missing',
-      'NUMERIC_DOMAIN': 'replace_value', 'OUT_OF_RANGE': 'replace_value',
-      'DATE_INVALID': 'replace_value', 'TYPE_ERROR': 'convert_type',
-      'TEXT_ERROR': 'standardize_text', 'CATEGORICAL': 'standardize_synonyms',
-      'ENCODING': 'fix_encoding', 'SCIENTIFIC': 'convert_type',
-      'MULTI_VALUE': 'split_column', 'FORMULA_ERROR': 'replace_value',
-      'GHOST_CHAR': 'clean_ghost', 'BOOL_INCONSISTENCY': 'standardize_text',
-      'UNEXPECTED_TYPE': 'convert_type', 'TYPE_PER_CELL': 'convert_type',
-      'TEXT_TRUNCATION': 'flag_outliers', 'MIXED_LANG': 'standardize_text',
-      'UNIT_ERROR': 'standardize_text', 'DUPLICATE': 'remove_duplicate_rows',
-    };
-    return map[code] || 'flag_outliers';
-  }
-
-  function getActionsForCategory(code, column, rows, rowsKey) {
-    const rowStr = rows.slice(0, 10).join(', ');
-    const more = rows.length > 10 ? ` (+${rows.length - 10} mas)` : '';
-
-    if (code === 'MISSING' || code === 'HIDDEN_MISSING') {
-      return `
-        <div class="depur-actions-row">
-          <select class="depur-select" data-depur-method="${escapeAttr(column)}">
-            <option value="mode">Moda</option><option value="mean">Promedio</option>
-            <option value="median">Mediana</option><option value="custom">Valor custom</option>
-          </select>
-          <button class="button button--primary button--sm" data-depur-impute="${escapeAttr(column)}" data-rows="${escapeAttr(rows.join(','))}" data-rows-key="${escapeAttr(rowsKey)}" type="button">Imputar</button>
-          <button class="button button--ghost button--sm" data-depur-drop="${escapeAttr(column)}" data-rows="${escapeAttr(rows.join(','))}" data-rows-key="${escapeAttr(rowsKey)}" type="button">Eliminar filas</button>
-        </div>`;
-    }
-    if (code === 'TEXT_ERROR' || code === 'CATEGORICAL' || code === 'BOOL_INCONSISTENCY' || code === 'MIXED_LANG') {
-      return `
-        <div class="depur-actions-row">
-          <select class="depur-select" data-depur-std-method="${escapeAttr(column)}">
-            <option value="title">Title Case</option><option value="upper">MAYUSCULAS</option>
-            <option value="lower">minusculas</option>
-          </select>
-          <button class="button button--primary button--sm" data-depur-standardize="${escapeAttr(column)}" data-rows="${escapeAttr(rows.join(','))}" data-rows-key="${escapeAttr(rowsKey)}" type="button">Unificar</button>
-        </div>`;
-    }
-    if (['NUMERIC_DOMAIN', 'OUT_OF_RANGE', 'DATE_INVALID', 'FORMULA_ERROR'].includes(code)) {
-      return `
-        <div class="depur-actions-row">
-          <button class="button button--primary button--sm" data-depur-replace-null="${escapeAttr(column)}" data-rows="${escapeAttr(rows.join(','))}" data-rows-key="${escapeAttr(rowsKey)}" type="button">Reemplazar con NULL</button>
-          <button class="button button--ghost button--sm" data-depur-drop="${escapeAttr(column)}" data-rows="${escapeAttr(rows.join(','))}" data-rows-key="${escapeAttr(rowsKey)}" type="button">Eliminar filas</button>
-        </div>`;
-    }
-    if (code === 'DUPLICATE') {
-      return `
-        <div class="depur-actions-row">
-          <button class="button button--primary button--sm" data-depur-dedup data-rows="${escapeAttr(rows.join(','))}" data-rows-key="${escapeAttr(rowsKey)}" type="button">Eliminar duplicados</button>
-        </div>`;
-    }
-    return `
-      <div class="depur-actions-row">
-        <button class="button button--ghost button--sm" data-depur-flag="${escapeAttr(column)}" data-rows="${escapeAttr(rows.join(','))}" data-rows-key="${escapeAttr(rowsKey)}" type="button">Marcar para revision</button>
-      </div>`;
-  }
-
-  if (diagnostic && diagnostic.columns) {
-    for (const col of diagnostic.columns) {
-      if (col.column === '__dataset__') {
-        for (const issue of (col.issues || [])) {
-          const rows = issue.affected_rows || [];
-          const groupApplied = isActionApplied("remove_duplicate_rows", "Dataset");
-          cards.push(`
-            <article class="decision-card decision-card--critical ${groupApplied ? "decision-card--done" : ""}">
-              <span class="tag">Unicidad</span>
-              <h3>Filas duplicadas completas</h3>
-              <p class="action-desc">${escapeHtml(issue.description || '')}</p>
-              ${groupApplied ? `<div class="action-done"><span class="status status--ok">Accion aplicada</span></div>` : `
-                <div class="depur-rows"><strong>Filas duplicadas (${rows.length}):</strong> <code>${escapeHtml(rows.slice(0, 15).join(', '))}${rows.length > 15 ? ` (+${rows.length - 15})` : ''}</code></div>
-                <label>Justificacion:<input type="text" id="dedupeReason" placeholder="Ej. cada fila es un participante unico" /></label>
-                <button class="button button--primary" type="button" id="dedupeButton">Eliminar duplicados</button>
-              `}
-            </article>`);
-        }
-        continue;
-      }
-
-      const issues = (col.issues || []).filter(i => i.count > 0);
-      if (issues.length === 0) continue;
-
-      cards.push(`
-        <article class="decision-card">
+      <div class="column-card" data-depur-col="${escapeAttr(col.column)}" tabindex="0">
+        <div class="column-card__header">
           <div>
-            <span class="tag">${escapeHtml(col.column)}</span>
-            <h3>${escapeHtml(col.column)}</h3>
-            <p class="action-detail">${col.inferred_domain ? `Dominio: ${escapeHtml(col.inferred_domain)} · ` : ''}${issues.length} problema${issues.length !== 1 ? 's' : ''} de ${new Set(issues.map(i => i.category_code)).size} categorias</p>
+            <p class="column-card__name">${escapeHtml(col.column)}</p>
+            <p class="column-card__domain">${escapeHtml(domain)}</p>
           </div>
-          <div class="depur-issues-list">
-            ${issues.map(issue => renderIssueGroup(col.column, issue)).join('')}
-          </div>
-        </article>`);
-    }
-  } else if (analysis) {
-    if (analysis.duplicate_rows > 0) {
-      const applied = isActionApplied("remove_duplicate_rows", "Dataset");
-      cards.push(`
-        <article class="decision-card decision-card--critical ${applied ? "decision-card--done" : ""}">
-          <span class="tag">Unicidad</span>
-          <h3>Filas duplicadas completas</h3>
-          <p class="action-desc">${ACTION_DESCRIPTIONS.remove_duplicate_rows}</p>
-          <p class="action-detail">Se detectaron <strong>${analysis.duplicate_rows}</strong> filas duplicadas.</p>
-          ${applied ? `<div class="action-done"><span class="status status--ok">Accion aplicada</span></div>` : `
-            <label>Justificacion:<input type="text" id="dedupeReason" placeholder="Ej. cada fila es un participante unico" /></label>
-            <button class="button button--primary" type="button" id="dedupeButton">Eliminar duplicados</button>
-          `}
-        </article>`);
-    }
-    for (const column of analysis.columns) {
-      const hasMissing = column.missing > 0;
-      const hasFormatIssues = column.detected_type !== "number" && column.format_issues > 0;
-      const hasOutliers = column.outliers > 0;
-      if (!hasMissing && !hasFormatIssues && !hasOutliers) continue;
-      let issuesList = [];
-      if (hasMissing) issuesList.push(`${column.missing} valores vacios`);
-      if (hasFormatIssues) issuesList.push(`${column.format_issues} variantes de formato`);
-      if (hasOutliers) issuesList.push(`${column.outliers} valores atipicos`);
-      let actionsHtml = "";
-      if (hasMissing) {
-        const imputeApplied = isActionApplied("impute_missing", column.name);
-        const dropApplied = isActionApplied("drop_missing_rows", column.name);
-        actionsHtml += `<div class="action-group"><p class="action-group__title">Valores vacios</p>${imputeApplied ? `<div class="action-done"><span class="status status--ok">Imputacion aplicada</span></div>` : `<div class="inline-controls"><select data-impute-method="${escapeAttr(column.name)}"><option value="mode">Moda</option><option value="mean">Promedio</option><option value="median">Mediana</option><option value="custom">Custom</option></select><input type="text" data-custom-value="${escapeAttr(column.name)}" placeholder="Valor custom" /></div><label>Justificacion:<input type="text" data-impute-reason="${escapeAttr(column.name)}" placeholder="Ej. solo 5% vacios" /></label><button class="button button--primary" type="button" data-impute="${escapeAttr(column.name)}">Imputar</button>`}${!imputeApplied && !dropApplied ? `<button class="button button--ghost" type="button" data-drop-missing="${escapeAttr(column.name)}">Eliminar filas</button>` : ''}</div>`;
-      }
-      if (hasFormatIssues) {
-        const stdApplied = isActionApplied("standardize_text", column.name);
-        actionsHtml += `<div class="action-group"><p class="action-group__title">Formato</p>${stdApplied ? `<div class="action-done"><span class="status status--ok">Estandarizado</span></div>` : `<div class="inline-controls"><select data-standardize-method="${escapeAttr(column.name)}"><option value="title">Title</option><option value="upper">UPPER</option><option value="lower">lower</option></select></div><button class="button button--primary" type="button" data-standardize="${escapeAttr(column.name)}">Unificar</button>`}</div>`;
-      }
-      if (hasOutliers) {
-        const flagApplied = isActionApplied("flag_outliers", column.name);
-        actionsHtml += `<div class="action-group"><p class="action-group__title">Outliers</p>${flagApplied ? `<div class="action-done"><span class="status status--ok">Marcado</span></div>` : `<button class="button button--ghost" type="button" data-flag-outliers="${escapeAttr(column.name)}">Marcar para revision</button>`}</div>`;
-      }
-      cards.push(`<article class="decision-card"><div><span class="tag">${escapeHtml(column.name)}</span><h3>${escapeHtml(column.name)}</h3><p class="action-detail">${issuesList.join(' . ')}</p></div>${actionsHtml}</article>`);
-    }
+          <span class="column-card__badge ${badgeClass}">${badgeText}</span>
+        </div>
+        <div class="column-card__footer">
+          <span>${totalRows} filas afectadas</span>
+          <span>${issues.length} categorias</span>
+        </div>
+        <div class="column-card__actions">
+          <button class="button button--primary button--sm" data-depur-open-col="${escapeAttr(col.column)}" type="button">Abrir Copiloto</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  columnGrid.innerHTML = colCards || '<p class="empty-state">No hay columnas para depurar.</p>';
+
+  columnGrid.querySelectorAll('[data-depur-open-col]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDepurDrawer(btn.dataset.depurOpenCol);
+    });
+  });
+
+  columnGrid.querySelectorAll('.column-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const col = card.dataset.depurCol;
+      if (col) openDepurDrawer(col);
+    });
+  });
+
+  bindCleaningActions();
+  renderLog();
+  populateAdvancedColumns();
+}
+
+function openDepurDrawer(columnName) {
+  const drawer = document.querySelector('#aiColumnDrawer');
+  const backdrop = document.querySelector('#aiColumnDrawerBackdrop');
+  const badge = document.querySelector('#drawerColBadge');
+  const title = document.querySelector('#drawerColTitle');
+  const meta = document.querySelector('#drawerColMeta');
+  const diagBox = document.querySelector('#drawerDiagnostics');
+  const recsBox = document.querySelector('#drawerAIRecs');
+  const chatFeed = document.querySelector('#drawerChatFeed');
+
+  if (!drawer || !backdrop) return;
+
+  nube.currentDrawerColumn = columnName;
+
+  badge.textContent = 'Columna';
+  title.textContent = columnName;
+  meta.textContent = 'Copiloto de Depuracion';
+
+  const diagnostic = store.state.diagnostic;
+  const colDiag = diagnostic?.columns?.find(c => c.column === columnName);
+  const issues = colDiag?.issues || [];
+
+  if (issues.length === 0) {
+    diagBox.innerHTML = `<p class="empty-state">No se detectaron problemas en esta columna.</p>`;
+  } else {
+    diagBox.innerHTML = issues.map(iss => `
+      <div class="drawer-issue-item">
+        <strong>${escapeHtml(iss.category_code)}</strong>: ${iss.count || 0} filas (${(iss.percentage || 0).toFixed(1)}%)
+        <div style="margin-top:4px;font-size:0.8rem;color:var(--color-muted);">${escapeHtml(iss.description || '')}</div>
+      </div>
+    `).join('');
   }
 
-  els.cleaningBoard.innerHTML = cards.length ? cards.join("") : `<p class="empty-state">No se detectaron problemas. Puedes avanzar a la siguiente etapa.</p>`;
-  bindCleaningActions();
+  recsBox.innerHTML = '<div class="nube-loading" style="padding:var(--space-3);"><div class="nube-spinner"></div><p style="font-size:0.8rem;">Cargando recomendaciones...</p></div>';
+
+  const history = depurChatHistory[columnName] || [];
+  chatFeed.innerHTML = '';
+  history.forEach(msg => {
+    const div = document.createElement('div');
+    div.className = `chat-bubble chat-bubble--${msg.role === 'assistant' ? 'ai' : 'user'}`;
+    div.innerHTML = `<strong>${msg.role === 'assistant' ? 'Copiloto' : 'Tu'}:</strong> ${escapeHtml(msg.content)}`;
+    chatFeed.appendChild(div);
+  });
+  if (history.length === 0) {
+    chatFeed.innerHTML = `
+      <div class="chat-bubble chat-bubble--ai">
+        <strong>Copiloto:</strong> Hola, estoy analizando la columna <code>${escapeHtml(columnName)}</code>.
+        ${issues.length > 0 ? `Detecte <strong>${issues.length}</strong> problema(s): ${issues.map(i => i.category_code).join(', ')}.` : 'No hay problemas detectados.'}
+        Preguntame lo que necesites o usa las recomendaciones de abajo para depurar. Tu tienes el control.
+      </div>
+    `;
+  }
+
+  drawer.classList.add('is-active');
+  backdrop.classList.add('is-active');
+
+  if (!drawer._eventsBound) {
+    const closeBtn = document.querySelector('#drawerCloseButton');
+    if (closeBtn) closeBtn.onclick = () => { drawer.classList.remove('is-active'); backdrop.classList.remove('is-active'); };
+    if (backdrop) backdrop.onclick = () => { drawer.classList.remove('is-active'); backdrop.classList.remove('is-active'); };
+
+    const sendBtn = document.querySelector('#drawerChatSendButton');
+    const input = document.querySelector('#drawerChatInput');
+    if (sendBtn && input) {
+      const handleSend = () => {
+        const query = input.value.trim();
+        if (!query || !nube.currentDrawerColumn) return;
+        input.value = '';
+        sendDepurChatMessage(nube.currentDrawerColumn, query);
+      };
+      sendBtn.onclick = handleSend;
+      input.onkeydown = (e) => { if (e.key === 'Enter') handleSend(); };
+    }
+    drawer._eventsBound = true;
+  }
+
+  fetchDepurRecommendations(columnName, colDiag, recsBox);
+}
+
+async function fetchDepurRecommendations(columnName, colDiag, recsBox) {
+  try {
+    const response = await fetch('/api/ai/column-recommendations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename: store.state.filename,
+        content_base64: store.state.fileBase64,
+        column: columnName
+      })
+    });
+
+    if (!response.ok) throw new Error('Error al obtener recomendaciones');
+
+    const data = await response.json();
+    const recs = data.recommendations || [];
+
+    if (recs.length === 0) {
+      recsBox.innerHTML = `<p class="empty-state">Sin recomendaciones automaticas. Pregunta al Copiloto.</p>`;
+      return;
+    }
+
+    recsBox.innerHTML = recs.map((rec, idx) => `
+      <div class="drawer-rec-card" data-rec-idx="${idx}">
+        <p style="margin:0 0 6px;"><strong>${escapeHtml(rec.category || '')}:</strong> ${escapeHtml(rec.text || '')}</p>
+        ${rec.affected_rows?.length > 0 ? `<p style="margin:0 0 6px;font-size:0.75rem;color:var(--color-muted);">Filas: <code>${rec.affected_rows.slice(0,8).join(', ')}${rec.affected_rows.length > 8 ? '...' : ''}</code></p>` : ''}
+        <div class="drawer-rec-actions">
+          <button class="button button--primary button--sm" type="button" data-accept-rec="${idx}" data-col="${escapeAttr(columnName)}" data-kind="${escapeAttr(rec.action?.kind || 'flag_outliers')}" data-method="${escapeAttr(rec.action?.method || '')}" data-rows="${escapeAttr(JSON.stringify(rec.affected_rows || []))}">Aplicar</button>
+          <button class="button button--ghost button--sm" type="button" data-dismiss-rec="${idx}">Ignorar</button>
+        </div>
+      </div>
+    `).join('');
+
+    recsBox.querySelectorAll('[data-accept-rec]').forEach(btn => {
+      btn.onclick = () => {
+        const kind = btn.dataset.kind;
+        const col = btn.dataset.col;
+        const method = btn.dataset.method;
+        const rows = JSON.parse(btn.dataset.rows || '[]');
+        addAction({
+          kind,
+          column: col,
+          method,
+          rows,
+          _rowsKey: `${kind}_${rows.join(',')}`,
+          reason: `Aceptado desde Copiloto IA: ${btn.closest('.drawer-rec-card')?.querySelector('p')?.textContent || ''}`,
+        });
+        btn.disabled = true;
+        btn.textContent = 'Aplicada';
+        renderDepurationBoard();
+      };
+    });
+
+    recsBox.querySelectorAll('[data-dismiss-rec]').forEach(btn => {
+      btn.onclick = () => btn.closest('.drawer-rec-card')?.remove();
+    });
+  } catch (e) {
+    recsBox.innerHTML = `<p class="empty-state">Error al cargar recomendaciones: ${escapeHtml(e.message)}</p>`;
+  }
+}
+
+async function sendDepurChatMessage(columnName, query) {
+  const chatFeed = document.querySelector('#drawerChatFeed');
+  if (!chatFeed) return;
+
+  const userDiv = document.createElement('div');
+  userDiv.className = 'chat-bubble chat-bubble--user';
+  userDiv.innerHTML = `<strong>Tu:</strong> ${escapeHtml(query)}`;
+  chatFeed.appendChild(userDiv);
+
+  if (!depurChatHistory[columnName]) depurChatHistory[columnName] = [];
+  depurChatHistory[columnName].push({ role: 'user', content: query });
+
+  const thinkingDiv = document.createElement('div');
+  thinkingDiv.className = 'chat-bubble chat-bubble--ai';
+  thinkingDiv.innerHTML = `<strong>Copiloto:</strong> <em>Analizando...</em>`;
+  chatFeed.appendChild(thinkingDiv);
+  chatFeed.scrollTop = chatFeed.scrollHeight;
+
+  try {
+    const response = await fetch('/api/ai/chat-column', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename: store.state.filename,
+        content_base64: store.state.fileBase64,
+        column: columnName,
+        user_query: query,
+        chat_history: depurChatHistory[columnName].slice(-10)
+      })
+    });
+
+    if (!response.ok) throw new Error('Error de conexion con la IA');
+
+    const data = await response.json();
+    const answer = data.response || 'Sin respuesta';
+    thinkingDiv.innerHTML = `<strong>Copiloto:</strong> ${escapeHtml(answer)}`;
+    depurChatHistory[columnName].push({ role: 'assistant', content: answer });
+  } catch (e) {
+    thinkingDiv.innerHTML = `<strong>Copiloto:</strong> Error: ${escapeHtml(e.message)}`;
+  }
+  chatFeed.scrollTop = chatFeed.scrollHeight;
 }
 
 function bindCleaningActions() {
-  document.querySelector("#dedupeButton")?.addEventListener("click", () => {
-    addAction({
-      kind: "remove_duplicate_rows",
-      column: "Dataset",
-      reason: document.querySelector("#dedupeReason")?.value || "Duplicados completos eliminados por criterio de unicidad.",
-    });
-  });
-
-  document.querySelectorAll("[data-impute]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const column = button.dataset.impute;
-      addAction({
-        kind: "impute_missing",
-        column,
-        method: document.querySelector(`[data-impute-method="${cssEscape(column)}"]`)?.value || "mode",
-        value: document.querySelector(`[data-custom-value="${cssEscape(column)}"]`)?.value || "",
-        reason: document.querySelector(`[data-impute-reason="${cssEscape(column)}"]`)?.value || "Imputacion documentada por el analista.",
-      });
-    });
-  });
-
-  document.querySelectorAll("[data-drop-missing]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const column = button.dataset.dropMissing;
-      addAction({
-        kind: "drop_missing_rows",
-        column,
-        reason: document.querySelector(`[data-impute-reason="${cssEscape(column)}"]`)?.value || "Filas eliminadas por faltante critico.",
-      });
-    });
-  });
-
-  document.querySelectorAll("[data-standardize]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const column = button.dataset.standardize;
-      addAction({
-        kind: "standardize_text",
-        column,
-        method: document.querySelector(`[data-standardize-method="${cssEscape(column)}"]`)?.value || "title",
-        reason: document.querySelector(`[data-standardize-reason="${cssEscape(column)}"]`)?.value || "Estandarizacion para consistencia.",
-      });
-    });
-  });
-
-  document.querySelectorAll("[data-flag-outliers]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const column = button.dataset.flagOutliers;
-      addAction({
-        kind: "flag_outliers",
-        column,
-        reason: document.querySelector(`[data-outlier-reason="${cssEscape(column)}"]`)?.value || "Outlier marcado para validacion.",
-      });
-    });
-  });
-
-  document.querySelectorAll("[data-depur-impute]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const column = button.dataset.depurImpute;
-      const rows = (button.dataset.rows || "").split(",").map(Number).filter(n => !isNaN(n));
-      const method = document.querySelector(`[data-depur-method="${cssEscape(column)}"]`)?.value || "mode";
-      const rowsKey = button.dataset.rowsKey || "";
-      addAction({
-        kind: "impute_missing",
-        column,
-        method,
-        rows,
-        _rowsKey: rowsKey,
-        reason: `Imputacion de ${rows.length} filas especificas con metodo ${method}.`,
-      });
-      renderCleaningBoard();
-    });
-  });
-
-  document.querySelectorAll("[data-depur-drop]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const column = button.dataset.depurDrop;
-      const rows = (button.dataset.rows || "").split(",").map(Number).filter(n => !isNaN(n));
-      const rowsKey = button.dataset.rowsKey || "";
-      addAction({
-        kind: "drop_missing_rows",
-        column,
-        rows,
-        _rowsKey: rowsKey,
-        reason: `Eliminacion de ${rows.length} filas con inconsistencias.`,
-      });
-      renderCleaningBoard();
-    });
-  });
-
-  document.querySelectorAll("[data-depur-standardize]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const column = button.dataset.depurStandardize;
-      const rows = (button.dataset.rows || "").split(",").map(Number).filter(n => !isNaN(n));
-      const method = document.querySelector(`[data-depur-std-method="${cssEscape(column)}"]`)?.value || "title";
-      const rowsKey = button.dataset.rowsKey || "";
-      addAction({
-        kind: "standardize_text",
-        column,
-        method,
-        rows,
-        _rowsKey: rowsKey,
-        reason: `Estandarizacion de ${rows.length} filas con metodo ${method}.`,
-      });
-      renderCleaningBoard();
-    });
-  });
-
-  document.querySelectorAll("[data-depur-replace-null]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const column = button.dataset.depurReplaceNull;
-      const rows = (button.dataset.rows || "").split(",").map(Number).filter(n => !isNaN(n));
-      const rowsKey = button.dataset.rowsKey || "";
-      addAction({
-        kind: "replace_with_null",
-        column,
-        rows,
-        _rowsKey: rowsKey,
-        reason: `Reemplazo con NULL de ${rows.length} valores problematicos.`,
-      });
-      renderCleaningBoard();
-    });
-  });
-
-  document.querySelectorAll("[data-depur-flag]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const column = button.dataset.depurFlag;
-      const rows = (button.dataset.rows || "").split(",").map(Number).filter(n => !isNaN(n));
-      const rowsKey = button.dataset.rowsKey || "";
-      addAction({
-        kind: "flag_outliers",
-        column,
-        rows,
-        _rowsKey: rowsKey,
-        reason: `Marcado ${rows.length} filas para revision manual.`,
-      });
-      renderCleaningBoard();
-    });
-  });
-
-  document.querySelectorAll("[data-depur-dedup]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const rows = (button.dataset.rows || "").split(",").map(Number).filter(n => !isNaN(n));
-      const rowsKey = button.dataset.rowsKey || "";
-      addAction({
-        kind: "remove_duplicate_rows",
-        column: "Dataset",
-        rows,
-        _rowsKey: rowsKey,
-        reason: `Eliminacion de ${rows.length} filas duplicadas.`,
-      });
-      renderCleaningBoard();
-    });
-  });
+  // Actions are now handled directly in renderDepurationBoard and openDepurDrawer
 }
 
 function addAction(action) {
@@ -770,7 +676,7 @@ function undoLastAction() {
   if (undone) {
     renderLog();
     renderRules();
-    renderCleaningBoard();
+    renderDepurationBoard();
     populateAdvancedColumns();
     els.systemStatus.textContent = `${store.state.actions.length} decisión(es) documentada(s)`;
   }
@@ -806,7 +712,7 @@ function renderLog() {
       store.removeAction(index);
       renderLog();
       renderRules();
-      renderCleaningBoard();
+      renderDepurationBoard();
       populateAdvancedColumns();
       els.systemStatus.textContent = `${store.state.actions.length} decisión(es) documentada(s)`;
     });
@@ -979,9 +885,7 @@ function goToStep(step) {
 
   // Re-renderizar tablero de depuracion al entrar al step 4
   if (step === 4) {
-    renderCleaningBoard();
-    populateAdvancedColumns();
-    renderLog();
+    renderDepurationBoard();
   }
 }
 
@@ -1047,8 +951,7 @@ function resetProject() {
   els.metrics.innerHTML = "";
   els.profileTable.innerHTML = "";
   els.rulesBoard.innerHTML = "";
-  els.cleaningBoard.innerHTML = "";
-  els.actionsLog.innerHTML = `<p class="empty-state">Aún no hay acciones registradas.</p>`;
+  els.actionsLog.innerHTML = `<p class="empty-state">Aun no hay acciones registradas.</p>`;
   els.comparisonGrid.innerHTML = "";
   els.validationTable.innerHTML = "";
   els.reportPreview.innerHTML = "";

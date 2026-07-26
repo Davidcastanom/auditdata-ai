@@ -100,6 +100,13 @@ class AIChatRequest(BaseModel):
     content_base64: str
     column: str
     user_query: str
+    chat_history: list[dict[str, str]] | None = None
+
+
+class ColumnRecommendRequest(BaseModel):
+    filename: str
+    content_base64: str
+    column: str
 
 
 @app.post("/api/ai/recommend")
@@ -160,7 +167,8 @@ async def ai_chat_column(req: AIChatRequest):
             column_name=req.column,
             user_query=req.user_query,
             column_diagnostic=col_diag,
-            sample_rows=rows[:20]
+            sample_rows=rows[:20],
+            chat_history=req.chat_history
         )
         return res
 
@@ -168,6 +176,42 @@ async def ai_chat_column(req: AIChatRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/ai/column-recommendations")
+async def ai_column_recommendations(req: ColumnRecommendRequest):
+    """Genera recomendaciones de depuración para una columna específica."""
+    try:
+        payload = base64.b64decode(req.content_base64)
+        if len(payload) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="El archivo excede el límite de 10MB")
+
+        from data_engine.diagnostic import diagnose_dataset
+        from data_engine.analyzer import load_dataset
+        from data_engine.ai_advisor import get_column_depuration_recommendations
+
+        headers, rows = load_dataset(req.filename, payload)
+        diagnostic = diagnose_dataset(headers, rows)
+        diag_dict = diagnostic.to_dict()
+
+        col_diag = {"issues": [], "inferred_domain": None, "total_rows": len(rows)}
+        for col in diag_dict.get("columns", []):
+            if col.get("column") == req.column:
+                col_diag = col
+                break
+
+        result = await get_column_depuration_recommendations(
+            column_name=req.column,
+            column_diagnostic=col_diag,
+            sample_rows=rows[:20]
+        )
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 @app.post("/api/clean")
 def clean(req: CleanRequest):

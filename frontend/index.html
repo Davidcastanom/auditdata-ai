@@ -215,7 +215,7 @@
           <span>03</span><strong>Reglas</strong>
         </button>
         <button class="stepper__item" data-step-button="3" type="button" disabled>
-          <span>04</span><strong>Validar IA</strong>
+          <span>04</span><strong>Validar</strong>
         </button>
         <button class="stepper__item" data-step-button="4" type="button" disabled>
           <span>05</span><strong>Depurar</strong>
@@ -305,8 +305,8 @@
           <p class="section-kicker">Etapa 04 - Validacion de Calidad</p>
           <h2>Valida los problemas encontrados en tu dataset.</h2>
           <p>
-            El diagnostico detecto problemas en 28 categorias de calidad. Elige como quieres validar:
-            con ayuda de IA (recomendaciones automaticas) o manualmente (revisa cada problema).
+            Revisa el diagnostico de 28 categorias de calidad y selecciona
+            que problemas quieres abordar en la depuracion.
           </p>
           <div id="nubeContainer" class="nube-container"></div>
         </article>
@@ -317,60 +317,65 @@
           <p class="section-kicker">Etapa 05 - Depuracion Guiada</p>
           <h2>Aplica acciones de limpieza con criterio documentado.</h2>
           <p>
-            Cada accion queda en la bitacora: problema, tratamiento, justificacion y resultado. La herramienta permite
-            imputar, estandarizar, eliminar filas duplicadas, eliminar columnas y marcar outliers para revision.
+            Selecciona una columna para recibir recomendaciones del Copiloto IA y
+            decidir que tratamiento aplicar. La bitacora documenta cada decision.
           </p>
-          <div class="split-layout">
-            <div>
-              <div id="cleaningBoard" class="cards-list"></div>
-              
-              <!-- Panel de Acciones Avanzadas Libres -->
-              <div class="panel advanced-actions" style="margin-top: var(--space-4); border-top: 1px solid var(--color-border); padding-top: var(--space-4); background: var(--color-surface);">
-                <h3 style="margin-top: 0;">Herramientas de Transformación Libre</h3>
-                <p style="font-size: 0.85rem; color: var(--color-muted); margin-bottom: var(--space-3);">Aplica cambios libres y transformaciones sobre cualquier columna sin importar si el sistema marcó un error o no.</p>
-                <div class="form-grid" style="grid-template-columns: repeat(3, 1fr); margin-top: var(--space-2);">
-                  <label>
-                    Selecciona Columna
-                    <select id="advColSelect">
-                      <option value="">Selecciona columna...</option>
-                    </select>
-                  </label>
-                  <label>
-                    Selecciona Acción
-                    <select id="advActionSelect">
-                      <option value="">Selecciona acción...</option>
-                      <option value="change_type">Cambiar tipo de dato</option>
-                      <option value="replace_value">Reemplazar texto/valor</option>
-                      <option value="rename_column">Renombrar columna</option>
-                    </select>
-                  </label>
-                  <label id="advParam1Label">
-                    Parámetro 1
-                    <input id="advParam1Input" type="text" placeholder="Ej. valor a buscar o nuevo tipo" />
-                  </label>
+
+          <div class="depuration-layout">
+            <div class="depuration-layout__left">
+              <div id="datasetSummaryCard" class="dataset-summary-card"></div>
+              <div id="depurColumnGrid" class="master-column-grid"></div>
+
+              <details class="advanced-tools-panel" id="advancedToolsPanel">
+                <summary class="advanced-tools-panel__summary">
+                  Herramientas de Transformacion Libre
+                </summary>
+                <div class="advanced-tools-panel__body">
+                  <div class="form-grid" style="grid-template-columns: repeat(3, 1fr); margin-top: var(--space-2);">
+                    <label>
+                      Selecciona Columna
+                      <select id="advColSelect">
+                        <option value="">Selecciona columna...</option>
+                      </select>
+                    </label>
+                    <label>
+                      Selecciona Accion
+                      <select id="advActionSelect">
+                        <option value="">Selecciona accion...</option>
+                        <option value="change_type">Cambiar tipo de dato</option>
+                        <option value="replace_value">Reemplazar texto/valor</option>
+                        <option value="rename_column">Renombrar columna</option>
+                      </select>
+                    </label>
+                    <label id="advParam1Label">
+                      Parametro 1
+                      <input id="advParam1Input" type="text" placeholder="Ej. valor a buscar o nuevo tipo" />
+                    </label>
+                  </div>
+                  <div class="form-grid" style="grid-template-columns: 1fr; margin-top: var(--space-2); display: none;" id="advParam2Row">
+                    <label id="advParam2Label">
+                      Parametro 2
+                      <input id="advParam2Input" type="text" placeholder="Ej. nuevo valor" />
+                    </label>
+                  </div>
+                  <div class="form-grid" style="grid-template-columns: 1fr auto; margin-top: var(--space-3); align-items: end; gap: var(--space-3);">
+                    <label>
+                      Justificacion de la decision
+                      <input id="advReasonInput" type="text" placeholder="Justifica esta decision tecnica..." />
+                    </label>
+                    <button class="button button--secondary" id="applyAdvActionButton" type="button" style="min-height: 42px;">Aplicar accion libre</button>
+                  </div>
                 </div>
-                <div class="form-grid" style="grid-template-columns: 1fr; margin-top: var(--space-2); display: none;" id="advParam2Row">
-                  <label id="advParam2Label">
-                    Parámetro 2
-                    <input id="advParam2Input" type="text" placeholder="Ej. nuevo valor" />
-                  </label>
-                </div>
-                <div class="form-grid" style="grid-template-columns: 1fr auto; margin-top: var(--space-3); align-items: end; gap: var(--space-3);">
-                  <label>
-                    Justificación de la decisión
-                    <input id="advReasonInput" type="text" placeholder="Justifica esta decisión técnica..." />
-                  </label>
-                  <button class="button button--secondary" id="applyAdvActionButton" type="button" style="min-height: 42px;">Aplicar acción libre</button>
-                </div>
-              </div>
+              </details>
             </div>
-             <aside class="audit-log">
+
+            <aside class="audit-log">
               <div class="audit-log__header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
-                <h3 style="margin: 0;">Bitácora de decisiones</h3>
+                <h3 style="margin: 0;">Bitacora de decisiones</h3>
                 <button class="button button--ghost" id="undoButton" type="button" style="min-height: 32px; padding: 0 var(--space-2); font-size: 0.8rem;" disabled>Deshacer</button>
               </div>
               <div id="actionsLog" class="log-list">
-                <p class="empty-state">Aún no hay acciones registradas.</p>
+                <p class="empty-state">Aun no hay acciones registradas.</p>
               </div>
             </aside>
           </div>

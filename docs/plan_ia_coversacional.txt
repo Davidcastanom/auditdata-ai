@@ -1,0 +1,75 @@
+Plan de Implementación: Optimización de IA Granular con Groq, Chat Lateral por Columna y Corrección de Reglas de Duplicados
+Transformar la arquitectura de IA de AuditData AI para lograr respuestas ultrarrápidas (< 1.5s), recomendaciones hiper-personalizadas y granulares por columna/dataset, resolver el scroll excesivo mediante un Side Drawer (Chat / Inspector Lateral) y garantizar la correcta clasificación de los duplicados a nivel de fila completa / dataset (conforme a docs/guia_maestra.txt y docs/Informe_Diagnostico_Calidad_Datos.md).
+
+Análisis Técnico y Clarificación de Reglas (Duplicados vs Anomalías de Columna)
+IMPORTANT
+
+Diferenciación de Ámbito de Anomalías (Fila vs Columna):
+
+Anomalías por Celda/Columna: Aplican a valores individuales en una columna (MISSING, DATE_FORMAT, NUMERIC_DOMAIN, TEXT_ERROR, TYPE_ERROR, OUTLIER, HIDDEN_MISSING). Ejemplo: una fecha mal escrita en la columna fecha_ingreso o un valor de -5 en edad.
+Anomalías por Fila Completa / Dataset (DUPLICATE): La presencia de valores repetidos dentro de una misma columna (ej. repetir "Bogotá" o "30") NO es un error de calidad. La duplicidad solo constituye un problema de unicidad cuando toda la fila o registro completo se repite en el dataset.
+Tratamiento en el Sistema: El motor (diagnostic.py) asigna la categoría DUPLICATE exclusivamente al objeto global __dataset__, y no a celdas/columnas individuales. El nuevo Side Drawer y los prompts de IA respetarán estrictamente este principio.
+User Review Required
+IMPORTANT
+
+Configuración de Credenciales Groq: Se requiere agregar una clave de API válida de Groq (GROQ_API_KEY) en el archivo .env. Groq ofrece uso gratuito e inferencia ultrarrápida para modelos como llama-3.1-8b-instant.
+
+NOTE
+
+Componente Side Drawer (Chat Lateral): Se reemplaza la lista vertical de scroll largo por un resumen compacto a la izquierda (listado de columnas + tarjeta de resumen de dataset para duplicados globales) y un panel lateral deslizable (Drawer) a la derecha para inspección y conversación con la IA.
+
+Open Questions
+[!QUESTION]
+
+Streaming en el Chat Lateral: ¿Deseas que las respuestas de la IA en el panel lateral se muestren con efecto de tipeo en tiempo real (Server-Sent Events / SSE), o prefieres la entrega del mensaje en un solo bloque rápido?
+Interacción con Lenguaje Natural Libre: ¿Quieres permitir que el analista pueda escribir preguntas personalizadas en el chat lateral por columna (ej. "¿Por qué la columna 'edad' tiene valores de 150?") además de recibir las recomendaciones automáticas de depuración?
+Proposed Changes
+[Componente 1: Backend & Motor de IA (Python / FastAPI / Groq)]
+[MODIFY] 
+ai_advisor.py
+Distinción Explícita Fila vs Columna en el System Prompt:
+Actualizar build_system_prompt() y _build_batch_prompt() para instruir a Llama 3.1 que la categoría DUPLICATE aplica únicamente a nivel de filas completas del dataset (column="__dataset__"), mientras que las 27 categorías restantes aplican a nivel de celda/columna.
+Paralelización con AsyncGroq:
+Migrar las llamadas síncronas bloqueantes a la versión asíncrona de Groq (AsyncGroq). Procesar el análisis por grupos de columnas en paralelo mediante asyncio.gather(), reduciendo el tiempo de procesamiento de >8s a <1.5s.
+Prompts Hiper-Personalizados y Granulares:
+Inyectar contexto enriquecido: dominio inferido, distribución métrica (min, max, % nulos), índices exactos de filas con anomalías y ejemplos de celdas antes/después.
+Nuevo Módulo de Chat Interactivo:
+Implementar chat_with_column_advisor(target_name, user_query, diagnostic_data, sample_rows) para responder dudas específicas del usuario en el panel lateral (sea sobre una columna específica o sobre las filas duplicadas del dataset).
+[MODIFY] 
+diagnostic.py
+Confirmar que _check_duplicates a nivel de columna continúe retornando [] (ya que valores repetidos en una columna son válidos) y garantizar que la detección de duplicados pertenezca exclusivamente a _check_row_duplicates sobre el pseudocampo __dataset__.
+[MODIFY] 
+main.py
+Actualizar /api/ai/recommend para hacerlo async y paralelizado.
+[NEW] Agregar el endpoint POST /api/ai/chat-column para procesar las consultas conversacionales en el Chat Lateral.
+[Componente 2: Frontend, UX y Sistema de Diseño]
+[MODIFY] 
+index.html
+Reestructuración de Etapa 04/05 (Validación y Depuración):
+Reemplazar el listado vertical largo por un layout distribuido:
+Resumen Global & Master Column List: Tarjeta superior fija para Unicidad de Filas Duplicadas (__dataset__) + Lista/Grilla compacta de columnas con badges de calidad.
+Side Drawer Modal Container (#aiColumnDrawer): Panel deslizable lateral para inspeccionar el chat de la columna o del dataset con la IA.
+[MODIFY] 
+nube.js
+ y 
+app.js
+Actualizar la lógica para manejar el Side Drawer:
+Apertura fluida al hacer clic en una columna o en la tarjeta global de duplicados de filas.
+Envío de mensajes al endpoint /api/ai/chat-column.
+Aplicación directa de acciones de depuración (drop_missing_rows, impute_missing, remove_duplicate_rows, standardize_text) hacia la Bitácora de Decisiones.
+[MODIFY] 
+design-system.css
+Estilos CSS para el Side Drawer: .side-drawer, .side-drawer--open, .side-drawer__backdrop, burbujas de chat .chat-bubble--ai, .chat-bubble--user, e integración responsive.
+Verification Plan
+Automated Tests
+Ejecución de la suite de pruebas del backend:
+bash
+
+python -m pytest tests/ -v
+Verificación de la API /api/ai/chat-column con pruebas unitarias de asincronía.
+Manual Verification
+Carga de Dataset: Subir samples/moveup_sample.csv en la Etapa 01.
+Validación de Regla de Duplicados: Verificar que los duplicados se muestren únicamente en la tarjeta de resumen global del dataset ("Filas duplicadas completas") y NO en las columnas de celdas individuales como edad o nombre.
+Prueba de Velocidad de IA y Side Drawer:
+Probar la apertura rápida (<1.5s) del panel lateral al seleccionar una columna.
+Verificar la interacción en tiempo real en el chat por columna, eliminando el scroll vertical masivo.

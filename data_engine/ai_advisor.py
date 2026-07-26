@@ -686,11 +686,90 @@ async def get_ai_recommendations_async(
         return get_ai_recommendations(diagnostic, sample_rows)
 
 
+async def get_column_depuration_recommendations(
+    column_name: str,
+    column_diagnostic: dict[str, Any],
+    sample_rows: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
+    """Genera recomendaciones de depuración enfocadas en una sola columna."""
+    client = init_async_groq_client() or init_groq_client()
+    if not client:
+        return {"recommendations": [], "status": "no_api_key"}
+
+    system_prompt = (
+        "Eres el Copiloto de Calidad de Datos de AuditData AI. "
+        "Genera recomendaciones de depuración para UNA COLUMNA específica.\n"
+        "REGLAS:\n"
+        "1. Respetas la soberanía del analista — él decide finalmente.\n"
+        "2. Español profesional.\n"
+        "3. DUPLICADOS: Solo aplican a filas completas del dataset (columna __dataset__). "
+        "Valores repetidos en una columna individual NO son duplicados.\n"
+        "4. Prioriza acciones que no pierdan datos.\n"
+        "5. Cada recomendación DEBE incluir 'affected_rows' con números de fila específicos.\n"
+        "6. En 'text', referencia las filas específicas.\n"
+    )
+
+    issues = column_diagnostic.get("issues", [])
+    issues_text = ""
+    for issue in issues:
+        cat = issue.get("category_code", "UNKNOWN")
+        count = issue.get("count", 0)
+        pct = issue.get("percentage", 0)
+        desc = issue.get("description", "")
+        issues_text += f"  - {cat}: {count} ocurrencias ({pct:.1f}%). {desc}\n"
+        for ex in issue.get("examples", [])[:3]:
+            if "row" in ex:
+                issues_text += f"    Fila {ex['row']}: valor='{ex.get('value', '')}'\n"
+            elif "rows" in ex:
+                issues_text += f"    Filas {ex['rows']}: coinciden al {ex.get('match', '?')}\n"
+
+    samples = _get_sample_values(column_name, sample_rows) if column_name != "__dataset__" else []
+    samples_str = ", ".join(samples[:8]) if samples else "No disponibles"
+    domain = column_diagnostic.get("inferred_domain", "desconocido")
+    total = column_diagnostic.get("total_rows", 0)
+
+    user_prompt = (
+        f"COLUMNA: {column_name}\n"
+        f"Dominio: {domain} | Filas totales: {total}\n"
+        f"PROBLEMAS DETECTADOS:\n{issues_text}"
+        f"Valores de ejemplo: {samples_str}\n\n"
+        f"Genera una lista JSON de recomendaciones de depuración para esta columna.\n"
+        f"FORMATO:\n"
+        f'{{"recommendations": [{{"category": "MISSING", "count": 5, "affected_rows": [3,7], '
+        f'"text": "Justificación técnica con referencia a filas", '
+        f'"action": {{"kind": "fill_missing", "column": "{column_name}", "method": "median", "reason": "Justificación"}}, '
+        f'"confidence": 0.85}}]}}'
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
+
+    try:
+        if isinstance(client, AsyncGroq):
+            res = await client.chat.completions.create(
+                model=MODEL, messages=messages, max_tokens=2048, temperature=0.3
+            )
+        else:
+            res = client.chat.completions.create(
+                model=MODEL, messages=messages, max_tokens=2048, temperature=0.3
+            )
+        answer = res.choices[0].message.content
+        parsed = _parse_ai_response(answer)
+        recs = parsed.get("recommendations", []) if isinstance(parsed, dict) else []
+        return {"recommendations": recs, "status": "success"}
+    except Exception as e:
+        logger.error("Error en get_column_depuration_recommendations: %s", e)
+        return {"recommendations": [], "status": "error"}
+
+
 async def chat_with_column_advisor(
     column_name: str,
     user_query: str,
     column_diagnostic: dict[str, Any] | None = None,
-    sample_rows: list[dict[str, Any]] | None = None
+    sample_rows: list[dict[str, Any]] | None = None,
+    chat_history: list[dict[str, str]] | None = None
 ) -> dict[str, Any]:
     """Procesa preguntas de lenguaje natural en el Side Drawer para una columna o dataset."""
     client = init_async_groq_client() or init_groq_client()
@@ -719,29 +798,29 @@ async def chat_with_column_advisor(
     samples = _get_sample_values(column_name, sample_rows) if column_name != "__dataset__" else []
     samples_str = f" Ejemplos de celdas: {', '.join(samples[:6])}" if samples else ""
 
-    prompt = f"OBJETO/COLUMNA CONSULTADO: {column_name}\n" \
-             f"CONTEXTO TÉCNICO: {issues_summary}{samples_str}\n\n" \
-             f"PREGUNTA DEL ANALISTA: {user_query}\n\n" \
-             f"Por favor responde como Copiloto orientando la mejor decisión técnica de depuración."
+    context_msg = (
+        f"OBJETO/COLUMNA CONSULTADO: {column_name}\n"
+        f"CONTEXTO TÉCNICO: {issues_summary}{samples_str}\n"
+        f"Por favor responde como Copiloto orientando la mejor decisión técnica de depuración."
+    )
+
+    messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
+    if chat_history:
+        messages.extend(chat_history[-10:])
+    messages.append({"role": "user", "content": f"{context_msg}\n\nPREGUNTA DEL ANALISTA: {user_query}"})
 
     try:
         if isinstance(client, AsyncGroq):
             res = await client.chat.completions.create(
                 model=MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
+                messages=messages,
                 max_tokens=1024,
                 temperature=0.4
             )
         else:
             res = client.chat.completions.create(
                 model=MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
+                messages=messages,
                 max_tokens=1024,
                 temperature=0.4
             )
