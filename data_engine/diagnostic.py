@@ -27,6 +27,27 @@ from .domain_rules import (
     match_column_name,
 )
 
+ID_NAME_PATTERNS = re.compile(
+    r"(^|[_\s])id($|[_\s])|^cod[_\s]|^codigo[_\s]|^identificacion|^documento|^cedula|^nit$|^uuid|^key$|^ref[_\s]|^referencia|^registro$|^consecutivo|^num[_\s]",
+    re.IGNORECASE,
+)
+
+ID_CARDINALITY_THRESHOLD = 0.95
+
+
+def _is_id_column(header: str, values: list[str]) -> bool:
+    """Detect if a column is an ID/unique identifier based on name + cardinality."""
+    name_match = bool(ID_NAME_PATTERNS.search(header.strip()))
+    non_empty = [v.strip() for v in values if v.strip() and not is_hidden_missing(v.strip())]
+    if not non_empty:
+        return name_match
+    unique_ratio = len(set(non_empty)) / len(non_empty)
+    if name_match:
+        return True
+    if unique_ratio >= ID_CARDINALITY_THRESHOLD and len(non_empty) >= 10:
+        return True
+    return False
+
 
 @dataclass
 class IssueGroup:
@@ -119,7 +140,7 @@ def diagnose_column(header: str, values: list[str], total_rows: int) -> ColumnDi
     issues: list[IssueGroup] = []
 
     issues.extend(_check_missing(values, total_rows))
-    issues.extend(_check_duplicates(values, total_rows))
+    issues.extend(_check_duplicates(header, values, total_rows))
     issues.extend(_check_date_formats(values, total_rows))
     issues.extend(_check_numeric_domain_violations(values, total_rows, domain_info))
     issues.extend(_check_text_errors(values, total_rows))
@@ -297,8 +318,54 @@ def _check_missing(values: list[str], total: int) -> list[IssueGroup]:
     return issues
 
 
-def _check_duplicates(values: list[str], total: int) -> list[IssueGroup]:
-    return []
+def _check_duplicates(header: str, values: list[str], total: int) -> list[IssueGroup]:
+    """Detect duplicate values ONLY in ID/unique identifier columns.
+
+    Repeated values in non-ID columns (e.g. "Bogotá" in a city column) are
+    normal frequency, not quality issues.
+    """
+    issues: list[IssueGroup] = []
+
+    if not _is_id_column(header, values):
+        return issues
+
+    val_to_rows: dict[str, list[int]] = {}
+    for i, v in enumerate(values):
+        v_stripped = v.strip()
+        if not v_stripped or is_hidden_missing(v_stripped):
+            continue
+        val_to_rows.setdefault(v_stripped, []).append(i)
+
+    dup_groups = {v: rows for v, rows in val_to_rows.items() if len(rows) > 1}
+
+    if not dup_groups:
+        return issues
+
+    dup_rows: list[int] = []
+    examples: list[dict[str, Any]] = []
+    for val, rows in sorted(dup_groups.items(), key=lambda x: -len(x[1]))[:10]:
+        dup_rows.extend(rows[1:])
+        examples.append({
+            "row": rows[0],
+            "value": val,
+            "count": len(rows),
+            "detail": f"'{val}' aparece {len(rows)} veces",
+        })
+
+    total_dup = len(dup_rows)
+    issues.append(IssueGroup(
+        category="Valores duplicados en columna ID",
+        category_code="DUPLICATE",
+        severity="ALTA",
+        count=total_dup,
+        total_rows=total,
+        percentage=total_dup / total * 100 if total > 0 else 0,
+        description=f"Columna '{header}' es un identificador con {len(dup_groups)} valor(es) repetido(s). Se esperan valores unicos.",
+        examples=examples,
+        affected_rows=dup_rows,
+    ))
+
+    return issues
 
 
 def _check_date_formats(values: list[str], total: int) -> list[IssueGroup]:
