@@ -87,11 +87,12 @@ class ColumnProfile:
     median: float | None = None
 
 
-def load_dataset(filename: str, payload: bytes) -> tuple[list[str], list[dict[str, Any]]]:
+def load_dataset(filename: str, payload: bytes) -> tuple[list[str], list[dict[str, Any]], int]:
     """Load CSV or XLSX bytes into headers and row dictionaries.
 
-    The function keeps parsing rules explicit so every dataset ingestion step
-    can be documented later in the generated report.
+    Returns (headers, rows, header_row_index) where header_row_index is the
+    0-based position of the header row in the original file (used to compute
+    the correct Excel row offset for diagnostics).
     """
 
     lowered = filename.lower()
@@ -105,7 +106,7 @@ def load_dataset(filename: str, payload: bytes) -> tuple[list[str], list[dict[st
 def analyze_dataset(filename: str, payload: bytes) -> dict[str, Any]:
     """Run the complete reusable quality diagnosis for a dataset."""
 
-    headers, rows = load_dataset(filename, payload)
+    headers, rows, _header_idx = load_dataset(filename, payload)
     duplicate_rows = _count_duplicate_rows(headers, rows)
     columns = [_profile_column(header, rows) for header in headers]
     scores = _quality_scores(columns, duplicate_rows, len(rows), max(len(headers), 1))
@@ -132,7 +133,7 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
     Now also tracks cell-level changes for the audit log.
     """
 
-    headers, rows = load_dataset(filename, payload)
+    headers, rows, _header_idx = load_dataset(filename, payload)
     before = analyze_dataset(filename, payload)
     log: list[dict[str, str]] = []
     changelog: list[dict[str, Any]] = []
@@ -622,18 +623,46 @@ def analysis_to_json(analysis: dict[str, Any]) -> str:
     return json.dumps(analysis, ensure_ascii=False, indent=2)
 
 
-def _load_csv(payload: bytes) -> tuple[list[str], list[dict[str, Any]]]:
+def _find_header_row(raw_rows: list[tuple]) -> int:
+    """Detect which row is the actual header row, skipping title/metadata rows.
+
+    A row is considered a header row when it has at least 3 non-empty cells
+    and at least 2 distinct non-empty values.  Title rows typically have a
+    single merged cell and the rest are None.
+    """
+    for idx, row in enumerate(raw_rows[:5]):
+        non_empty = [str(v).strip() for v in row if v is not None and str(v).strip()]
+        distinct = set(non_empty)
+        if len(non_empty) >= 3 and len(distinct) >= 2:
+            return idx
+    return 0
+
+
+def _load_csv(payload: bytes) -> tuple[list[str], list[dict[str, Any]], int]:
     try:
         text = payload.decode("utf-8-sig")
     except UnicodeDecodeError:
         text = payload.decode("latin-1")
-    reader = csv.DictReader(io.StringIO(text))
+
+    lines = text.splitlines()
+    if not lines:
+        return [], [], 0
+
+    header_idx = 0
+    for i, line in enumerate(lines[:5]):
+        fields = [f.strip() for f in line.split(",") if f.strip()]
+        if len(fields) >= 3:
+            header_idx = i
+            break
+
+    trimmed = "\n".join(lines[header_idx:])
+    reader = csv.DictReader(io.StringIO(trimmed))
     headers = reader.fieldnames or []
     rows = [{header: row.get(header, "") for header in headers} for row in reader]
-    return headers, rows
+    return headers, rows, header_idx
 
 
-def _load_xlsx(payload: bytes) -> tuple[list[str], list[dict[str, Any]]]:
+def _load_xlsx(payload: bytes) -> tuple[list[str], list[dict[str, Any]], int]:
     if openpyxl is None:
         raise ValueError("openpyxl no esta disponible para leer XLSX.")
     if not zipfile.is_zipfile(io.BytesIO(payload)):
@@ -643,16 +672,18 @@ def _load_xlsx(payload: bytes) -> tuple[list[str], list[dict[str, Any]]]:
     sheet = workbook[workbook.sheetnames[0]]
     raw_rows = list(sheet.iter_rows(values_only=True))
     if not raw_rows:
-        return [], []
+        return [], [], 0
 
-    headers = [str(value).strip() if value is not None else f"columna_{i+1}" for i, value in enumerate(raw_rows[0])]
+    header_idx = _find_header_row(raw_rows)
+
+    headers = [str(value).strip() if value is not None else f"columna_{i+1}" for i, value in enumerate(raw_rows[header_idx])]
     rows = []
-    for raw in raw_rows[1:]:
+    for raw in raw_rows[header_idx + 1:]:
         row = {}
         for index, header in enumerate(headers):
             row[header] = raw[index] if index < len(raw) and raw[index] is not None else ""
         rows.append(row)
-    return headers, rows
+    return headers, rows, header_idx
 
 
 def _profile_column(header: str, rows: list[dict[str, Any]]) -> ColumnProfile:

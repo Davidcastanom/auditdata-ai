@@ -86,8 +86,8 @@ def diagnose(req: AnalyzeRequest):
             raise HTTPException(status_code=400, detail="El archivo excede el limite de 10MB")
         from data_engine.diagnostic import diagnose_dataset
         from data_engine.analyzer import load_dataset
-        headers, rows = load_dataset(req.filename, payload)
-        diagnostic = diagnose_dataset(headers, rows)
+        headers, rows, header_row_index = load_dataset(req.filename, payload)
+        diagnostic = diagnose_dataset(headers, rows, header_row_index)
         return {"diagnostic": diagnostic.to_dict()}
     except HTTPException:
         raise
@@ -123,8 +123,8 @@ async def ai_recommend(req: AnalyzeRequest):
         from data_engine.analyzer import load_dataset
         from data_engine.ai_advisor import get_ai_recommendations_async
 
-        headers, rows = load_dataset(req.filename, payload)
-        diagnostic = diagnose_dataset(headers, rows)
+        headers, rows, header_row_index = load_dataset(req.filename, payload)
+        diagnostic = diagnose_dataset(headers, rows, header_row_index)
 
         recommendations = await get_ai_recommendations_async(
             diagnostic=diagnostic.to_dict(),
@@ -153,8 +153,8 @@ async def ai_chat_column(req: AIChatRequest):
         from data_engine.analyzer import load_dataset
         from data_engine.ai_advisor import chat_with_column_advisor
 
-        headers, rows = load_dataset(req.filename, payload)
-        diagnostic = diagnose_dataset(headers, rows)
+        headers, rows, header_row_index = load_dataset(req.filename, payload)
+        diagnostic = diagnose_dataset(headers, rows, header_row_index)
         diag_dict = diagnostic.to_dict()
 
         col_diag = None
@@ -190,8 +190,8 @@ async def ai_column_recommendations(req: ColumnRecommendRequest):
         from data_engine.analyzer import load_dataset
         from data_engine.ai_advisor import get_column_depuration_recommendations
 
-        headers, rows = load_dataset(req.filename, payload)
-        diagnostic = diagnose_dataset(headers, rows)
+        headers, rows, header_row_index = load_dataset(req.filename, payload)
+        diagnostic = diagnose_dataset(headers, rows, header_row_index)
         diag_dict = diagnostic.to_dict()
 
         col_diag = {"issues": [], "inferred_domain": None, "total_rows": len(rows)}

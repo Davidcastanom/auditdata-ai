@@ -116,22 +116,22 @@ def _to_excel_row(index: int) -> int:
     return index + EXCEL_ROW_OFFSET
 
 
-def _shift_issue_rows(issue: IssueGroup) -> IssueGroup:
+def _shift_issue_rows(issue: IssueGroup, row_offset: int = EXCEL_ROW_OFFSET) -> IssueGroup:
     """Shift all row indices in affected_rows and examples by the Excel offset."""
-    issue.affected_rows = [_to_excel_row(r) for r in issue.affected_rows]
+    issue.affected_rows = [r + row_offset for r in issue.affected_rows]
     new_examples: list[dict[str, Any]] = []
     for ex in issue.examples:
         ex = dict(ex)
         if "row" in ex:
-            ex["row"] = _to_excel_row(ex["row"])
+            ex["row"] = ex["row"] + row_offset
         if "rows" in ex:
-            ex["rows"] = [_to_excel_row(r) for r in ex["rows"]]
+            ex["rows"] = [r + row_offset for r in ex["rows"]]
         new_examples.append(ex)
     issue.examples = new_examples
     return issue
 
 
-def diagnose_column(header: str, values: list[str], total_rows: int) -> ColumnDiagnostic:
+def diagnose_column(header: str, values: list[str], total_rows: int, row_offset: int = EXCEL_ROW_OFFSET) -> ColumnDiagnostic:
     """Run all 28 category checks on a single column and return results."""
     domain_info = match_column_name(header)
     inferred_domain = domain_info["domain"] if domain_info else None
@@ -168,7 +168,7 @@ def diagnose_column(header: str, values: list[str], total_rows: int) -> ColumnDi
         )
 
     for issue in issues:
-        _shift_issue_rows(issue)
+        _shift_issue_rows(issue, row_offset=row_offset)
 
     return ColumnDiagnostic(
         column=header,
@@ -180,17 +180,23 @@ def diagnose_column(header: str, values: list[str], total_rows: int) -> ColumnDi
     )
 
 
-def diagnose_dataset(headers: list[str], rows: list[dict[str, Any]]) -> DatasetDiagnostic:
-    """Run diagnosis on all columns of a dataset."""
+def diagnose_dataset(headers: list[str], rows: list[dict[str, Any]], header_row_index: int = 0) -> DatasetDiagnostic:
+    """Run diagnosis on all columns of a dataset.
+
+    header_row_index: 0-based position of the header row in the original file.
+                      The Excel row offset is header_row_index + 2 (header row + 1 for 1-based).
+    """
     total_rows = len(rows)
     total_issues = 0
     total_clean = 0
     category_counts: Counter = Counter()
 
+    row_offset = header_row_index + 2
+
     column_diagnostics: list[ColumnDiagnostic] = []
     for header in headers:
         col_values = [str(row.get(header, "")) for row in rows]
-        diag = diagnose_column(header, col_values, total_rows)
+        diag = diagnose_column(header, col_values, total_rows, row_offset=row_offset)
         column_diagnostics.append(diag)
 
         for issue in diag.issues:
@@ -202,7 +208,7 @@ def diagnose_dataset(headers: list[str], rows: list[dict[str, Any]]) -> DatasetD
     row_dup_issues = _check_row_duplicates(headers, rows)
     if row_dup_issues:
         for issue in row_dup_issues:
-            _shift_issue_rows(issue)
+            _shift_issue_rows(issue, row_offset=row_offset)
         total_issues += row_dup_issues[0].count
         category_counts["DUPLICATE"] += 1
         column_diagnostics.insert(0, ColumnDiagnostic(
