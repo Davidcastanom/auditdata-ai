@@ -20,7 +20,7 @@ test.describe("AuditData AI - Contexto y Reset", () => {
     await expect(page.locator("#objectiveInput")).toHaveValue("validar calidad del dataset");
   });
 
-  test("contexto vacio no afecta el analisis", async ({ page }) => {
+  test("contexto vacío no afecta el análisis", async ({ page }) => {
     await clearAndLoad(page);
     await page.click("#loadSampleButton");
     await expect(page.locator('[data-step="1"]')).toHaveClass(/is-active/, { timeout: 15000 });

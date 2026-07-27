@@ -10,16 +10,16 @@ async function clearLoadAnalyze(page) {
   await expect(page.locator('[data-step="1"]')).toHaveClass(/is-active/, { timeout: 15000 });
 }
 
-test.describe("AuditData AI - Acciones de Limpieza y Undo", () => {
-  test("paso 2 muestra tarjetas de decision en rulesBoard", async ({ page }) => {
+test.describe("AuditData AI - Acciónes de Limpieza y Undo", () => {
+  test("paso 2 muestra tarjetas de decisión en rulesBoard", async ({ page }) => {
     await clearLoadAnalyze(page);
     await page.click("#nextButton");
     await expect(page.locator('[data-step="2"]')).toHaveClass(/is-active/);
-    const rulesCards = page.locator("#rulesBoard .decision-card");
+    const rulesCards = page.locator("#rulesBoard .decisión-card");
     await expect(rulesCards.first()).toBeVisible();
   });
 
-  test("eliminar una columna registra la accion en el log", async ({ page }) => {
+  test("eliminar una columna registra la acción en el log", async ({ page }) => {
     await clearLoadAnalyze(page);
     await page.click("#nextButton");
     await expect(page.locator('[data-step="2"]')).toHaveClass(/is-active/);
@@ -28,7 +28,7 @@ test.describe("AuditData AI - Acciones de Limpieza y Undo", () => {
     await expect(page.locator("#actionsLog .log-item")).toHaveCount(1);
   });
 
-  test("deshacer individual elimina solo esa accion", async ({ page }) => {
+  test("deshacer individual elimina solo esa acción", async ({ page }) => {
     await clearLoadAnalyze(page);
     await page.click("#nextButton");
     await expect(page.locator('[data-step="2"]')).toHaveClass(/is-active/);
@@ -45,7 +45,7 @@ test.describe("AuditData AI - Acciones de Limpieza y Undo", () => {
     await expect(page.locator("#actionsLog .log-item")).toHaveCount(0);
   });
 
-  test("deshacer global elimina la ultima accion", async ({ page }) => {
+  test("deshacer global elimina la ultima acción", async ({ page }) => {
     await clearLoadAnalyze(page);
     await page.click("#nextButton");
     await expect(page.locator('[data-step="2"]')).toHaveClass(/is-active/);

@@ -89,11 +89,11 @@ DOMAIN_PATTERNS: list[dict[str, Any]] = [
     },
     {
         "domain": "id",
-        "name_hints": ["id", "identificacion", "cedula", "dni", "passport",
+        "name_hints": ["id", "identificación", "cedula", "dni", "passport",
                         "codigo", "code", "key", "llave", "consecutivo"],
         "range": None,
         "expected_type": "any",
-        "description": "Identificador unico",
+        "description": "Identificador único",
     },
     {
         "domain": "name",

@@ -30,8 +30,8 @@ async function skipValidationAndGoToStep4(page) {
   await navigateToStep(page, 4);
 }
 
-test.describe("AuditData AI - Depuracion 28 Categorias", () => {
-  test("step 3 muestra diagnostico directo sin selector de modo", async ({ page }) => {
+test.describe("AuditData AI - Depuración 28 Categorías", () => {
+  test("step 3 muestra diagnóstico directo sin selector de modo", async ({ page }) => {
     await clearLoadAnalyze(page);
     await navigateToStep(page, 3);
     await expect(page.locator("#nubeSkipManual")).toBeVisible({ timeout: 30000 });
@@ -44,7 +44,7 @@ test.describe("AuditData AI - Depuracion 28 Categorias", () => {
     await expect(page.locator("#nubeSkipManual")).toBeVisible();
   });
 
-  test("omitir validacion habilita avanzar", async ({ page }) => {
+  test("omitir validación habilita avanzar", async ({ page }) => {
     await clearLoadAnalyze(page);
     await runDiagnostic(page);
     await page.locator("#nubeSkipManual").click();
@@ -71,7 +71,7 @@ test.describe("AuditData AI - Depuracion 28 Categorias", () => {
     await expect(page.locator("#drawerChatFeed")).toBeVisible();
   });
 
-  test("drawer muestra diagnosticos de la columna", async ({ page }) => {
+  test("drawer muestra diagnósticos de la columna", async ({ page }) => {
     await clearLoadAnalyze(page);
     await skipValidationAndGoToStep4(page);
     await page.locator("[data-depur-open-col]").first().click();
@@ -79,7 +79,7 @@ test.describe("AuditData AI - Depuracion 28 Categorias", () => {
     await expect(page.locator("#drawerDiagnostics")).toBeVisible();
   });
 
-  test("drawer carga recomendaciones de IA", async ({ page }) => {
+  test("drawer carga recomendaciónes de IA", async ({ page }) => {
     await clearLoadAnalyze(page);
     await skipValidationAndGoToStep4(page);
     await page.locator("[data-depur-open-col]").first().click();

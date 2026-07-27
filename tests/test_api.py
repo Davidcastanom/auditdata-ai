@@ -167,11 +167,11 @@ class TestReportEndpoint(unittest.TestCase):
         data = response.json()
         self.assertIn("content", data)
         md = data["content"]
-        self.assertIn("INFORMACION GENERAL", md.upper())
+        self.assertIn("INFORMACIÓN GENERAL", md.upper())
         self.assertIn("RESUMEN EJECUTIVO", md.upper())
         self.assertIn("INDICADORES CLAVE", md.upper())
         self.assertIn("PROBLEMAS ENCONTRADOS", md.upper())
-        self.assertIn("CONCLUSION", md.upper())
+        self.assertIn("CONCLUSIÓN", md.upper())
 
 
 class TestDiagnoseEndpoint(unittest.TestCase):

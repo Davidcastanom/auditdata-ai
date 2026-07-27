@@ -1,0 +1,953 @@
+ALGORITMO DE RECONOCIMIENTO DE VARIABLE PARA AUDITDATA
+
+Algoritmo FastTextProfiler v1.0
+Entrada
+Una columna de tipo texto.
+N = Número total de registros
+V = Número de valores únicos
+P = Porcentaje de valores únicos
+Fi = Frecuencia absoluta
+Pi = Frecuencia relativa
+Paso 1
+Eliminar
+espacios iniciales
+espacios finales
+Nada más.
+Paso 2
+Calcular
+N
+
+Valores únicos
+
+Frecuencia de cada valor
+
+Porcentaje de cada valor
+
+Orden descendente
+​
+Paso 3
+Calcular indicadores
+Moda
+
+Moda %
+
+Cobertura Top2
+
+Cobertura Top3
+
+Cobertura Top5
+
+Cobertura Top10
+
+Porcentaje de únicos
+
+Cantidad de categorías
+​
+Paso 3
+Calcular indicadores
+Moda
+
+Moda %
+
+Cobertura Top2
+
+Cobertura Top3
+
+Cobertura Top5
+
+Cobertura Top10
+
+Porcentaje de únicos
+
+Cantidad de categorías
+​
+Paso 4
+Clasificación
+Regla A
+Si
+
+Únicos ≥95%
+
+↓
+
+IDENTIFICADOR
+​
+No limpiar. Solo se limpian o se consideran valores atípicos los porcentajes de cada variable dentro del 5%  pero si ese valor se extiende o hay varios que suman un 8% o hasta 10% hay que revisar qué está sucediendo con esas variables para depurar.
+
+Regla B
+Si
+
+Moda ≥95%
+
+↓
+
+CONSTANTE
+​
+No limpiar.
+Regla C
+Si
+
+Top2 ≥95%
+
+↓
+
+BOOLEANA
+​
+Todo lo que no pertenezca al Top2
+↓
+Posibles errores.
+Regla D
+Si
+
+Top3 ≥90%
+
+↓
+
+CATEGÓRICA (3)
+​
+Las demás categorías
+↓
+Posibles errores.
+Regla E
+Si
+
+Top5 ≥90%
+
+↓
+
+CATEGÓRICA (5)
+​
+Resto
+↓
+Errores.
+Regla F
+Si
+
+Top10 ≥90%
+
+↓
+
+CATEGÓRICA (10)
+​
+Resto
+↓
+Errores.
+Regla G
+Ninguna condición
+
+↓
+
+TEXTO LIBRE
+​
+No intentar corregir. Se registran las variables y los porcentajes y estos sí son los errores que toca depurar.
+
+Paso 5
+Detectar errores simples
+Para cada categoría fuera del Top dominante
+Calcular
+Frecuencia
+
+Porcentaje
+​
+Si
+<1%
+
+o
+
+<5 registros
+​
+↓
+MARCAR COMO
+Categoría sospechosa
+​
+Paso 6
+Errores por formato
+Solo sobre categorías sospechosas.
+Comparar
+ABC
+
+abc
+
+ Abc
+
+ABC
+
+abc
+​
+Si solo cambia
+mayúsculas
+espacios
+tabulaciones
+↓
+Agrupar automáticamente.
+Paso 7
+Recalcular frecuencias
+Después de normalizar formatos.
+Paso 8
+Si la cobertura mejora
+Ejemplo
+Top2
+
+94%
+
+↓
+
+98%
+​
+Aceptar la corrección.
+Paso 9
+Solo si todavía existen categorías raras
+Aplicar algoritmo pesado
+Pero únicamente sobre
+Categorías sospechosas
+​
+Nunca sobre toda la columna.
+Salida
+Tipo detectado
+
+Cobertura dominante
+
+Cantidad de categorías
+
+Valores únicos
+
+Errores encontrados
+
+Errores corregidos
+
+Errores pendientes
+
+Nivel de confianza
+​
+Flujo completo
+Leer columna
+      │
+      ▼
+Eliminar espacios
+      │
+      ▼
+Calcular frecuencias
+      │
+      ▼
+Ordenar
+      │
+      ▼
+Top1 ≥95% ?
+      │
+   Sí ─► Constante
+      │
+      No
+      │
+Únicos ≥95% ?
+      │
+   Sí ─► ID
+      │
+      No
+      │
+Top2 ≥95% ?
+      │
+   Sí ─► Booleana
+      │
+      No
+      │
+Top3 ≥90% ?
+      │
+   Sí ─► Categórica
+      │
+      No
+      │
+Top5 ≥90% ?
+      │
+   Sí ─► Categórica
+      │
+      No
+      │
+Top10 ≥90% ?
+      │
+   Sí ─► Categórica
+      │
+      No
+      ▼
+Texto libre
+      │
+      ▼
+Marcar categorías raras
+      │
+      ▼
+Normalizar formato
+      │
+      ▼
+Recalcular frecuencias
+      │
+      ▼
+¿Persisten categorías raras?
+      │
+   No ─► Finalizar
+      │
+   Sí
+      ▼
+Aplicar correcciones manuales según el problema    │
+      ▼
+Reporte final
+​
+Optimización adicional
+Añadiría una regla previa para evitar cualquier procesamiento innecesario:
+Si una columna tiene más de 50% de valores únicos y, al mismo tiempo, la moda representa menos del 5% de los registros, clasificarla directamente como texto libre. En ese caso no se intenta detectar errores ortográficos, porque la probabilidad de que la columna contenga nombres, direcciones, comentarios o descripciones es muy alta y las correcciones automáticas producirían más falsos positivos que beneficios.
+Se debe mapear los errores y empezar con la depuración manual y guiada según la IA
+Con esta lógica, la mayor parte de las columnas se clasifican usando únicamente conteos y porcentajes, reservando los algoritmos de similitud para un conjunto muy pequeño de valores sospechosos. Esto mantiene un rendimiento muy alto incluso en datasets grandes.
+FastTextProfiler v2.0
+Paso 1. Perfilado
+Calcular únicamente:
+Total de registros (N).
+Valores únicos (V).
+Frecuencia de cada valor.
+Porcentaje de cada valor.
+Cobertura acumulada del Top1, Top2, Top3, Top5 y Top10.
+Paso 2. Clasificación
+Regla
+Cobertura
+Tipo
+Valores únicos ≥95%
+—
+Identificador
+Top1 ≥95%
+95%
+Constante
+Top2 ≥95%
+95%
+Booleana
+Top3 ≥90%
+90%
+Categórica (3 clases)
+Top5 ≥90%
+90%
+Categórica (5 clases)
+Top10 ≥90%
+90%
+Categórica (hasta 10 clases)
+Ninguna cumple
+—
+Texto libre
+Paso 3. Detección de anomalías
+Para las columnas clasificadas como categóricas o booleanas:
+Todo valor fuera del conjunto dominante se marca como candidato a error.
+Se calcula el porcentaje que representan esos valores.
+Paso 4. Nivel de confianza
+Confianza alta (autocorrección)
+Cobertura del conjunto dominante ≥95%.
+Ejemplo:
+Sí      49%
+No      47%
+si       2%
+NO       1%
+N0       1%
+​
+Cobertura principal = 96%.
+→ Se pueden corregir automáticamente las variantes.
+Confianza media (sugerencia)
+Cobertura entre 90% y 95%.
+Ejemplo:
+Rojo      35%
+Azul      32%
+Verde     24%
+Azull      4%
+Rrojo      3%
+Otro       2%
+​
+→ El algoritmo propone correcciones, pero no las aplica sin confirmación.
+Revisión manual obligatoria
+Si la cobertura del conjunto dominante es <50%:
+No intentar limpiar automáticamente.
+No agrupar categorías.
+Solo generar un reporte.
+Esto suele indicar:
+Texto libre.
+Datos mezclados.
+Mala calidad de origen.
+Categorías no estandarizadas.
+Paso 5. Clasificación de calidad
+Cobertura dominante
+Acción
+≥95%
+Corrección automática
+90–94.99%
+Sugerir correcciones
+50–89.99%
+Revisión asistida
+<50%
+Revisión manual obligatoria
+Flujo final
+Leer columna
+      │
+      ▼
+Calcular frecuencias
+      │
+      ▼
+Clasificar el tipo
+      │
+      ▼
+¿Existe un conjunto dominante?
+      │
+      ├── No → Texto libre
+      │
+      └── Sí
+             │
+             ▼
+      Calcular cobertura
+             │
+             ▼
+      ≥95%  → Autocorregir
+      90–95% → Sugerir correcciones
+      50–90% → Revisar con apoyo del usuario
+      <50%  → Revisión manual obligatoria
+​
+¿Por qué el umbral del 50%?
+Ese umbral es un buen punto de corte porque, cuando menos de la mitad de los registros pertenecen al conjunto dominante, ya no existe suficiente evidencia estadística para asumir que los valores minoritarios son simples errores. A partir de ahí aumenta mucho el riesgo de unir categorías que realmente representan conceptos distintos.
+Esta arquitectura mantiene el algoritmo muy rápido (basado en conteos y porcentajes) y limita las decisiones automáticas a los casos donde la distribución de los datos aporta evidencia suficiente, reduciendo significativamente los falsos positivos.
+FastTextProfiler v3.0
+Motor de Detección Temprana y Clasificación de Variables de Texto
+Objetivo
+Clasificar automáticamente columnas de texto y detectar posibles inconsistencias mediante análisis de distribución de frecuencias, sin realizar modificaciones sobre los datos.
+Fase 1. Perfilado
+Calcular únicamente:
+Número total de registros (N).
+Número de valores únicos (V).
+Porcentaje de valores únicos.
+Frecuencia absoluta.
+Frecuencia relativa.
+Cobertura acumulada Top1, Top2, Top3, Top5 y Top10.
+Fase 2. Clasificación
+Condición
+Clasificación
+Valores únicos ≥95%
+Identificador
+Top1 ≥95%
+Variable constante
+Top2 ≥95%
+Variable booleana
+Top3 ≥90%
+Variable categórica (3 categorías principales)
+Top5 ≥90%
+Variable categórica (hasta 5 categorías principales)
+Top10 ≥90%
+Variable categórica (hasta 10 categorías principales)
+Ninguna condición
+Texto libre
+Fase 3. Detección de categorías sospechosas
+Una vez clasificada la columna:
+Todo valor fuera del conjunto dominante se marca como categoría sospechosa.
+No se intenta determinar si es un error ortográfico, una abreviatura o una categoría válida; simplemente se señala para revisión.
+Fase 4. Clasificación del nivel de revisión
+Cobertura del conjunto dominante
+Nivel
+≥95%
+Riesgo bajo
+90–94.99%
+Riesgo medio
+50–89.99%
+Riesgo alto
+<50%
+Validación manual obligatoria
+Interpretación
+Riesgo bajo (≥95%)
+La distribución es consistente.
+Pocas categorías sospechosas.
+Riesgo medio (90–94.99%)
+Existen valores atípicos.
+Se recomienda revisar las categorías sospechosas.
+Riesgo alto (50–89.99%)
+La estructura de la columna es poco consistente.
+Es probable que existan múltiples variantes o categorías mezcladas.
+Validación manual obligatoria (<50%)
+No existe un patrón dominante suficiente.
+No es posible inferir categorías confiables mediante frecuencias.
+La columna debe ser analizada manualmente.
+Fase 5. Reporte
+El algoritmo entrega un reporte como este:
+Columna: Estado Civil
+
+Tipo detectado:
+Categórica
+
+Cobertura dominante:
+92%
+
+Categorías principales:
+Soltero
+Casado
+Unión libre
+
+Categorías sospechosas:
+Soltero
+soltero
+Casad
+Casado/a
+Un libre
+
+Nivel de revisión:
+MEDIO
+
+Acción recomendada:
+Validar categorías sospechosas.
+​
+Principios del algoritmo
+Nunca modifica datos.
+Nunca elimina registros.
+Nunca fusiona categorías.
+Nunca corrige errores automáticamente.
+Solo clasifica.
+Solo detecta posibles anomalías.
+Toda decisión final corresponde al usuario.
+Una recomendación adicional
+Añadiría una puntuación de "confiabilidad de la clasificación", independiente del riesgo de la columna. Por ejemplo:
+Confiabilidad
+Significado
+95–100
+Clasificación muy confiable.
+85–94
+Clasificación confiable.
+70–84
+Clasificación aceptable; requiere revisión.
+<70
+Clasificación incierta; se recomienda validación manual.
+Esto permite distinguir dos aspectos diferentes:
+Riesgo de calidad de los datos (cuántas categorías sospechosas existen).
+Confianza del algoritmo al clasificar el tipo de la columna.
+Esa separación hace el diseño más claro y más fácil de integrar en un pipeline de calidad de datos. Además, posiciona tu propuesta como un motor de perfilado y detección temprana, cuyo objetivo es priorizar qué columnas necesitan atención antes de aplicar cualquier proceso de limpieza.
+Capa adicional Validador especializado (plugins) 
+Aplica a valores abreviados en formatos estándar globales EJEMPLO: Col, COL, Y CO.
+
+Esa es precisamente la limitación de un algoritmo basado únicamente en frecuencias. Las abreviaciones, siglas y formatos estandarizados no siempre pueden detectarse por distribución, porque "Col", "COL" y "CO" pueden ser correctos dependiendo del estándar adoptado.
+La solución no es complicar tu algoritmo principal, sino agregar una segunda capa opcional de validación semántica, que solo se ejecuta cuando la columna ya fue clasificada.
+Arquitectura recomendada
+Capa 1 (la tuya)
+Perfilado estadístico
+Identifica el tipo de columna.
+Detecta categorías sospechosas.
+No interpreta el significado.
+Capa 2
+Validadores especializados (plugins)
+Cada tipo de dato utiliza un estándar diferente.
+Tipo detectado
+Validador
+País
+ISO 3166
+Idioma
+ISO 639
+Moneda
+ISO 4217
+Ciudad
+Catálogo geográfico
+Departamento
+División administrativa
+Sexo
+Catálogo definido por la organización
+Estado civil
+Catálogo institucional
+Fecha
+ISO 8601
+Hora
+ISO 8601
+Correo
+Expresión regular
+URL
+RFC correspondiente
+Ejemplo 1
+Columna
+Pais
+
+Col
+COL
+Col.
+Colombia
+CO
+México
+Mex
+​
+El algoritmo diría
+Variable categórica
+Después el validador ISO 3166 diría
+Col → No estándar
+
+COL → Código ISO-3166-3 (si aplica)
+
+CO → Código ISO Alpha-2
+
+Colombia → Nombre oficial
+​
+No corrige nada.
+Solo informa.
+Ejemplo 2
+Fechas
+01/02/25
+
+2025-02-01
+
+1 Feb 2025
+
+2025/02/01
+
+01-Feb-2025
+​
+Tu algoritmo detecta
+Texto estructurado
+​
+El validador responde
+Se encontraron
+
+5 formatos distintos
+
+Formato recomendado
+
+ISO 8601
+
+AAAA-MM-DD
+​
+Ejemplo 3
+Idioma
+Español
+
+ESP
+
+es
+
+spa
+
+Castellano
+​
+El validador ISO 639 reporta
+Se encontraron
+5 representaciones
+
+Recomendación
+
+es
+
+o
+
+spa
+
+(según el estándar elegido)
+​
+Otra idea interesante
+En vez de "errores", usa el concepto de nivel de estandarización.
+Por ejemplo:
+Nivel
+Significado
+Nivel 5
+Cumple completamente el estándar
+Nivel 4
+Variación de formato
+Nivel 3
+Abreviación válida pero no estándar
+Nivel 2
+Abreviación desconocida
+Nivel 1
+No reconocida
+Así evitas decir que un valor está "mal". Simplemente informas que no sigue el estándar seleccionado.
+FastNumericProfiler v1.0
+Fase 1. Identificación
+Clasificar la columna como:
+Entero
+Decimal
+Moneda
+Porcentaje
+Código numérico
+Fecha serial (Excel)
+Mixto
+Fase 2. Perfilado
+Calcular únicamente:
+Total de registros
+Nulos
+Valores únicos
+Mínimo
+Máximo
+Promedio
+Mediana
+Moda
+Desviación estándar
+Percentiles (P5, P25, P50, P75, P95)
+Número de decimales utilizados
+Fase 3. Clasificación
+Condición
+Clasificación
+≥95% valores únicos
+Identificador numérico
+Un valor ≥95%
+Constante
+Solo valores 0 y 1 (o equivalentes)
+Booleana
+Menos de 20 valores distintos
+Categórica codificada
+Muchos valores distintos
+Variable continua
+Fase 4. Detección de anomalías
+En lugar de corregir, marcar:
+Valores fuera del rango esperado
+Ejemplo
+Edad
+
+5
+18
+23
+31
+250
+​
+250
+↓
+Valor atípico.
+Mezcla de escalas
+0.15
+15
+0.20
+20
+​
+↓
+Posible mezcla entre porcentaje decimal y porcentaje entero.
+Diferentes precisiones
+15
+
+15.0
+
+15.000
+
+15.23
+
+15.2356
+​
+↓
+Se detectan múltiples niveles de precisión.
+Valores negativos inesperados
+Cantidad
+
+10
+
+20
+
+-5
+​
+↓
+Revisión sugerida.
+Saltos grandes
+10
+12
+11
+13
+1500
+​
+↓
+Posible error de digitación.
+Fase 5. Validación de formato
+Detectar mezclas como:
+1000
+
+1.000
+
+1,000
+
+1 000
+​
+↓
+Formato numérico inconsistente.
+Fase 6. Validadores especializados
+Al igual que en texto, usar módulos según el contexto:
+Tipo
+Validador
+Edad
+0–120
+Salario
+>0
+Porcentaje
+0–100 o 0–1
+Temperatura
+Rango esperado
+Coordenadas
+Latitud/Longitud
+Peso
+Rango esperado
+Código postal
+Longitud y patrón
+Año
+Rango configurable
+Nivel de revisión
+Riesgo
+Acción
+<5% anomalías
+Riesgo bajo
+5–10%
+Riesgo medio
+10–25%
+Riesgo alto
+>25%
+Validación manual obligatoria
+Una idea que considero muy potente
+En lugar de tener un FastTextProfiler y un FastNumericProfiler separados, diseñaría un único marco llamado, por ejemplo, FastDataProfiler, con un flujo común:
+Detectar el tipo de dato (texto, numérico, fecha, booleano, mixto).
+Aplicar el perfilador específico según el tipo.
+Generar un índice de calidad (0–100).
+Asignar un nivel de riesgo (bajo, medio, alto o revisión manual).
+Emitir únicamente recomendaciones, sin modificar ningún dato.
+Así tendrías un sistema unificado y extensible: en el futuro podrías añadir un FastDateProfiler para fechas, un FastGeoProfiler para coordenadas geográficas o un FastEmailProfiler para correos electrónicos, todos siguiendo la misma filosofía de clasificar, detectar y priorizar la revisión, pero nunca alterar automáticamente el dataset.
+Arquitectura Global
+                    DATASET
+                       │
+                       ▼
+            1. Detector de Tipo de Dato
+                       │
+      ┌────────────────┼────────────────┐
+      ▼                ▼                ▼
+   Texto          Numérico         Fecha/Hora
+      │                │                │
+      ▼                ▼                ▼
+ FastText       FastNumeric       FastDate
+   Profiler        Profiler         Profiler
+      │                │                │
+      └────────────────┼────────────────┘
+                       ▼
+            Clasificación Automática
+                       │
+                       ▼
+         Detección Temprana de Anomalías
+                       │
+                       ▼
+        Asignación de Nivel de Riesgo
+                       │
+                       ▼
+      Reporte de Calidad del Dataset
+                       │
+                       ▼
+        Validación Manual del Usuario
+​
+Fase 1 – Núcleo del algoritmo
+Objetivo: clasificar todas las columnas.
+Módulos
+Detector del tipo de dato.
+Perfilador de texto.
+Perfilador numérico.
+Perfilador de fechas.
+Perfilador booleano.
+Resultado
+Nombre
+
+Tipo
+
+Confianza
+
+Cobertura
+
+Riesgo
+​
+Fase 2 – Detección de anomalías
+Agregar reglas específicas.
+Texto
+Categorías raras.
+Cobertura.
+Cardinalidad.
+Numéricos
+Valores extremos.
+Rangos.
+Escalas.
+Fechas
+Formatos mixtos.
+Fechas imposibles.
+Fechas futuras.
+Tiempo estimado: 2 semanas.
+Fase 3 – Motor de clasificación
+Aquí decides
+Identificador
+
+Constante
+
+Booleana
+
+Categórica
+
+Texto libre
+
+Numérica continua
+
+Numérica discreta
+
+Fecha
+
+Mixta
+​
+Fase 4 – Motor de riesgo
+Asignar prioridad.
+0–20
+
+Muy Bajo
+
+21–40
+
+Bajo
+
+41–60
+
+Medio
+
+61–80
+
+Alto
+
+81–100
+
+Crítico
+​
+Fase 5 – Reporte
+Salida
+Dataset
+
+↓
+
+Resumen
+
+↓
+
+Calidad
+
+↓
+
+Problemas encontrados
+
+↓
+
+Columnas críticas
+
+↓
+
+Variables sospechosas
+
+↓
+
+Recomendaciones
+​
+Fase 6 – Validadores especializados (plugins)
+Cada uno independiente.
+Ejemplos
+ISO Países.
+ISO Idiomas.
+ISO Fechas.
+Correos.
+Teléfonos.
+Monedas.
+Coordenadas.
+Códigos postales.
+Catálogos del cliente.
+Fase 7 – Dashboard
+Mostrar
+Calidad global
+
+Número de columnas
+
+Número de errores
+
+Distribución de riesgos
+
+Variables críticas
+
+Cobertura
+
+Estadísticas
+​
+.

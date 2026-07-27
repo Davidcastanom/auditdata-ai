@@ -11,35 +11,39 @@ COLORS = {
     "primary": "#0066FF",
     "primary_dark": "#0052CC",
     "accent": "#00D4FF",
-    "cyan": "#00D4FF",
     "danger": "#EF4444",
     "warning": "#F59E0B",
     "success": "#22C55E",
-    "bg": "#0A0A0F",
-    "surface": "#12121A",
-    "surface_2": "#181824",
-    "text": "#F0F0F5",
-    "muted": "#9090A0",
-    "border": "#242436",
+}
+
+PDF_COLORS = {
+    "bg": "#FFFFFF",
+    "surface": "#F8F9FA",
+    "text": "#1A1A2E",
+    "muted": "#6B7280",
+    "grid": "#E5E7EB",
+    "border": "#D1D5DB",
 }
 
 plt.rcParams.update({
-    "figure.facecolor": COLORS["bg"],
-    "axes.facecolor": COLORS["surface"],
-    "axes.edgecolor": COLORS["muted"],
-    "axes.labelcolor": COLORS["text"],
-    "text.color": COLORS["text"],
-    "xtick.color": COLORS["muted"],
-    "ytick.color": COLORS["muted"],
-    "grid.color": "#2A2A3E",
-    "grid.alpha": 0.5,
-    "font.size": 11,
+    "figure.facecolor": PDF_COLORS["bg"],
+    "axes.facecolor": PDF_COLORS["bg"],
+    "axes.edgecolor": PDF_COLORS["border"],
+    "axes.labelcolor": PDF_COLORS["text"],
+    "text.color": PDF_COLORS["text"],
+    "xtick.color": PDF_COLORS["muted"],
+    "ytick.color": PDF_COLORS["muted"],
+    "grid.color": PDF_COLORS["grid"],
+    "grid.alpha": 0.6,
+    "font.size": 9,
+    "axes.titlesize": 11,
+    "axes.labelsize": 9,
 })
 
 
 def _fig_to_base64(fig, dpi=150):
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight", facecolor=fig.get_facecolor())
+    fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     buf.seek(0)
     return base64.b64encode(buf.read()).decode("utf-8")
@@ -60,14 +64,18 @@ def missing_values_chart(profile, total_rows):
     if not cols:
         return None
 
-    fig, ax = plt.subplots(figsize=(8, max(3, len(cols) * 0.5)))
-    bars = ax.barh(cols, pcts, color=COLORS["danger"], alpha=0.85, height=0.6)
+    n = len(cols)
+    fig_h = max(2, min(n * 0.45, 5))
+    fig, ax = plt.subplots(figsize=(7, fig_h))
+    bars = ax.barh(cols, pcts, color=COLORS["danger"], alpha=0.8, height=0.55)
     ax.set_xlabel("Valores nulos (%)")
-    ax.set_title("Valores Nulos por Columna", fontsize=14, fontweight="bold", pad=12)
+    ax.set_title("Valores Nulos por Columna", fontweight="bold", pad=8)
     ax.xaxis.set_major_formatter(ticker.PercentFormatter())
     for bar, pct in zip(bars, pcts):
-        ax.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height() / 2, f"{pct:.1f}%", va="center", fontsize=10, color=COLORS["text"])
+        ax.text(bar.get_width() + 0.3, bar.get_y() + bar.get_height() / 2,
+                f"{pct:.1f}%", va="center", fontsize=8, color=PDF_COLORS["muted"])
     ax.invert_yaxis()
+    ax.grid(axis="x", alpha=0.3)
     fig.tight_layout()
     return _fig_to_base64(fig)
 
@@ -83,21 +91,24 @@ def data_types_chart(profile):
     color_map = {
         "number": COLORS["primary"],
         "text": COLORS["warning"],
+        "boolean": COLORS["success"],
         "bool": COLORS["success"],
         "datetime": "#9B59B6",
-        "mixed": COLORS["muted"],
+        "mixed": "#9CA3AF",
     }
-    colors = [color_map.get(lb, COLORS["muted"]) for lb in labels]
+    colors = [color_map.get(lb, "#9CA3AF") for lb in labels]
 
-    fig, ax = plt.subplots(figsize=(6, 6))
+    fig, ax = plt.subplots(figsize=(5, 3.5))
     wedges, texts, autotexts = ax.pie(
         values, labels=labels, colors=colors, autopct="%1.0f%%",
-        startangle=90, pctdistance=0.8, textprops={"color": COLORS["text"]},
+        startangle=90, pctdistance=0.75,
+        textprops={"color": PDF_COLORS["text"], "fontsize": 9},
     )
     for t in autotexts:
-        t.set_fontsize(11)
+        t.set_fontsize(9)
         t.set_fontweight("bold")
-    ax.set_title("Distribucion de Tipos de Dato", fontsize=14, fontweight="bold", pad=12)
+        t.set_color("white")
+    ax.set_title("Distribucion de Tipos de Dato", fontweight="bold", pad=8)
     fig.tight_layout()
     return _fig_to_base64(fig)
 
@@ -112,29 +123,39 @@ def cleaning_summary_chart(actions_log):
 
     labels = list(action_types.keys())
     values = list(action_types.values())
-    bar_colors = [COLORS["danger"] if "drop" in lb.lower() or "delete" in lb.lower() or "remove" in lb.lower() else COLORS["primary"] for lb in labels]
+    bar_colors = [
+        COLORS["danger"] if any(k in lb.lower() for k in ("drop", "delete", "remove"))
+        else COLORS["primary"]
+        for lb in labels
+    ]
 
-    fig, ax = plt.subplots(figsize=(8, max(3, len(labels) * 0.6)))
-    bars = ax.barh(labels, values, color=bar_colors, alpha=0.85, height=0.6)
-    ax.set_xlabel("Cantidad de acciones")
-    ax.set_title("Resumen de Acciones de Limpieza", fontsize=14, fontweight="bold", pad=12)
+    n = len(labels)
+    fig_h = max(2, min(n * 0.5, 4))
+    fig, ax = plt.subplots(figsize=(7, fig_h))
+    bars = ax.barh(labels, values, color=bar_colors, alpha=0.8, height=0.55)
+    ax.set_xlabel("Cantidad de acciónes")
+    ax.set_title("Resumen de Acciónes de Limpieza", fontweight="bold", pad=8)
     for bar, val in zip(bars, values):
-        ax.text(bar.get_width() + 0.1, bar.get_y() + bar.get_height() / 2, str(val), va="center", fontsize=11, fontweight="bold", color=COLORS["text"])
+        ax.text(bar.get_width() + 0.1, bar.get_y() + bar.get_height() / 2,
+                str(val), va="center", fontsize=9, fontweight="bold", color=PDF_COLORS["text"])
     ax.invert_yaxis()
+    ax.grid(axis="x", alpha=0.3)
     fig.tight_layout()
     return _fig_to_base64(fig)
 
 
 def quality_score_gauge(score):
-    fig, ax = plt.subplots(figsize=(4, 3))
+    fig, ax = plt.subplots(figsize=(5, 1.5))
     color = COLORS["success"] if score >= 80 else COLORS["warning"] if score >= 50 else COLORS["danger"]
     ax.barh([0], [score], color=color, height=0.5, alpha=0.85)
-    ax.barh([0], [100 - score], left=[score], color=COLORS["muted"], height=0.5, alpha=0.3)
+    ax.barh([0], [100 - score], left=[score], color=PDF_COLORS["grid"], height=0.5, alpha=0.5)
     ax.set_xlim(0, 100)
     ax.set_yticks([])
     ax.set_xlabel("Score")
-    ax.set_title(f"Calidad General: {score:.0f}/100", fontsize=14, fontweight="bold", pad=12)
-    ax.text(score / 2, 0, f"{score:.0f}%", ha="center", va="center", fontsize=16, fontweight="bold", color=COLORS["bg"])
+    ax.set_title(f"Calidad General: {score:.0f}/100", fontweight="bold", pad=8)
+    ax.text(score / 2, 0, f"{score:.0f}%", ha="center", va="center",
+            fontsize=12, fontweight="bold", color="white")
+    ax.grid(axis="x", alpha=0.2)
     fig.tight_layout()
     return _fig_to_base64(fig)
 

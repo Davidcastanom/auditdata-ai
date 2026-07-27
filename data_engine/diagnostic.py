@@ -28,7 +28,7 @@ from .domain_rules import (
 )
 
 ID_NAME_PATTERNS = re.compile(
-    r"(^|[_\s])id($|[_\s])|^cod[_\s]|^codigo[_\s]|^identificacion|^documento|^cedula|^nit$|^uuid|^key$|^ref[_\s]|^referencia|^registro$|^consecutivo|^num[_\s]",
+    r"(^|[_\s])id($|[_\s])|^cod[_\s]|^codigo[_\s]|^identificación|^documento|^cedula|^nit$|^uuid|^key$|^ref[_\s]|^referencia|^registro$|^consecutivo|^num[_\s]",
     re.IGNORECASE,
 )
 
@@ -243,13 +243,13 @@ def _check_categorical_suspicious(
     severity = severity_map.get(risk, "MEDIA")
 
     issues.append(IssueGroup(
-        category="Categorias sospechosas (FastProfiler)",
+        category="Categorías sospechosas (FastProfiler)",
         category_code="CATEGORICAL",
         severity=severity,
         count=sum(sv["freq"] for sv in suspicious),
         total_rows=total_rows,
         percentage=sum(sv["freq"] for sv in suspicious) / total_rows * 100 if total_rows > 0 else 0,
-        description=f"{len(suspicious)} categoria(s) fuera del conjunto dominante (cobertura: {profiler.get('coverage', 0)}%)",
+        description=f"{len(suspicious)} categoría(s) fuera del conjunto dominante (cobertura: {profiler.get('coverage', 0)}%)",
         examples=examples,
         affected_rows=list(set(all_rows)),
     ))
@@ -313,7 +313,7 @@ def diagnose_column(header: str, values: list[str], total_rows: int, row_offset:
         issues.extend(_check_ghost_characters(values, total_rows))
         issues.extend(_check_text_truncation(values, total_rows))
         issues.extend(_check_boolean_inconsistency(values, total_rows))
-        issues.extend(_check_coleccion_inconsistencia(values, total_rows, domain_info))
+        issues.extend(_check_colección_inconsistencia(values, total_rows, domain_info))
     elif column_type in ("CATEGORICA", "BOOLEANA"):
         issues.extend(_check_categorical_suspicious(profiler, values, total_rows))
 
@@ -527,7 +527,7 @@ def _check_duplicates(header: str, values: list[str], total: int) -> list[IssueG
         count=total_dup,
         total_rows=total,
         percentage=total_dup / total * 100 if total > 0 else 0,
-        description=f"Columna '{header}' es un identificador con {len(dup_groups)} valor(es) repetido(s). Se esperan valores unicos.",
+        description=f"Columna '{header}' es un identificador con {len(dup_groups)} valor(es) repetido(s). Se esperan valores únicos.",
         examples=examples,
         affected_rows=dup_rows,
     ))
@@ -573,7 +573,7 @@ def _check_date_formats(values: list[str], total: int) -> list[IssueGroup]:
             count=parsed_count,
             total_rows=total,
             percentage=parsed_count / total * 100 if total > 0 else 0,
-            description=f"Multiples formatos de fecha detectados: {dict(format_counts)}",
+            description=f"Múltiples formatos de fecha detectados: {dict(format_counts)}",
             examples=examples,
             affected_rows=all_rows,
         ))
@@ -593,7 +593,7 @@ def _check_date_formats(values: list[str], total: int) -> list[IssueGroup]:
             count=len(invalid_dates),
             total_rows=total,
             percentage=len(invalid_dates) / total * 100 if total > 0 else 0,
-            description=f"Fechar con dias/meses invalidos: {len(invalid_dates)} ocurrencias",
+            description=f"Fechar con días/meses invalidos: {len(invalid_dates)} ocurrencias",
             examples=examples,
             affected_rows=invalid_rows,
         ))
@@ -683,7 +683,7 @@ def _check_text_errors(values: list[str], total: int) -> list[IssueGroup]:
                 "variants": v,
             })
         issues.append(IssueGroup(
-            category="Errores de redaccion y formato",
+            category="Errores de redacción y formato",
             category_code="TEXT_ERROR",
             severity="BAJA",
             count=sum(case_issues.values()),
@@ -705,7 +705,7 @@ def _check_text_errors(values: list[str], total: int) -> list[IssueGroup]:
         if double_space_rows:
             examples_spacing.append({"row": double_space_rows[0], "detail": "espacio doble"})
         issues.append(IssueGroup(
-            category="Errores de redaccion y formato",
+            category="Errores de redacción y formato",
             category_code="TEXT_ERROR",
             severity="BAJA",
             count=total_spacing,
@@ -880,7 +880,7 @@ def _check_encoding(values: list[str], total: int) -> list[IssueGroup]:
     if corrupt_rows:
         examples = [{"row": corrupt_rows[j], "value": corrupt_vals[j]} for j in range(min(5, len(corrupt_rows)))]
         issues.append(IssueGroup(
-            category="Problemas de codificacion",
+            category="Problemas de codificación",
             category_code="ENCODING",
             severity="MEDIA",
             count=len(corrupt_rows),
@@ -936,13 +936,13 @@ def _check_scientific_notation(values: list[str], total: int) -> list[IssueGroup
     if sci_rows:
         examples = [{"row": sci_rows[j], "value": sci_vals[j]} for j in range(min(5, len(sci_rows)))]
         issues.append(IssueGroup(
-            category="Notacion cientifica no deseada",
+            category="Notacion científica no deseada",
             category_code="SCIENTIFIC",
             severity="MEDIA",
             count=len(sci_rows),
             total_rows=total,
             percentage=len(sci_rows) / total * 100 if total > 0 else 0,
-            description=f"Numeros en notacion cientifica: {len(sci_rows)} ocurrencias",
+            description=f"Numeros en notacion científica: {len(sci_rows)} ocurrencias",
             examples=examples,
             affected_rows=sci_rows,
         ))
@@ -974,7 +974,7 @@ def _check_multivalue_cells(values: list[str], total: int) -> list[IssueGroup]:
             count=len(multi_rows),
             total_rows=total,
             percentage=len(multi_rows) / total * 100 if total > 0 else 0,
-            description=f"Celdas con multiples valores separados: {len(multi_rows)} ocurrencias",
+            description=f"Celdas con múltiples valores separados: {len(multi_rows)} ocurrencias",
             examples=examples,
             affected_rows=multi_rows,
         ))
@@ -1010,7 +1010,7 @@ def _check_mixed_languages(
             count=lang_es + lang_en,
             total_rows=total,
             percentage=(lang_es + lang_en) / total * 100 if total > 0 else 0,
-            description=f"Valores en multiples idiomas: {lang_es} espanol, {lang_en} ingles",
+            description=f"Valores en múltiples idiomas: {lang_es} español, {lang_en} ingles",
             examples=[],
         ))
 
@@ -1109,7 +1109,7 @@ def _check_boolean_inconsistency(values: list[str], total: int) -> list[IssueGro
             count=len(non_empty_indices),
             total_rows=total,
             percentage=len(non_empty_indices) / total * 100 if total > 0 else 0,
-            description=f"Valores booleanos con multiples representaciones: verdadero={true_vals}, falso={false_vals}",
+            description=f"Valores booleanos con múltiples representaciones: verdadero={true_vals}, falso={false_vals}",
             examples=examples,
             affected_rows=all_rows,
         ))
@@ -1117,7 +1117,7 @@ def _check_boolean_inconsistency(values: list[str], total: int) -> list[IssueGro
     return issues
 
 
-def _check_coleccion_inconsistencia(
+def _check_colección_inconsistencia(
     values: list[str], total: int, domain_info: dict | None
 ) -> list[IssueGroup]:
     issues: list[IssueGroup] = []

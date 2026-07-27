@@ -1,7 +1,7 @@
 const { test, expect } = require("@playwright/test");
 
 test.describe("AuditData AI - Login con Google", () => {
-  test("muestra la pantalla de login cuando no hay sesion", async ({ page }) => {
+  test("muestra la pantalla de login cuando no hay sesión", async ({ page }) => {
     await page.goto("/");
     const loginScreen = page.locator("#loginScreen");
     await expect(loginScreen).toBeVisible({ timeout: 10000 });

@@ -2,7 +2,7 @@
 
 PDF report follows the academic Data Cleaning Report standard:
 Información General, Resumen Ejecutivo, Indicadores Clave,
-Problemas por Dimensión, Outliers, Plan de Acciones,
+Problemas por Dimensión, Outliers, Plan de Acciónes,
 Evaluación de Calidad, Checklist, Riesgos, Metodología y Conclusión.
 """
 
@@ -199,7 +199,7 @@ def _add_charts_section(story, styles, profile, total_rows=None, actions_log=Non
         "missing_values": "Valores Nulos por Columna",
         "data_types": "Distribucion de Tipos de Dato",
         "quality_gauge": "Calidad General del Dataset",
-        "cleaning_summary": "Resumen de Acciones de Limpieza",
+        "cleaning_summary": "Resumen de Acciónes de Limpieza",
     }
     for key, label in chart_labels.items():
         if key in charts:
@@ -224,18 +224,17 @@ def build_pdf_report(analysis: dict[str, Any], analyst: str = "-", version: str 
     styles = _styles()
     story = [
         Paragraph("DATA CLEANING REPORT", styles["TitleBar"]),
-        Paragraph("Informe profesional de limpieza y validacion de calidad de datos", styles["SubtitleBar"]),
+        Paragraph("Informe profesional de limpieza y validación de calidad de datos", styles["SubtitleBar"]),
         Spacer(1, 0.5 * cm),
     ]
 
-    _add_informacion_general(story, styles, analysis, analyst, version)
+    _add_información_general(story, styles, analysis, analyst, version)
     _add_resumen_ejecutivo(story, styles, analysis)
     _add_indicadores_clave(story, styles, analysis)
     _add_problemas_encontrados(story, styles, analysis)
-    _add_outliers_section(story, styles, analysis)
-    _add_recomendaciones(story, styles, analysis)
+    _add_recomendaciónes(story, styles, analysis)
     _add_charts_section(story, styles, analysis["columns"], total_rows=analysis["row_count"])
-    _add_metodologia(story, styles)
+    _add_metodología(story, styles)
 
     document.build(story)
     return buffer.getvalue()
@@ -260,28 +259,27 @@ def build_cleaning_pdf_report(cleaning: dict[str, Any], analyst: str = "-", vers
     styles = _styles()
     story = [
         Paragraph("DATA CLEANING REPORT", styles["TitleBar"]),
-        Paragraph("Limpieza, validacion y trazabilidad de decisiones", styles["SubtitleBar"]),
+        Paragraph("Limpieza, validación y trazabilidad de decisiónes", styles["SubtitleBar"]),
         Spacer(1, 0.5 * cm),
     ]
 
-    _add_informacion_general_cleaning(story, styles, before, after, actions, analyst, version, row_meaning, analysis_objective)
+    _add_información_general_cleaning(story, styles, before, after, actions, analyst, version, row_meaning, analysis_objective)
     _add_resumen_ejecutivo_cleaning(story, styles, before, after, actions)
     _add_indicadores_clave_cleaning(story, styles, before, after)
-    _add_problemas_encontrados_cleaning(story, styles, before, after)
-    _add_outliers_cleaning(story, styles, before)
-    _add_plan_acciones(story, styles, actions)
-    _add_evaluacion_calidad(story, styles, before, after)
+    _add_problemas_encontrados_cleaning(story, styles, before, after, actions)
+    _add_plan_acciónes(story, styles, actions)
+    _add_evaluación_calidad(story, styles, before, after)
     _add_checklist(story, styles, after, actions)
     _add_riesgos(story, styles, after)
     _add_charts_section(story, styles, before["columns"], total_rows=before["row_count"], actions_log=actions)
-    _add_metodologia(story, styles)
-    _add_conclusion(story, styles, before, after)
+    _add_metodología(story, styles)
+    _add_conclusión(story, styles, before, after)
 
     document.build(story)
     return buffer.getvalue()
 
 
-def _add_informacion_general(story, styles, analysis, analyst, version):
+def _add_información_general(story, styles, analysis, analyst, version):
     story.append(Paragraph("1. INFORMACION GENERAL", styles["Section"]))
     story.append(_table([
         ["Campo", "Detalle"],
@@ -296,7 +294,7 @@ def _add_informacion_general(story, styles, analysis, analyst, version):
     story.append(Spacer(1, 0.3 * cm))
 
 
-def _add_informacion_general_cleaning(story, styles, before, after, actions, analyst, version, row_meaning="", analysis_objective=""):
+def _add_información_general_cleaning(story, styles, before, after, actions, analyst, version, row_meaning="", analysis_objective=""):
     story.append(Paragraph("1. INFORMACION GENERAL", styles["Section"]))
     rows = [
         ["Campo", "Detalle"],
@@ -308,13 +306,13 @@ def _add_informacion_general_cleaning(story, styles, before, after, actions, ana
     if row_meaning:
         rows.append(["Que representa cada fila", row_meaning])
     if analysis_objective:
-        rows.append(["Objetivo del analisis", analysis_objective])
+        rows.append(["Objetivo del análisis", analysis_objective])
     rows.extend([
         ["Registros antes", str(before["row_count"])],
-        ["Registros despues", str(after["row_count"])],
+        ["Registros después", str(after["row_count"])],
         ["Columnas antes", str(before["column_count"])],
-        ["Columnas despues", str(after["column_count"])],
-        ["Acciones documentadas", str(len(actions))],
+        ["Columnas después", str(after["column_count"])],
+        ["Acciónes documentadas", str(len(actions))],
         ["Fecha de generacion", after["generated_at"]],
         ["Herramienta utilizada", "AuditData AI - Motor Python"],
     ])
@@ -333,13 +331,13 @@ def _add_resumen_ejecutivo(story, styles, analysis):
     text = (
         f"Se analizo el dataset '{analysis['filename']}' compuesto por "
         f"{analysis['row_count']} registros y {analysis['column_count']} columnas. "
-        f"El diagnostico tecnico identifico un total de {total_issues} problemas: "
+        f"El diagnóstico técnico identifico un total de {total_issues} problemas: "
         f"{analysis['duplicate_rows']} filas duplicadas, "
         f"{sum(c.get('missing', 0) for c in analysis['columns'])} valores faltantes, "
         f"{sum(c.get('format_issues', 0) for c in analysis['columns'])} inconsistencias de formato, "
         f"y {sum(c.get('outliers', 0) for c in analysis['columns'])} valores atipicos. "
         f"La calidad general calculada es {scores['overall']}%. "
-        "Los hallazgos sirven como diagnostico tecnico inicial y deben validarse "
+        "Los hallazgos sirven como diagnóstico técnico inicial y deben validarse "
         "con reglas de negocio antes de ejecutar cualquier cambio definitivo."
     )
     story.append(Paragraph(text, styles["Body"]))
@@ -362,12 +360,12 @@ def _add_resumen_ejecutivo_cleaning(story, styles, before, after, actions):
     improvement_text = ", ".join(improvements) if improvements else "sin cambios significativos"
 
     text = (
-        f"Se ejecuto un proceso secuencial de limpieza sobre el dataset '{before['filename']}', "
+        f"Se ejecutó un proceso secuencial de limpieza sobre el dataset '{before['filename']}', "
         f"compuesto por {before['row_count']} registros y {before['column_count']} columnas. "
-        f"Se documentaron {total_actions} acciones de limpieza. "
+        f"Se documentaron {total_actions} acciónes de limpieza. "
         f"La calidad general paso de {before['scores']['overall']}% a {after['scores']['overall']}%. "
         f"Las dimensiones con mejoras: {improvement_text}. "
-        "Cada decision quedo registrada para facilitar auditoria, mantenimiento y reutilizacion."
+        "Cada decisión quedo registrada para facilitar auditoria, mantenimiento y reutilización."
     )
     story.append(Paragraph(text, styles["Body"]))
     story.append(Spacer(1, 0.3 * cm))
@@ -380,7 +378,7 @@ def _add_indicadores_clave(story, styles, analysis):
         ["Indicador", "Resultado"],
         ["Completitud", f"{scores['completeness']}%"],
         ["Consistencia", f"{scores['consistency']}%"],
-        ["Exactitud estadistica", f"{scores['accuracy']}%"],
+        ["Exactitud estadística", f"{scores['accuracy']}%"],
         ["Unicidad", f"{scores['uniqueness']}%"],
         ["Calidad general", f"{scores['overall']}%"],
         ["Filas totales", str(analysis["row_count"])],
@@ -392,11 +390,11 @@ def _add_indicadores_clave(story, styles, analysis):
 def _add_indicadores_clave_cleaning(story, styles, before, after):
     story.append(Paragraph("3. INDICADORES CLAVE DEL DATASET", styles["Section"]))
     story.append(Paragraph(
-        "Tabla comparativa de indicadores de calidad antes y despues del proceso de limpieza.",
+        "Tabla comparativa de indicadores de calidad antes y después del proceso de limpieza.",
         styles["Body"],
     ))
     story.append(_table([
-        ["Indicador", "Antes", "Despues"],
+        ["Indicador", "Antes", "Después"],
         ["Registros", str(before["row_count"]), str(after["row_count"])],
         ["Columnas", str(before["column_count"]), str(after["column_count"])],
         ["Filas duplicadas", str(before["duplicate_rows"]), str(after["duplicate_rows"])],
@@ -467,7 +465,7 @@ def _add_problemas_encontrados(story, styles, analysis):
         total_format = sum(c["format_issues"] for c in cols_with_format)
         story.append(Paragraph(
             f"Se encontraron {total_format} inconsistencias de formato en {len(cols_with_format)} columnas. "
-            "Estas variantes fragmentan categorias y dificultan el analisis agregado.",
+            "Estas variantes fragmentan categorías y dificultan el análisis agregado.",
             styles["Body"],
         ))
         for col in cols_with_format:
@@ -496,16 +494,16 @@ def _add_problemas_encontrados(story, styles, analysis):
         story.append(Paragraph("No se detectaron formatos inconsistentes.", styles["Body"]))
     story.append(Spacer(1, 0.2 * cm))
 
-    # 4.5 Categorias inconsistentes
-    story.append(Paragraph("4.5 Categorias Inconsistentes", styles["SubSection"]))
+    # 4.5 Categorías inconsistentes
+    story.append(Paragraph("4.5 Categorías Inconsistentes", styles["SubSection"]))
     if cols_with_format:
         story.append(Paragraph(
-            f"{len(cols_with_format)} columnas presentan categorias fragmentadas por variantes de texto. "
+            f"{len(cols_with_format)} columnas presentan categorías fragmentadas por variantes de texto. "
             "Se recomienda estandarizar con capitalizacion, mayusculas o minusculas segun el caso.",
             styles["Body"],
         ))
     else:
-        story.append(Paragraph("No se detectaron categorias inconsistentes.", styles["Body"]))
+        story.append(Paragraph("No se detectaron categorías inconsistentes.", styles["Body"]))
     story.append(Spacer(1, 0.2 * cm))
 
     # 4.6 Valores atipicos
@@ -533,7 +531,7 @@ def _add_problemas_encontrados(story, styles, analysis):
     story.append(Spacer(1, 0.3 * cm))
 
 
-def _add_problemas_encontrados_cleaning(story, styles, before, after):
+def _add_problemas_encontrados_cleaning(story, styles, before, after, actions):
     story.append(Paragraph("4. PROBLEMAS ENCONTRADOS", styles["Section"]))
 
     # Same analysis as before
@@ -586,7 +584,7 @@ def _add_problemas_encontrados_cleaning(story, styles, before, after):
         total_format = sum(c["format_issues"] for c in cols_with_format)
         story.append(Paragraph(
             f"Se encontraron {total_format} inconsistencias de formato en {len(cols_with_format)} columnas. "
-            "Estas variantes fragmentan categorias y dificultan el analisis.",
+            "Estas variantes fragmentan categorías y dificultan el análisis.",
             styles["Body"],
         ))
         for col in cols_with_format:
@@ -615,15 +613,15 @@ def _add_problemas_encontrados_cleaning(story, styles, before, after):
         story.append(Paragraph("No se detectaron formatos inconsistentes.", styles["Body"]))
     story.append(Spacer(1, 0.2 * cm))
 
-    # 4.5 Categorias inconsistentes
-    story.append(Paragraph("4.5 Categorias Inconsistentes", styles["SubSection"]))
+    # 4.5 Categorías inconsistentes
+    story.append(Paragraph("4.5 Categorías Inconsistentes", styles["SubSection"]))
     if cols_with_format:
         story.append(Paragraph(
-            f"{len(cols_with_format)} columnas presentan categorias fragmentadas por variantes de texto.",
+            f"{len(cols_with_format)} columnas presentan categorías fragmentadas por variantes de texto.",
             styles["Body"],
         ))
     else:
-        story.append(Paragraph("No se detectaron categorias inconsistentes.", styles["Body"]))
+        story.append(Paragraph("No se detectaron categorías inconsistentes.", styles["Body"]))
     story.append(Spacer(1, 0.2 * cm))
 
     # 4.6 Valores atipicos
@@ -635,12 +633,18 @@ def _add_problemas_encontrados_cleaning(story, styles, before, after):
             "Se calculan con el rango intercuartilico (IQR).",
             styles["Body"],
         ))
+        actions_by_col = {}
+        for a in actions:
+            col = a.get("column", "")
+            if col not in actions_by_col:
+                actions_by_col[col] = a.get("action", "")
         story.append(_table(
-            [["Columna", "Outliers", "Ejemplos"]]
+            [["Columna", "Outliers", "Ejemplos", "Acción"]]
             + [[
                 c["name"],
                 str(c["outliers"]),
-                ", ".join(str(v) for v in (c.get("outlier_examples") or [])[:5]),
+                ", ".join(str(v) for v in (c.get("outlier_examples") or [])[:3]),
+                actions_by_col.get(c["name"], "Sin acción"),
             ] for c in cols_with_outliers],
             header=True,
         ))
@@ -695,7 +699,7 @@ def _add_outliers_cleaning(story, styles, before):
     story.append(Spacer(1, 0.3 * cm))
 
 
-def _add_recomendaciones(story, styles, analysis):
+def _add_recomendaciónes(story, styles, analysis):
     story.append(Paragraph("6. RECOMENDACIONES", styles["Section"]))
     for recommendation in analysis.get("recommendations", []):
         story.append(Paragraph(
@@ -705,17 +709,17 @@ def _add_recomendaciones(story, styles, analysis):
     story.append(Spacer(1, 0.3 * cm))
 
 
-def _add_plan_acciones(story, styles, actions):
-    story.append(Paragraph("6. PLAN Y ACCIONES DE LIMPIEZA", styles["Section"]))
+def _add_plan_acciónes(story, styles, actions):
+    story.append(Paragraph("5. PLAN Y ACCIONES DE LIMPIEZA", styles["Section"]))
     if actions:
         story.append(Paragraph(
-            f"Se documentaron {len(actions)} acciones de limpieza. "
-            "Cada accion incluye la columna afectada, la accion aplicada, "
-            "la justificacion tecnica y el resultado obtenido.",
+            f"Se documentaron {len(actions)} acciónes de limpieza. "
+            "Cada acción incluye la columna afectada, la acción aplicada, "
+            "la justificación técnica y el resultado obtenido.",
             styles["Body"],
         ))
         story.append(_table(
-            [["N.", "Columna", "Accion", "Justificacion", "Resultado"]]
+            [["N.", "Columna", "Acción", "Justificación", "Resultado"]]
             + [[
                 str(i + 1),
                 item.get("column", ""),
@@ -727,16 +731,16 @@ def _add_plan_acciones(story, styles, actions):
         ))
     else:
         story.append(Paragraph(
-            "No se aplicaron acciones de limpieza. El dataset se mantiene en su estado original.",
+            "No se aplicaron acciónes de limpieza. El dataset se mantiene en su estado original.",
             styles["Body"],
         ))
     story.append(Spacer(1, 0.3 * cm))
 
 
-def _add_evaluacion_calidad(story, styles, before, after):
-    story.append(Paragraph("7. EVALUACION DE CALIDAD - ANTES vs DESPUES", styles["Section"]))
+def _add_evaluación_calidad(story, styles, before, after):
+    story.append(Paragraph("6. EVALUACION DE CALIDAD - ANTES vs DESPUES", styles["Section"]))
     story.append(Paragraph(
-        "Comparacion de indicadores de calidad entre el dataset original y el dataset limpio.",
+        "Comparación de indicadores de calidad entre el dataset original y el dataset limpio.",
         styles["Body"],
     ))
     dims = [
@@ -745,7 +749,7 @@ def _add_evaluacion_calidad(story, styles, before, after):
         ("Exactitud", "accuracy"),
         ("Unicidad", "uniqueness"),
     ]
-    rows = [["Dimension", "Antes", "Despues", "Cambio"]]
+    rows = [["Dimension", "Antes", "Después", "Cambio"]]
     for label, key in dims:
         b = before["scores"][key]
         a = after["scores"][key]
@@ -764,13 +768,13 @@ def _add_evaluacion_calidad(story, styles, before, after):
 
 
 def _add_checklist(story, styles, after, actions):
-    story.append(Paragraph("8. CHECKLIST DE VALIDACION FINAL", styles["Section"]))
+    story.append(Paragraph("7. CHECKLIST DE VALIDACION FINAL", styles["Section"]))
     checks = [
         ("Completitud >= 95%", after["scores"]["completeness"] >= 95),
         ("Consistencia >= 95%", after["scores"]["consistency"] >= 95),
         ("Exactitud >= 95%", after["scores"]["accuracy"] >= 95),
         ("Sin duplicados pendientes", after["duplicate_rows"] == 0),
-        ("Acciones documentadas", len(actions) > 0),
+        ("Acciónes documentadas", len(actions) > 0),
         ("Calidad general >= 90%", after["scores"]["overall"] >= 90),
     ]
     story.append(_table(
@@ -781,49 +785,49 @@ def _add_checklist(story, styles, after, actions):
 
 
 def _add_riesgos(story, styles, after):
-    story.append(Paragraph("9. RIESGOS IDENTIFICADOS", styles["Section"]))
+    story.append(Paragraph("8. RIESGOS IDENTIFICADOS", styles["Section"]))
     risks = []
     if after["scores"]["completeness"] < 95:
         risks.append("Persisten valores faltantes que pueden sesgar indicadores.")
     if after["scores"]["consistency"] < 95:
-        risks.append("Persisten inconsistencias de formato que pueden fragmentar categorias.")
+        risks.append("Persisten inconsistencias de formato que pueden fragmentar categorías.")
     if after["scores"]["accuracy"] < 95:
-        risks.append("Persisten outliers que requieren validacion con la fuente original.")
+        risks.append("Persisten outliers que requieren validación con la fuente original.")
     if after["duplicate_rows"]:
-        risks.append("Persisten duplicados que deben evaluarse segun la unidad de analisis.")
+        risks.append("Persisten duplicados que deben evaluarse segun la unidad de análisis.")
     if not risks:
-        risks.append("No se identifican riesgos criticos en el diagnostico posterior a la limpieza.")
+        risks.append("No se identifican riesgos críticos en el diagnóstico posterior a la limpieza.")
     for risk in risks:
         story.append(Paragraph(f"- {risk}", styles["Bullet"]))
     story.append(Spacer(1, 0.3 * cm))
 
 
-def _add_conclusion(story, styles, before, after):
-    story.append(Paragraph("10. CONCLUSION FINAL", styles["Section"]))
+def _add_conclusión(story, styles, before, after):
+    story.append(Paragraph("9. CONCLUSION FINAL", styles["Section"]))
     overall = after["scores"]["overall"]
     if overall >= 95:
         text = (
             f"El dataset limpio alcanza una calidad general de {overall}%. "
-            "Los datos son confiables para analisis descriptivo, toma de decisiones "
+            "Los datos son confiables para análisis descriptivo, toma de decisiónes "
             "y entrega a las areas interesadas. Se recomienda mantener la trazabilidad "
-            "de decisiones aplicadas."
+            "de decisiónes aplicadas."
         )
     elif overall >= 80:
         text = (
             f"El dataset limpio alcanza una calidad general de {overall}%. "
-            "Es utilizable para analisis, pero se recomienda revisar los riesgos "
-            "pendientes antes de decisiones criticas."
+            "Es utilizable para análisis, pero se recomienda revisar los riesgos "
+            "pendientes antes de decisiónes criticas."
         )
     else:
         text = (
             f"El dataset limpio alcanza una calidad general de {overall}%. "
-            "Se recomienda continuar la depuracion antes de declarar el dataset "
-            "listo para analisis."
+            "Se recomienda continuar la depuración antes de declarar el dataset "
+            "listo para análisis."
         )
     story.append(Paragraph(text, styles["Body"]))
 
 
-def _add_metodologia(story, styles):
+def _add_metodología(story, styles):
     story.append(Paragraph("METODOLOGIA DE CALCULO", styles["Section"]))
     story.append(Paragraph(
         "<b>Completitud:</b> Se calcula como 100% - (celdas vacias / total de celdas) * 100. "
@@ -852,8 +856,8 @@ def _add_metodologia(story, styles):
         styles["Body"],
     ))
     story.append(Paragraph(
-        "<b>Diagnostico avanzado:</b> El motor de diagnostico evalua 28 categorias de problemas "
-        "de calidad de datos para identificar hallazgos que van mas alla de las cuatro dimensiones basicas.",
+        "<b>Diagnóstico avanzado:</b> El motor de diagnóstico evalua 28 categorías de problemas "
+        "de calidad de datos para identificar hallazgos que van mas alla de las cuatro dimensiones básicas.",
         styles["Body"],
     ))
     story.append(Spacer(1, 0.3 * cm))

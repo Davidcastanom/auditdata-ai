@@ -5,10 +5,10 @@
  *
  * MODO DE OPERACION:
  * ------------------
- * Validacion manual: El analista revisa el diagnostico 28 categorias
- * y selecciona que problemas quiere abordar en la depuracion.
+ * Validación manual: El analista revisa el diagnóstico 28 categorías
+ * y seleccióna que problemas quiere abordar en la depuración.
  *
- * La IA se utiliza exclusivamente en el Step 4 (Depuracion) como
+ * La IA se utiliza exclusivamente en el Step 4 (Depuración) como
  * Copiloto Conversacional en el Side Drawer.
  *
  * AUTOR: AuditData AI
@@ -16,7 +16,7 @@
  * ============================================================================
  */
 
-export class NubeValidacion {
+export class NubeValidación {
   constructor(options = {}) {
     this.container = options.container;
     this.onActionReady = options.onActionReady || (() => {});
@@ -70,7 +70,7 @@ export class NubeValidacion {
   }
 
   /**
-   * Carga datos del dataset y muestra diagnostico directamente
+   * Carga datos del dataset y muestra diagnóstico directamente
    */
   loadRecommendations(filename, contentBase64) {
     this.filename = filename;
@@ -82,7 +82,7 @@ export class NubeValidacion {
   }
 
   /**
-   * Cargar diagnostico y mostrar checkboxes
+   * Cargar diagnóstico y mostrar checkboxes
    */
   async _startManualMode() {
     this.container.innerHTML = this._renderLoading();
@@ -94,7 +94,7 @@ export class NubeValidacion {
         body: JSON.stringify({ filename: this.filename, content_base64: this.contentBase64 }),
       });
 
-      if (!response.ok) throw new Error("Error al ejecutar diagnostico");
+      if (!response.ok) throw new Error("Error al ejecutar diagnóstico");
 
       const data = await response.json();
       this.diagnosticData = data.diagnostic;
@@ -109,7 +109,7 @@ export class NubeValidacion {
   }
 
   /**
-   * Renderiza vista manual con diagnostico 28 categorias
+   * Renderiza vista manual con diagnóstico 28 categorías
    */
   _renderManualView() {
     const cols = this.diagnosticData?.columns || [];
@@ -130,26 +130,26 @@ export class NubeValidacion {
             </svg>
           </div>
           <div>
-            <h2>Validacion de Calidad</h2>
+            <h2>Validación de Calidad</h2>
             <p class="nube-subtitle">${cols.length} columnas, ${totalIssues} problema${totalIssues !== 1 ? 's' : ''} detectado${totalIssues !== 1 ? 's' : ''}</p>
           </div>
         </div>
         <div class="nube-actions-global">
-          <button class="nube-btn nube-btn--ghost nube-btn--skip" id="nubeSkipManual" type="button">Omitir validacion</button>
-          <button class="nube-btn nube-btn--ghost" id="nubeSelectAllManual" type="button">Seleccionar todo</button>
-          <button class="nube-btn nube-btn--ghost nube-btn--danger" id="nubeDeselectAll" type="button">Limpiar seleccion</button>
+          <button class="nube-btn nube-btn--ghost nube-btn--skip" id="nubeSkipManual" type="button">Omitir validación</button>
+          <button class="nube-btn nube-btn--ghost" id="nubeSelectAllManual" type="button">Selecciónar todo</button>
+          <button class="nube-btn nube-btn--ghost nube-btn--danger" id="nubeDeselectAll" type="button">Limpiar selección</button>
         </div>
       </div>
       <div class="nube-progress">
         <div class="nube-progress__bar"><div class="nube-progress__fill nube-progress__fill--manual" style="width: 0%"></div></div>
-        <span class="nube-progress__text">0 de ${totalIssues} problemas seleccionados</span>
+        <span class="nube-progress__text">0 de ${totalIssues} problemas selecciónados</span>
       </div>
       <div class="nube-columns">
         ${cols.map(col => this._renderManualColumnCard(col)).join('')}
       </div>
       <div class="nube-manual-actions">
         <button class="button button--primary" id="nubeManualConfirm" type="button">
-          Confirmar seleccion y continuar
+          Confirmar selección y continuar
         </button>
       </div>
     `;
@@ -247,7 +247,7 @@ export class NubeValidacion {
     const fill = this.container.querySelector('.nube-progress__fill');
     const text = this.container.querySelector('.nube-progress__text');
     if (fill) fill.style.width = `${pct}%`;
-    if (text) text.textContent = `${selected} de ${total} problemas seleccionados`;
+    if (text) text.textContent = `${selected} de ${total} problemas selecciónados`;
   }
 
   _confirmManualSelection() {
@@ -260,7 +260,7 @@ export class NubeValidacion {
         column: ch.dataset.column,
         category: ch.dataset.category,
         count: parseInt(ch.dataset.count) || 0,
-        reason: `Problema ${ch.dataset.category} seleccionado en validacion manual`,
+        reason: `Problema ${ch.dataset.category} selecciónado en validación manual`,
       };
       this.acceptedActions.push(actionData);
       this.onActionReady(actionData);
@@ -292,7 +292,7 @@ export class NubeValidacion {
       <div class="nube-loading">
         <div class="nube-spinner"></div>
         <h3>Analizando dataset...</h3>
-        <p>Ejecutando diagnostico de 28 categorias de calidad</p>
+        <p>Ejecutando diagnóstico de 28 categorías de calidad</p>
         <div class="nube-loading__dots"><span></span><span></span><span></span></div>
       </div>
     `;
@@ -394,7 +394,7 @@ export class NubeValidacion {
     const issues = colDiag?.issues || [];
 
     if (issues.length === 0) {
-      diagBox.innerHTML = `<p class="empty-state">No se registraron problemas tecnicos en esta columna.</p>`;
+      diagBox.innerHTML = `<p class="empty-state">No se registraron problemas técnicos en esta columna.</p>`;
     } else {
       diagBox.innerHTML = issues.map(iss => `
         <div class="drawer-issue-item">
@@ -406,7 +406,7 @@ export class NubeValidacion {
       `).join('');
     }
 
-    recsBox.innerHTML = `<p class="empty-state">Las recomendaciones de IA estan disponibles en el Step 4 (Depuracion).</p>`;
+    recsBox.innerHTML = `<p class="empty-state">Las recomendaciónes de IA estan disponibles en el Step 4 (Depuración).</p>`;
 
     const history = this.drawerChatHistory[columnName] || [];
     chatFeed.innerHTML = '';
@@ -419,7 +419,7 @@ export class NubeValidacion {
     if (history.length === 0) {
       chatFeed.innerHTML = `
         <div class="chat-bubble chat-bubble--ai">
-          <strong>Copiloto IA:</strong> Hola, estoy analizando la columna <code>${this._escHtml(columnName)}</code>. Preguntame cualquier duda tecnica sobre como depurar sus datos. Tu tienes el control final.
+          <strong>Copiloto IA:</strong> Hola, estoy analizando la columna <code>${this._escHtml(columnName)}</code>. Preguntame cualquier duda técnica sobre como depurar sus datos. Tu tienes el control final.
         </div>
       `;
     }
@@ -466,7 +466,7 @@ export class NubeValidacion {
         })
       });
 
-      if (!response.ok) throw new Error('Error de conexion con la IA');
+      if (!response.ok) throw new Error('Error de conexión con la IA');
 
       const data = await response.json();
       const answer = data.response || 'Sin respuesta';

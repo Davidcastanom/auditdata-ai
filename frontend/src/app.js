@@ -1,7 +1,7 @@
 import { Store } from "./state.js";
 import { Router } from "./router.js";
 import { signInWithGoogle, signOut, getCurrentUser, authAvailable, saveToHistory, getHistory, getHistorySession } from "./auth.js";
-import { NubeValidacion } from "./nube.js";
+import { NubeValidación } from "./nube.js";
 
 const loginScreen = document.querySelector("#loginScreen");
 const appContent = document.querySelector("#appContent");
@@ -162,8 +162,8 @@ const els = {
 
 const router = new Router(goToStep);
 
-// Inicializar Nube de Validacion
-const nube = new NubeValidacion({
+// Inicializar Nube de Validación
+const nube = new NubeValidación({
   container: els.nubeContainer,
   onActionReady: (actionOrList) => {
     const list = Array.isArray(actionOrList) ? actionOrList : [actionOrList];
@@ -171,10 +171,10 @@ const nube = new NubeValidacion({
       if (act && act.kind) store.addAction(act);
     });
     renderLog();
-    els.systemStatus.textContent = `Acciones registradas en bitácora: ${store.state.actions.length}`;
+    els.systemStatus.textContent = `Acciónes registradas en bitácora: ${store.state.actions.length}`;
   },
   onAllReviewed: (actions) => {
-    els.systemStatus.textContent = `${actions.length} acciones listas para depurar`;
+    els.systemStatus.textContent = `${actions.length} acciónes listas para depurar`;
     els.nextButton.disabled = false;
     enableStep(4);
   },
@@ -327,7 +327,7 @@ async function showFilePreview(filename, base64) {
     els.filePreviewMeta.innerHTML = `
       <span><strong>Archivo:</strong> ${escapeHtml(filename)}</span>
       <span><strong>Formato:</strong> ${escapeHtml(data.format)}</span>
-      <span><strong>Codificacion:</strong> ${escapeHtml(data.encoding)}</span>
+      <span><strong>Codificación:</strong> ${escapeHtml(data.encoding)}</span>
       <span><strong>Filas:</strong> ${data.total_rows}</span>
       <span><strong>Columnas:</strong> ${data.headers.length}</span>
     `;
@@ -464,7 +464,7 @@ function renderRules() {
         const isDeleted = deletedColumns.includes(column.name);
         const reason = store.state.actions.find(a => a.kind === "delete_column" && a.column === column.name)?.reason || "";
         return `
-      <article class="decision-card ${isDeleted ? "decision-card--disabled" : ""}">
+      <article class="decisión-card ${isDeleted ? "decisión-card--disabled" : ""}">
         <div>
           <span class="tag">${escapeHtml(column.detected_type)}</span>
           <h3>${escapeHtml(column.name)}</h3>
@@ -499,7 +499,7 @@ function renderRules() {
   });
 }
 
-// --- Step 4: Depuracion Guiada con Chat Lateral ---
+// --- Step 4: Depuración Guiada con Chat Lateral ---
 
 let depurChatHistory = {};
 
@@ -539,7 +539,7 @@ function renderDepurationBoard() {
           kind: 'remove_duplicate_rows',
           column: 'Dataset',
           rows,
-          reason: 'Eliminacion de filas duplicadas documentada por el analista.',
+          reason: 'Eliminación de filas duplicadas documentada por el analista.',
         });
         renderDepurationBoard();
       });
@@ -571,7 +571,7 @@ function renderDepurationBoard() {
         </div>
         <div class="column-card__footer">
           <span>${totalRows} filas afectadas</span>
-          <span>${issues.length} categorias</span>
+          <span>${issues.length} categorías</span>
         </div>
         <div class="column-card__actions">
           <button class="button button--primary button--sm" data-depur-open-col="${escapeAttr(col.column)}" type="button">Abrir Copiloto</button>
@@ -618,7 +618,7 @@ function openDepurDrawer(columnName) {
 
   badge.textContent = 'Columna';
   title.textContent = columnName;
-  meta.textContent = 'Copiloto de Depuracion';
+  meta.textContent = 'Copiloto de Depuración';
 
   const diagnostic = store.state.diagnostic;
   const colDiag = diagnostic?.columns?.find(c => c.column === columnName);
@@ -647,7 +647,7 @@ function openDepurDrawer(columnName) {
     }).join('');
   }
 
-  recsBox.innerHTML = '<div class="nube-loading" style="padding:var(--space-3);"><div class="nube-spinner"></div><p style="font-size:0.8rem;">Cargando recomendaciones...</p></div>';
+  recsBox.innerHTML = '<div class="nube-loading" style="padding:var(--space-3);"><div class="nube-spinner"></div><p style="font-size:0.8rem;">Cargando recomendaciónes...</p></div>';
 
   const history = depurChatHistory[columnName] || [];
   chatFeed.innerHTML = '';
@@ -662,7 +662,7 @@ function openDepurDrawer(columnName) {
       <div class="chat-bubble chat-bubble--ai">
         <strong>Copiloto:</strong> Hola, estoy analizando la columna <code>${escapeHtml(columnName)}</code>.
         ${issues.length > 0 ? `Detecte <strong>${issues.length}</strong> problema(s): ${issues.map(i => i.category_code).join(', ')}.` : 'No hay problemas detectados.'}
-        Preguntame lo que necesites o usa las recomendaciones de abajo para depurar. Tu tienes el control.
+        Preguntame lo que necesites o usa las recomendaciónes de abajo para depurar. Tu tienes el control.
       </div>
     `;
   }
@@ -705,13 +705,13 @@ async function fetchDepurRecommendations(columnName, colDiag, recsBox) {
       })
     });
 
-    if (!response.ok) throw new Error('Error al obtener recomendaciones');
+    if (!response.ok) throw new Error('Error al obtener recomendaciónes');
 
     const data = await response.json();
     const recs = data.recommendations || [];
 
     if (recs.length === 0) {
-      recsBox.innerHTML = `<p class="empty-state">Sin recomendaciones automaticas. Pregunta al Copiloto.</p>`;
+      recsBox.innerHTML = `<p class="empty-state">Sin recomendaciónes automaticas. Pregunta al Copiloto.</p>`;
       return;
     }
 
@@ -736,7 +736,7 @@ async function fetchDepurRecommendations(columnName, colDiag, recsBox) {
         </div>
         ${rows.length > 0 ? `<p class="drawer-rec-rows">Filas: <code>${escapeHtml(rowsText)}</code></p>` : ''}
         <div class="drawer-rec-reason">
-          <textarea rows="1" placeholder="Justificacion (opcional)..." data-rec-reason="${idx}"></textarea>
+          <textarea rows="1" placeholder="Justificación (opcional)..." data-rec-reason="${idx}"></textarea>
         </div>
         <div class="drawer-rec-actions">
           <button class="button button--primary button--sm" type="button" data-accept-rec="${idx}" data-col="${escapeAttr(columnName)}" data-kind="${escapeAttr(actionKind)}" data-method="${escapeAttr(actionMethod)}" data-rows="${escapeAttr(JSON.stringify(rows))}">Aceptar</button>
@@ -744,7 +744,7 @@ async function fetchDepurRecommendations(columnName, colDiag, recsBox) {
         </div>
         <div class="drawer-rec-validation" id="recValidation-${idx}" style="display:none;">
           <div class="rec-validation__summary">
-            <div class="rec-validation__row"><span class="rec-validation__label">Accion:</span> <strong>${escapeHtml(actionLabel)}</strong></div>
+            <div class="rec-validation__row"><span class="rec-validation__label">Acción:</span> <strong>${escapeHtml(actionLabel)}</strong></div>
             <div class="rec-validation__row"><span class="rec-validation__label">Columna:</span> ${escapeHtml(columnName)}</div>
             ${actionMethod ? `<div class="rec-validation__row"><span class="rec-validation__label">Metodo:</span> ${escapeHtml(actionMethod)}</div>` : ''}
             <div class="rec-validation__row"><span class="rec-validation__label">Filas:</span> <code>${escapeHtml(rowsText)}</code> (${rows.length})</div>
@@ -800,7 +800,7 @@ async function fetchDepurRecommendations(columnName, colDiag, recsBox) {
           _rowsKey: `${kind}_${rows.join(',')}`,
           reason: userReason || autoReason,
         });
-        card.innerHTML = `<div class="rec-confirmed"><span class="status status--ok">Aplicada y documentada en bitacora</span></div>`;
+        card.innerHTML = `<div class="rec-confirmed"><span class="status status--ok">Aplicada y documentada en bitácora</span></div>`;
         renderDepurationBoard();
       };
     });
@@ -811,14 +811,14 @@ async function fetchDepurRecommendations(columnName, colDiag, recsBox) {
   } catch (e) {
     recsBox.innerHTML = `
       <div class="empty-state" style="text-align:center;padding:var(--space-3);">
-        <p style="margin:0 0 8px;">No se pudieron cargar las recomendaciones.</p>
-        <p style="margin:0 0 12px;font-size:0.8rem;color:var(--color-muted);">Verifica tu conexion y vuelve a intentar.</p>
+        <p style="margin:0 0 8px;">No se pudieron cargar las recomendaciónes.</p>
+        <p style="margin:0 0 12px;font-size:0.8rem;color:var(--color-muted);">Verifica tu conexión y vuelve a intentar.</p>
         <button class="button button--primary button--sm retry-recommendations" type="button">
           Reintentar
         </button>
       </div>`;
     recsBox.querySelector('.retry-recommendations')?.addEventListener('click', () => {
-      recsBox.innerHTML = '<div class="nube-loading" style="padding:var(--space-3);"><div class="nube-spinner"></div><p style="font-size:0.8rem;">Cargando recomendaciones...</p></div>';
+      recsBox.innerHTML = '<div class="nube-loading" style="padding:var(--space-3);"><div class="nube-spinner"></div><p style="font-size:0.8rem;">Cargando recomendaciónes...</p></div>';
       fetchDepurRecommendations(columnName, colDiag, recsBox);
     });
   }
@@ -855,7 +855,7 @@ async function sendDepurChatMessage(columnName, query) {
       })
     });
 
-    if (!response.ok) throw new Error('Error de conexion con la IA');
+    if (!response.ok) throw new Error('Error de conexión con la IA');
 
     const data = await response.json();
     const answer = data.response || 'Sin respuesta';
@@ -875,7 +875,7 @@ function addAction(action) {
   store.addAction(action);
   renderLog();
   renderAnalystNotes();
-  els.systemStatus.textContent = `${store.state.actions.length} decision(es) documentada(s)`;
+  els.systemStatus.textContent = `${store.state.actions.length} decisión(es) documentada(s)`;
 }
 
 function undoLastAction() {
@@ -894,7 +894,7 @@ function renderLog() {
   els.undoButton.disabled = actions.length === 0;
 
   if (!actions.length) {
-    els.actionsLog.innerHTML = `<p class="empty-state">Aun no hay acciones registradas.</p>`;
+    els.actionsLog.innerHTML = `<p class="empty-state">Aún no hay acciónes registradas.</p>`;
     return;
   }
   els.actionsLog.innerHTML = actions
@@ -1068,7 +1068,7 @@ function renderValidation() {
     validationRow("Exactitud", after.scores.accuracy >= 95, `${before.scores.accuracy}% → ${after.scores.accuracy}% (${outliersBefore} → ${outliersAfter} outliers)`),
     validationRow("Unicidad", after.duplicate_rows === 0, `${before.duplicate_rows} → ${after.duplicate_rows} filas duplicadas`),
     validationRow("Calidad general", after.scores.overall >= 90, `${before.scores.overall}% → ${after.scores.overall}%`),
-    validationRow("Documentacion", cleaning.actions.length > 0, `${cleaning.actions.length} decisiones documentadas en bitacora`),
+    validationRow("Documentación", cleaning.actions.length > 0, `${cleaning.actions.length} decisiónes documentadas en bitácora`),
   ];
   els.validationTable.innerHTML = rows.join("");
 }
@@ -1100,13 +1100,13 @@ function renderReportPreview() {
 
   els.reportPreview.innerHTML = `
     <h3>Vista previa del Data Cleaning Report</h3>
-    <p>El informe PDF contiene 10 secciones: Informacion General, Resumen Ejecutivo, Indicadores Clave (antes/despues), Problemas Encontrados (6 dimensiones), Outliers y Fuera de Rango, Plan de Acciones, Evaluacion de Calidad, Checklist de Validacion, Riesgos Identificados, Metodologia y Conclusion.</p>
+    <p>El informe PDF contiene 10 secciones: Información General, Resumen Ejecutivo, Indicadores Clave (antes/después), Problemas Encontrados (6 dimensiones), Outliers y Fuera de Rango, Plan de Acciónes, Evaluación de Calidad, Checklist de Validación, Riesgos Identificados, Metodología y Conclusión.</p>
     <div style="margin: 0.75rem 0; padding: 0.75rem; background: var(--color-black); border-radius: var(--radius-sm); border: 1px solid var(--color-border);">
       <p style="margin:0 0 0.4rem;"><strong>Dataset:</strong> ${escapeHtml(before.filename)}</p>
       <p style="margin:0 0 0.4rem;"><strong>Calidad general:</strong> ${before.scores.overall}% → ${after.scores.overall}%</p>
       <p style="margin:0 0 0.4rem;"><strong>Registros:</strong> ${before.row_count} → ${after.row_count} | <strong>Columnas:</strong> ${before.column_count} → ${after.column_count}</p>
       <p style="margin:0 0 0.4rem;"><strong>Problemas detectados antes:</strong> ${missingBefore} faltantes, ${formatBefore} inconsistencias, ${before.duplicate_rows} duplicados, ${outliersBefore} outliers</p>
-      <p style="margin:0 0 0.4rem;"><strong>Acciones documentadas:</strong> ${actions.length}</p>
+      <p style="margin:0 0 0.4rem;"><strong>Acciónes documentadas:</strong> ${actions.length}</p>
       ${changedDims.length ? `<p style="margin:0;"><strong>Mejoras:</strong> ${changedDims.join(' | ')}</p>` : '<p style="margin:0;"><strong>Sin cambios significativos</strong></p>'}
     </div>
     <p style="font-size:0.85rem; color: var(--color-muted);">Salida disponible: informe PDF (formato academico), informe Markdown y dataset limpio CSV.</p>
@@ -1181,12 +1181,12 @@ function goToStep(step) {
     els.nextButton.textContent = "Siguiente etapa";
   }
 
-  // Cargar recomendaciones de IA al entrar al step 3
+  // Cargar recomendaciónes de IA al entrar al step 3
   if (step === 3 && store.state.filename && store.state.fileBase64) {
     nube.loadRecommendations(store.state.filename, store.state.fileBase64);
   }
 
-  // Re-renderizar tablero de depuracion al entrar al step 4
+  // Re-renderizar tablero de depuración al entrar al step 4
   if (step === 4) {
     renderDepurationBoard();
   }
@@ -1245,7 +1245,7 @@ async function downloadAuditLog() {
 }
 
 function resetProject() {
-  if (!confirm("¿Estás seguro? Se borrará todo: dataset, análisis, acciones e informe.")) return;
+  if (!confirm("¿Estás seguro? Se borrará todo: dataset, análisis, acciónes e informe.")) return;
   store.clear();
   els.systemStatus.textContent = "Esperando dataset";
   els.datasetMeta.textContent = "Motor Python local";
@@ -1254,7 +1254,7 @@ function resetProject() {
   els.metrics.innerHTML = "";
   els.profileTable.innerHTML = "";
   els.rulesBoard.innerHTML = "";
-  els.actionsLog.innerHTML = `<p class="empty-state">Aun no hay acciones registradas.</p>`;
+  els.actionsLog.innerHTML = `<p class="empty-state">Aún no hay acciónes registradas.</p>`;
   els.comparisonGrid.innerHTML = "";
   els.validationTable.innerHTML = "";
   els.reportPreview.innerHTML = "";
@@ -1390,7 +1390,7 @@ function cssEscape(value) {
 
 function populateAdvancedColumns() {
   const cols = store.state.analysis?.columns || [];
-  els.advColSelect.innerHTML = `<option value="">Selecciona columna...</option>` +
+  els.advColSelect.innerHTML = `<option value="">Seleccióna columna...</option>` +
     cols.map(c => `<option value="${escapeAttr(c.name)}">${escapeHtml(c.name)}</option>`).join("");
 }
 
@@ -1413,7 +1413,7 @@ els.advActionSelect.addEventListener("change", () => {
   } else if (action === "fill_missing") {
     els.advParam1Label.firstChild.textContent = "Estrategia de relleno";
     els.advParam1Input.placeholder = "null / mean / median / mode";
-    helpEl.innerHTML = '<strong>null</strong> = vacio explicito · <strong>mean</strong> = media · <strong>median</strong> = mediana · <strong>mode</strong> = moda (valor mas frecuente)';
+    helpEl.innerHTML = '<strong>null</strong> = vacío explicito · <strong>mean</strong> = media · <strong>median</strong> = mediana · <strong>mode</strong> = moda (valor mas frecuente)';
     els.advParam2Row.style.display = "none";
   } else if (action === "replace_value") {
     els.advParam1Label.firstChild.textContent = "Valor original (a buscar)";
@@ -1431,8 +1431,8 @@ els.advActionSelect.addEventListener("change", () => {
     els.advParam1Input.placeholder = "number / text / boolean";
     helpEl.innerHTML = '<strong>number</strong> = convierte a numero · <strong>text</strong> = texto libre · <strong>boolean</strong> = true/false → si/no';
   } else {
-    els.advParam1Label.firstChild.textContent = "Parametro 1";
-    els.advParam1Input.placeholder = "Selecciona accion primero";
+    els.advParam1Label.firstChild.textContent = "Parámetro 1";
+    els.advParam1Input.placeholder = "Seleccióna acción primero";
     els.advParam1Input.disabled = true;
     helpEl.innerHTML = '';
   }
@@ -1446,7 +1446,7 @@ els.applyAdvActionButton.addEventListener("click", () => {
   const reason = els.advReasonInput.value.trim() || "Acción avanzada libre aplicada por el analista.";
   
   if (!column || !kind) {
-    alert("Por favor selecciona columna y acción.");
+    alert("Por favor seleccióna columna y acción.");
     return;
   }
   if (kind === "fill_empty" && !param1) {
@@ -1490,7 +1490,7 @@ els.applyAdvActionButton.addEventListener("click", () => {
   els.advActionSelect.value = "";
   els.advParam1Input.value = "";
   els.advParam1Input.disabled = true;
-  els.advParam1Input.placeholder = "Selecciona accion primero";
+  els.advParam1Input.placeholder = "Seleccióna acción primero";
   els.advParam2Input.value = "";
   els.advReasonInput.value = "";
   els.advParam2Row.style.display = "none";
@@ -1526,7 +1526,7 @@ async function loadHistory() {
   try {
     const items = await getHistory();
     if (!items.length) {
-      els.historyList.innerHTML = '<p class="history-panel__empty">Aun no hay analisis guardados.</p>';
+      els.historyList.innerHTML = '<p class="history-panel__empty">Aún no hay análisis guardados.</p>';
       return;
     }
     els.historyList.innerHTML = items.map(item => {
@@ -1536,7 +1536,7 @@ async function loadHistory() {
       const hasPdf = item.report_pdf_base64 && item.report_pdf_base64.length > 10;
       return `<div class="history-item${hasData ? " history-item--clickable" : ""}" data-session-id="${item.id}"${hasData ? ' role="button" tabindex="0"' : ""}>
         <div class="history-item__name">${escapeHtml(ds.filename || "dataset")}</div>
-        <div class="history-item__meta">${ds.row_count || 0} filas | ${ds.column_count || 0} columnas | ${actions.length} acciones</div>
+        <div class="history-item__meta">${ds.row_count || 0} filas | ${ds.column_count || 0} columnas | ${actions.length} acciónes</div>
         <div class="history-item__date">${formatDate(item.created_at)}</div>
         <div class="history-item__actions">
           ${hasData ? '<span class="history-item__action">Restaurar</span>' : ""}
@@ -1564,7 +1564,7 @@ async function loadHistory() {
 }
 
 async function restoreSession(sessionId) {
-  showLoading("Restaurando sesion desde historial...");
+  showLoading("Restaurando sesión desde historial...");
   try {
     const session = await getHistorySession(sessionId);
     if (!session || !session.before_json || !session.after_json) {
@@ -1581,11 +1581,11 @@ async function restoreSession(sessionId) {
     renderReportPreview();
     enableStep(4);
     enableStep(5);
-    els.systemStatus.textContent = `Sesion restaurada: ${session.datasets.filename}`;
+    els.systemStatus.textContent = `Sesión restaurada: ${session.datasets.filename}`;
     toggleHistory();
-    showToast("Sesion restaurada correctamente.", "success");
+    showToast("Sesión restaurada correctamente.", "success");
   } catch (e) {
-    showToast("Error al restaurar sesion.", "error");
+    showToast("Error al restaurar sesión.", "error");
     console.warn("Restore failed:", e);
   } finally {
     hideLoading();

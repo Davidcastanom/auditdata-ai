@@ -36,7 +36,7 @@ export async function signInWithGoogle() {
   ensureSupabase();
   if (!authAvailable) {
     console.error("Supabase not loaded. Check your network connection.");
-    throw new Error("No se pudo conectar con el servicio de autenticacion. Verifica tu conexion a internet.");
+    throw new Error("No se pudo conectar con el servicio de autenticación. Verifica tu conexión a internet.");
   }
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",

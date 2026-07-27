@@ -6,14 +6,14 @@ ADVISOR DE IA PARA AUDITDATA AI
 QUE HACE ESTE ARCHIVO:
 -----------------------
 Este archivo es el "cerebro de IA" del sistema. Se conecta a Groq API
-(ejecuta Llama 3.1 gratis) y genera recomendaciones de limpieza de datos.
+(ejecuta Llama 3.1 gratis) y genera recomendaciónes de limpieza de datos.
 
 FLUJO:
 ------
-1. El diagnostico encuentra problemas (28 categorias)
+1. El diagnóstico encuentra problemas (28 categorías)
 2. Este archivo envia esos problemas a Groq API
-3. Groq responde con recomendaciones de limpieza
-4. El analista decide que hacer con cada recomendacion
+3. Groq responde con recomendaciónes de limpieza
+4. El analista decide que hacer con cada recomendación
 
 DEPENDENCIAS:
 -------------
@@ -113,7 +113,7 @@ def build_system_prompt() -> str:
     return """Eres un Auditor Senior y Copiloto Técnico de Calidad de Datos en AuditData AI.
 
 PRINCIPIOS ÉTICOS Y DE INTERACCIÓN:
-1. ROL DE COPILOTO: Tú sugieres recomendaciones fundamentadas, pero el analista humano SIEMPRE tiene el control absoluto y la decisión final sobre qué acciones ejecutar.
+1. ROL DE COPILOTO: Tú sugieres recomendaciónes fundamentadas, pero el analista humano SIEMPRE tiene el control absoluto y la decisión final sobre qué acciónes ejecutar.
 2. IDIOMA: Responde SIEMPRE en ESPAÑOL profesional, claro y directo.
 3. FORMATO: Responde ÚNICAMENTE en formato JSON válido.
 4. REGLA DE DUPLICADOS: La categoría 'DUPLICATE' aplica EXCLUSIVAMENTE a filas completas del dataset (column="__dataset__"). Tener valores repetidos en una sola columna (ej. repetir "Bogotá" o "30") NO es un error de duplicidad de columna.
@@ -155,7 +155,7 @@ RESPUESTA ESPERADA (JSON):
       "count": 10,
       "text": "Justificación técnica clara del problema...",
       "action": {
-        "kind": "tipo_de_accion",
+        "kind": "tipo_de_acción",
         "column": "nombre_columna",
         "method": "metodo",
         "reason": "Justificación de la acción"
@@ -176,7 +176,7 @@ def get_ai_recommendations(
     sample_rows: list[dict[str, Any]] | None = None
 ) -> dict[str, Any]:
     """
-    Genera recomendaciones de IA para todos los problemas encontrados.
+    Genera recomendaciónes de IA para todos los problemas encontrados.
 
     OPTIMIZACION: Envia TODAS las columnas en UN SOLO prompt a Groq
     en vez de una llamada por columna. Esto reduce N llamadas API a 1.
@@ -234,7 +234,7 @@ def get_ai_recommendations(
             clean_rec = {
                 "category": rec.get("category", "UNKNOWN"),
                 "count": rec.get("count", 0),
-                "text": rec.get("text", "Sin justificacion"),
+                "text": rec.get("text", "Sin justificación"),
                 "action": rec.get("action", {}),
                 "confidence": min(max(rec.get("confidence", 0.5), 0.0), 1.0),
                 "affected_rows": rec.get("affected_rows", []),
@@ -259,7 +259,7 @@ def get_ai_recommendations(
                         "action": {
                             "kind": "review_issue",
                             "column": col_name,
-                            "reason": f"Problema {iss.get('category_code', '')} detectado por diagnostico",
+                            "reason": f"Problema {iss.get('category_code', '')} detectado por diagnóstico",
                         },
                         "confidence": 0.3,
                         "affected_rows": iss.get("affected_rows", []),
@@ -294,7 +294,7 @@ def get_ai_recommendations(
                     {
                         "category": iss.get("category_code", "UNKNOWN"),
                         "count": iss.get("count", 0),
-                        "text": f"Error de IA: {e}. Problema detectado pero sin recomendacion automatica.",
+                        "text": f"Error de IA: {e}. Problema detectado pero sin recomendación automatica.",
                         "action": {},
                         "confidence": 0.1,
                     }
@@ -342,13 +342,13 @@ VALORES DE EJEMPLO: {samples_text}
 
 INSTRUCCIONES:
 1. Para cada problema, indica que tipo de limpieza es mejor
-2. Justifica tecnicamente por que esa accion es correcta
+2. Justifica técnicamente por que esa acción es correcta
 3. Asigna un nivel de confianza (0.0 a 1.0)
 4. Responde en formato JSON como se indico en el sistema
 
 IMPORTANTE: 
-- Si hay multiples problemas, recomienda acciones para CADA uno
-- Prioriza acciones que no pierdan datos (imputar antes que eliminar)
+- Si hay múltiples problemas, recomienda acciónes para CADA uno
+- Prioriza acciónes que no pierdan datos (imputar antes que eliminar)
 - Si hay dudas, indica confidence baja (< 0.5)"""
 
 
@@ -362,8 +362,8 @@ def _build_batch_prompt(
     """
     parts = [
         "ANALIZA TODAS LAS SIGUIENTES COLUMNAS Y RECOMIENDA ACCIONES DE LIMPIEZA PARA CADA UNA.",
-        "Responde con UN SOLO JSON que contenga todas las recomendaciones agrupadas por columna.",
-        "IMPORTANTE: Cada recomendacion debe incluir 'affected_rows' con los numeros de fila afectados.",
+        "Responde con UN SOLO JSON que contenga todas las recomendaciónes agrupadas por columna.",
+        "IMPORTANTE: Cada recomendación debe incluir 'affected_rows' con los numeros de fila afectados.",
         "",
     ]
 
@@ -423,12 +423,12 @@ def _build_batch_prompt(
       "category": "MISSING",
       "count": 10,
       "affected_rows": [3, 7, 12, 15],
-      "text": "Justificacion tecnica (1-2 oraciones) con referencia a filas especificas",
+      "text": "Justificación técnica (1-2 oraciones) con referencia a filas especificas",
       "action": {
-        "kind": "tipo_de_accion",
+        "kind": "tipo_de_acción",
         "column": "nombre_columna",
         "method": "metodo",
-        "reason": "Justificacion de la accion"
+        "reason": "Justificación de la acción"
       },
       "confidence": 0.85
     }
@@ -437,10 +437,10 @@ def _build_batch_prompt(
 
     parts.append("")
     parts.append("REGLAS:")
-    parts.append("- Genera recomendaciones para TODOS los problemas de TODAS las columnas")
-    parts.append("- Cada recomendacion DEBE incluir 'affected_rows' con los numeros de fila")
+    parts.append("- Genera recomendaciónes para TODOS los problemas de TODAS las columnas")
+    parts.append("- Cada recomendación DEBE incluir 'affected_rows' con los numeros de fila")
     parts.append("- En 'text', referencia las filas especificas (ej: 'Filas 3,7,12 tienen valores negativos')")
-    parts.append("- Prioriza acciones que no pierdan datos")
+    parts.append("- Prioriza acciónes que no pierdan datos")
     parts.append("- Si hay dudas, confidence < 0.5")
 
     return "\n".join(parts)
@@ -474,7 +474,7 @@ def _get_sample_values(
 
     POR QUE ES IMPORTANTE:
     - La IA necesita ver ejemplos para entender el tipo de dato
-    - Sin ejemplos, la IA podria recomendar acciones incorrectas
+    - Sin ejemplos, la IA podria recomendar acciónes incorrectas
 
     EJEMPLO:
     >>> samples = _get_sample_values("edad", rows, max_samples=5)
@@ -503,7 +503,7 @@ def _parse_ai_response(response_text: str) -> dict[str, Any]:
     QUE HACE:
     - Recibe el texto de respuesta de Groq
     - Intenta parsearlo como JSON
-    - Si falla, crea un JSON basico con el texto original
+    - Si falla, crea un JSON básico con el texto original
     - Valida que tenga la estructura correcta
 
     PARAMETROS:
@@ -516,7 +516,7 @@ def _parse_ai_response(response_text: str) -> dict[str, Any]:
           {
             "category": "NOMBRE",
             "count": 10,
-            "text": "justificacion",
+            "text": "justificación",
             "action": {...},
             "confidence": 0.85
           }
@@ -524,8 +524,8 @@ def _parse_ai_response(response_text: str) -> dict[str, Any]:
       }
 
     MANEJO DE ERRORES:
-    - Si el JSON es invalido, retorna el texto como recomendacion
-    - Si falta informacion, completa con valores por defecto
+    - Si el JSON es invalido, retorna el texto como recomendación
+    - Si falta información, completa con valores por defecto
     - Nunca falla, siempre retorna algo util
 
     EJEMPLO:
@@ -540,10 +540,10 @@ def _parse_ai_response(response_text: str) -> dict[str, Any]:
 
         # Validar que tenga la estructura correcta
         if "recommendations" not in data:
-            # Si no tiene "recommendations", crear estructura basica
+            # Si no tiene "recommendations", crear estructura básica
             data = {"recommendations": [data] if isinstance(data, dict) else []}
 
-        # Validar cada recomendacion
+        # Validar cada recomendación
         valid_recommendations = []
         for rec in data.get("recommendations", []):
             if isinstance(rec, dict):
@@ -551,7 +551,7 @@ def _parse_ai_response(response_text: str) -> dict[str, Any]:
                 valid_recommendations.append({
                     "category": rec.get("category", "UNKNOWN"),
                     "count": rec.get("count", 0),
-                    "text": rec.get("text", "Sin justificacion"),
+                    "text": rec.get("text", "Sin justificación"),
                     "action": rec.get("action", {}),
                     "confidence": min(max(rec.get("confidence", 0.5), 0.0), 1.0)
                 })
@@ -691,14 +691,14 @@ async def get_column_depuration_recommendations(
     column_diagnostic: dict[str, Any],
     sample_rows: list[dict[str, Any]] | None = None
 ) -> dict[str, Any]:
-    """Genera recomendaciones de depuración enfocadas en una sola columna."""
+    """Genera recomendaciónes de depuración enfocadas en una sola columna."""
     client = init_async_groq_client() or init_groq_client()
     if not client:
         return _build_fallback_recommendations(column_name, column_diagnostic)
 
     system_prompt = (
         "Eres el Copiloto de Calidad de Datos de AuditData AI. "
-        "Genera recomendaciones de depuración para UNA COLUMNA específica.\n"
+        "Genera recomendaciónes de depuración para UNA COLUMNA específica.\n"
         "REGLAS CRÍTICAS:\n"
         "1. Respetas la soberanía del analista — él decide finalmente.\n"
         "2. Español profesional.\n"
@@ -796,7 +796,7 @@ def _build_fallback_recommendations(
     column_name: str,
     column_diagnostic: dict[str, Any]
 ) -> dict[str, Any]:
-    """Genera recomendaciones sin IA a partir del diagnostico."""
+    """Genera recomendaciónes sin IA a partir del diagnóstico."""
     issues = column_diagnostic.get("issues", [])
     recs = []
     for issue in issues:
@@ -854,7 +854,7 @@ async def chat_with_column_advisor(
         "Estás asesorando a un analista de datos sobre una columna o problemática específica de un dataset.\n"
         "REGLAS ÉTICAS Y DE COMUNICACIÓN:\n"
         "1. Responde de forma concisa, técnica y didáctica (máximo 2-3 párrafos corta duración).\n"
-        "2. Respeta la soberanía del analista: él toma las decisiones finales.\n"
+        "2. Respeta la soberanía del analista: él toma las decisiónes finales.\n"
         "3. Idioma: Español profesional por defecto.\n"
         "4. Si te pregunta sobre duplicados ('__dataset__'), aclara que los duplicados aplican a filas completas del dataset, no a celdas aisladas."
     )
