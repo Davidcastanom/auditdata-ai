@@ -694,7 +694,7 @@ async def get_column_depuration_recommendations(
     """Genera recomendaciones de depuración enfocadas en una sola columna."""
     client = init_async_groq_client() or init_groq_client()
     if not client:
-        return {"recommendations": [], "status": "no_api_key"}
+        return _build_fallback_recommendations(column_name, column_diagnostic)
 
     system_prompt = (
         "Eres el Copiloto de Calidad de Datos de AuditData AI. "
@@ -761,7 +761,53 @@ async def get_column_depuration_recommendations(
         return {"recommendations": recs, "status": "success"}
     except Exception as e:
         logger.error("Error en get_column_depuration_recommendations: %s", e)
-        return {"recommendations": [], "status": "error"}
+        return _build_fallback_recommendations(column_name, column_diagnostic)
+
+
+CATEGORY_ACTION_MAP = {
+    "MISSING": ("fill_missing", "mode"),
+    "TEXT_ERROR": ("standardize_text", "trim"),
+    "CATEGORICAL": ("standardize_text", "trim"),
+    "TYPE_ERROR": ("change_type", "text"),
+    "OUT_OF_RANGE": ("flag_outliers", "flag"),
+    "NUMERIC_DOMAIN": ("flag_outliers", "flag"),
+    "DATE_FORMAT": ("standardize_text", "trim"),
+    "UNIT_ERROR": ("standardize_text", "trim"),
+    "ENCODING": ("standardize_text", "trim"),
+    "DUPLICATE": ("drop_duplicates", "first"),
+}
+
+
+def _build_fallback_recommendations(
+    column_name: str,
+    column_diagnostic: dict[str, Any]
+) -> dict[str, Any]:
+    """Genera recomendaciones sin IA a partir del diagnostico."""
+    issues = column_diagnostic.get("issues", [])
+    recs = []
+    for issue in issues:
+        cat = issue.get("category_code", issue.get("category", "UNKNOWN"))
+        count = issue.get("count", 0)
+        rows = issue.get("affected_rows", [])[:10]
+        desc = issue.get("description", issue.get("text", ""))
+        kind, method = CATEGORY_ACTION_MAP.get(cat, ("flag_outliers", "flag"))
+
+        recs.append({
+            "category": cat,
+            "count": count,
+            "text": f"{desc or cat}: {count} ocurrencia(s) detectada(s). "
+                    f"Recomendacion basada en reglas del diagnostico.",
+            "action": {
+                "kind": kind,
+                "column": column_name,
+                "method": method,
+                "reason": f"Deteccion automatica: {cat}",
+            },
+            "confidence": 0.6,
+            "affected_rows": rows,
+        })
+
+    return {"recommendations": recs, "status": "fallback"}
 
 
 async def chat_with_column_advisor(

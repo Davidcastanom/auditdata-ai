@@ -750,7 +750,18 @@ async function fetchDepurRecommendations(columnName, colDiag, recsBox) {
       btn.onclick = () => btn.closest('.drawer-rec-card')?.remove();
     });
   } catch (e) {
-    recsBox.innerHTML = `<p class="empty-state">Error al cargar recomendaciones: ${escapeHtml(e.message)}</p>`;
+    recsBox.innerHTML = `
+      <div class="empty-state" style="text-align:center;padding:var(--space-3);">
+        <p style="margin:0 0 8px;">No se pudieron cargar las recomendaciones.</p>
+        <p style="margin:0 0 12px;font-size:0.8rem;color:var(--color-muted);">Verifica tu conexion y vuelve a intentar.</p>
+        <button class="button button--primary button--sm retry-recommendations" type="button">
+          Reintentar
+        </button>
+      </div>`;
+    recsBox.querySelector('.retry-recommendations')?.addEventListener('click', () => {
+      recsBox.innerHTML = '<div class="nube-loading" style="padding:var(--space-3);"><div class="nube-spinner"></div><p style="font-size:0.8rem;">Cargando recomendaciones...</p></div>';
+      fetchDepurRecommendations(columnName, colDiag, recsBox);
+    });
   }
 }
 
@@ -1215,9 +1226,12 @@ function labelForAction(kind) {
     standardize_text: "Estandarizar texto",
     remove_duplicate_rows: "Eliminar duplicados",
     flag_outliers: "Marcar outliers",
-    fill_missing: "Imputar faltantes",
+    fill_missing: "Rellenar celdas vacias",
+    replace_with_null: "Reemplazar con NULL",
+    rename_column: "Renombrar columna",
     drop_duplicates: "Eliminar duplicados",
     convert_type: "Convertir tipo de dato",
+    change_type: "Cambiar tipo de dato",
     drop_rows: "Eliminar filas",
     fix_format: "Corregir formato",
     replace_value: "Reemplazar valor",
@@ -1322,25 +1336,52 @@ function populateAdvancedColumns() {
 
 els.advActionSelect.addEventListener("change", () => {
   const action = els.advActionSelect.value;
+  els.advParam1Input.disabled = false;
   els.advParam2Row.style.display = "none";
   els.advParam1Input.value = "";
   els.advParam2Input.value = "";
   
-  if (action === "change_type") {
-    els.advParam1Label.firstChild.textContent = "Nuevo tipo de dato";
-    els.advParam1Input.placeholder = "number, text, o boolean";
+  if (action === "fill_missing") {
+    els.advParam1Label.firstChild.textContent = "Estrategia de relleno";
+    els.advParam1Input.placeholder = "null / mean / median / mode";
+    els.advParam1Input.type = "text";
+    // Add help text
+    let helpEl = document.querySelector('#advHelpText');
+    if (!helpEl) { helpEl = document.createElement('div'); helpEl.id = 'advHelpText'; els.advParam1Label.appendChild(helpEl); }
+    helpEl.style.cssText = 'font-size:0.75rem;color:var(--color-muted);margin-top:4px;';
+    helpEl.innerHTML = '<strong>null</strong> = vacio explicito · <strong>mean</strong> = media · <strong>median</strong> = mediana · <strong>mode</strong> = moda (valor mas frecuente)';
+    els.advParam2Row.style.display = "none";
   } else if (action === "replace_value") {
     els.advParam1Label.firstChild.textContent = "Valor original (a buscar)";
     els.advParam1Input.placeholder = "Ej. bogota";
     els.advParam2Label.firstChild.textContent = "Nuevo valor (reemplazo)";
-    els.advParam2Input.placeholder = "Ej. Bogotá";
+    els.advParam2Input.placeholder = "Ej. Bogota";
+    els.advParam2Row.style.display = "block";
+    let helpEl = document.querySelector('#advHelpText');
+    if (!helpEl) { helpEl = document.createElement('div'); helpEl.id = 'advHelpText'; els.advParam1Label.appendChild(helpEl); }
+    helpEl.style.cssText = 'font-size:0.75rem;color:var(--color-muted);margin-top:4px;';
+    helpEl.innerHTML = 'Busca todas las celdas con el valor exacto y las reemplaza por el nuevo.';
     els.advParam2Row.style.display = "block";
   } else if (action === "rename_column") {
     els.advParam1Label.firstChild.textContent = "Nuevo nombre de columna";
-    els.advParam1Input.placeholder = "Ej. edad_años";
+    els.advParam1Input.placeholder = "Ej. edad_anios";
+    let helpEl = document.querySelector('#advHelpText');
+    if (!helpEl) { helpEl = document.createElement('div'); helpEl.id = 'advHelpText'; els.advParam1Label.appendChild(helpEl); }
+    helpEl.style.cssText = 'font-size:0.75rem;color:var(--color-muted);margin-top:4px;';
+    helpEl.innerHTML = 'Cambia el nombre de la columna. El nombre anterior desaparece del CSV.';
+  } else if (action === "change_type") {
+    els.advParam1Label.firstChild.textContent = "Nuevo tipo de dato";
+    els.advParam1Input.placeholder = "number / text / boolean";
+    let helpEl = document.querySelector('#advHelpText');
+    if (!helpEl) { helpEl = document.createElement('div'); helpEl.id = 'advHelpText'; els.advParam1Label.appendChild(helpEl); }
+    helpEl.style.cssText = 'font-size:0.75rem;color:var(--color-muted);margin-top:4px;';
+    helpEl.innerHTML = '<strong>number</strong> = convierte a numero · <strong>text</strong> = texto libre · <strong>boolean</strong> = true/false → si/no';
   } else {
-    els.advParam1Label.firstChild.textContent = "Parámetro 1";
-    els.advParam1Input.placeholder = "";
+    els.advParam1Label.firstChild.textContent = "Parametro 1";
+    els.advParam1Input.placeholder = "Selecciona accion primero";
+    els.advParam1Input.disabled = true;
+    let helpEl = document.querySelector('#advHelpText');
+    if (helpEl) helpEl.innerHTML = '';
   }
 });
 
@@ -1355,12 +1396,8 @@ els.applyAdvActionButton.addEventListener("click", () => {
     alert("Por favor selecciona columna y acción.");
     return;
   }
-  if (kind === "change_type" && !param1) {
-    alert("Por favor especifica el nuevo tipo de dato.");
-    return;
-  }
-  if (kind === "change_type" && !["number", "text", "boolean"].includes(param1)) {
-    alert("Tipo inválido. Usa: number, text o boolean");
+  if (kind === "fill_missing" && !["null", "mean", "median", "mode"].includes(param1)) {
+    alert("Estrategia inválida. Usa: null, mean, median o mode");
     return;
   }
   if (kind === "replace_value" && (!param1 || !param2)) {
@@ -1371,22 +1408,34 @@ els.applyAdvActionButton.addEventListener("click", () => {
     alert("Por favor especifica el nuevo nombre de la columna.");
     return;
   }
+  if (kind === "change_type" && !param1) {
+    alert("Por favor especifica el nuevo tipo de dato.");
+    return;
+  }
+  if (kind === "change_type" && !["number", "text", "boolean"].includes(param1)) {
+    alert("Tipo inválido. Usa: number, text o boolean");
+    return;
+  }
   
   const action = {
     kind,
     column,
     reason,
-    method: param1,
-    value: kind === "replace_value" ? param2 : param1
+    method: kind === "fill_missing" ? param1 : param1,
+    value: kind === "replace_value" ? param2 : (kind === "fill_missing" ? param1 : param1)
   };
   
   addAction(action);
   
   els.advActionSelect.value = "";
   els.advParam1Input.value = "";
+  els.advParam1Input.disabled = true;
+  els.advParam1Input.placeholder = "Selecciona accion primero";
   els.advParam2Input.value = "";
   els.advReasonInput.value = "";
   els.advParam2Row.style.display = "none";
+  let helpEl = document.querySelector('#advHelpText');
+  if (helpEl) helpEl.innerHTML = '';
 });
 
 function toggleHistory() {

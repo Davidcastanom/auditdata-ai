@@ -227,7 +227,8 @@ async def ai_column_recommendations(req: ColumnRecommendRequest):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error("Error en column-recommendations: %s", e)
+        return {"recommendations": [], "status": "error", "message": str(e)}
 
 
 @app.post("/api/clean")

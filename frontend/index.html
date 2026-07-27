@@ -352,14 +352,15 @@
                       Selecciona Accion
                       <select id="advActionSelect">
                         <option value="">Selecciona accion...</option>
-                        <option value="change_type">Cambiar tipo de dato</option>
+                        <option value="fill_missing">Rellenar celdas vacias</option>
                         <option value="replace_value">Reemplazar texto/valor</option>
                         <option value="rename_column">Renombrar columna</option>
+                        <option value="change_type">Cambiar tipo de dato</option>
                       </select>
                     </label>
                     <label id="advParam1Label">
                       Parametro 1
-                      <input id="advParam1Input" type="text" placeholder="Ej. valor a buscar o nuevo tipo" />
+                      <input id="advParam1Input" type="text" placeholder="Selecciona accion primero" disabled />
                     </label>
                   </div>
                   <div class="form-grid" style="grid-template-columns: 1fr; margin-top: var(--space-2); display: none;" id="advParam2Row">

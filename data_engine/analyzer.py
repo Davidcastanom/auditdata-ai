@@ -207,6 +207,45 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
             scope = "filas especificas" if target_rows else "todas las vacias"
             log.append(_log_entry(column, f"Imputar faltantes con {method}", ai_reason, f"{changed} valores reemplazados ({scope})."))
 
+        elif kind == "fill_missing" and column in headers:
+            method = action.get("method", "mode")
+            if method == "null":
+                changed = 0
+                target_set = set(target_rows) if target_rows is not None else None
+                for idx, row in enumerate(rows):
+                    is_missing = _normalize_missing(row.get(column, "")) == ""
+                    in_target = target_set is None or idx in target_set
+                    if is_missing and in_target:
+                        row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+                        changelog.append({
+                            "action": "Rellenar con NULL",
+                            "column": column,
+                            "reason": ai_reason,
+                            "changes": [{"row": str(row_id), "column": column, "old": "(vacio)", "new": "NULL"}],
+                        })
+                        row[column] = "NULL"
+                        changed += 1
+                log.append(_log_entry(column, "Rellenar vacios con NULL", ai_reason, f"{changed} celdas rellenadas con NULL."))
+            else:
+                value = _imputation_value(rows, column, method, action.get("value"))
+                changed = 0
+                target_set = set(target_rows) if target_rows is not None else None
+                for idx, row in enumerate(rows):
+                    is_missing = _normalize_missing(row.get(column, "")) == ""
+                    in_target = target_set is None or idx in target_set
+                    if is_missing and in_target:
+                        old_val = row.get(column, "")
+                        row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+                        changelog.append({
+                            "action": f"Rellenar con {method}",
+                            "column": column,
+                            "reason": ai_reason,
+                            "changes": [{"row": str(row_id), "column": column, "old": str(old_val) or "(vacio)", "new": str(value)}],
+                        })
+                        row[column] = value
+                        changed += 1
+                log.append(_log_entry(column, f"Rellenar vacios con {method}", ai_reason, f"{changed} celdas rellenadas ({method})."))
+
         elif kind == "standardize_text" and column in headers:
             mode = action.get("method", "title")
             changed = 0
