@@ -40,6 +40,8 @@ class ActionItem(BaseModel):
     reason: str = ""
     method: str = ""
     value: Any = ""
+    rows: list[int] | None = None
+    _rowsKey: str = ""
 
 class CleanRequest(BaseModel):
     filename: str
