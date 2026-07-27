@@ -413,7 +413,7 @@ function renderProfile() {
         let freqHtml = '';
         if (valDist.length > 0 && column.detected_type !== 'number') {
           const maxPct = Math.max(...valDist.map(v => v.pct), 1);
-          const freqRows = valDist.slice(0, 20).map(v => {
+          const freqRows = valDist.map(v => {
             const barW = Math.max((v.pct / maxPct) * 100, 2);
             return `<div class="freq-row">
               <span class="freq-val">${escapeHtml(v.value)}</span>
@@ -427,7 +427,7 @@ function renderProfile() {
               <button class="drawer-section__toggle" type="button" onclick="this.parentElement.classList.toggle('is-open')">
                 Distribución de Frecuencias <span class="toggle-badge">${valDist.length} valores</span> <span class="toggle-arrow">▾</span>
               </button>
-              <div class="drawer-section__body">
+              <div class="drawer-section__body freq-scroll">
                 <div class="freq-header"><span>Valor</span><span></span><span>%</span><span>Frec</span></div>
                 ${freqRows}
               </div>
@@ -679,7 +679,7 @@ function openDepurDrawer(columnName) {
           <button class="drawer-section__toggle" type="button" onclick="this.parentElement.classList.toggle('is-open')">
             Distribución de Frecuencias <span class="toggle-badge">${allVals.length} valores</span> <span class="toggle-arrow">▾</span>
           </button>
-          <div class="drawer-section__body">
+          <div class="drawer-section__body freq-scroll">
             <div class="freq-header"><span>Valor</span><span></span><span>%</span><span>Frec</span></div>
             ${rows}
           </div>
@@ -1291,7 +1291,10 @@ function enableStep(step) {
 
 async function downloadReport(type) {
   const cleaning = store.state.cleaning;
-  if (!cleaning) return;
+  if (!cleaning) {
+    showToast("No hay datos de limpieza disponibles. Ejecuta la limpieza primero.", "error");
+    return;
+  }
   showLoading(`Generando informe ${type === "pdf" ? "PDF" : "Markdown"}...`);
   try {
     const route = type === "pdf" ? "/api/report/pdf" : "/api/report/markdown";
@@ -1307,6 +1310,9 @@ async function downloadReport(type) {
     } else {
       downloadBlob(response.filename, new Blob([response.content], { type: "text/markdown;charset=utf-8" }));
     }
+    showToast(`Informe ${type === "pdf" ? "PDF" : "Markdown"} descargado.`, "success");
+  } catch (error) {
+    showToast(`Error generando informe: ${error.message}`, "error");
   } finally {
     hideLoading();
   }
@@ -1314,12 +1320,19 @@ async function downloadReport(type) {
 
 function downloadCleanCsv() {
   const cleaning = store.state.cleaning;
-  if (!cleaning) return;
+  if (!cleaning) {
+    showToast("No hay dataset limpio disponible. Ejecuta la limpieza primero.", "error");
+    return;
+  }
   downloadBlob("dataset_limpio.csv", new Blob([cleaning.clean_csv], { type: "text/csv;charset=utf-8" }));
+  showToast("Dataset limpio descargado.", "success");
 }
 
 async function downloadAuditLog() {
-  if (!store.state.fileBase64 || !store.state.actions.length) return;
+  if (!store.state.fileBase64 || !store.state.actions.length) {
+    showToast("No hay acciones documentadas para generar bitácora.", "error");
+    return;
+  }
   showLoading("Generando bitácora de cambios...");
   try {
     const response = await postJson("/api/report/audit-log", {
@@ -1328,6 +1341,9 @@ async function downloadAuditLog() {
       actions: store.state.actions,
     });
     downloadBlob(response.filename, new Blob([response.content], { type: "text/markdown;charset=utf-8" }));
+    showToast("Bitácora de cambios descargada.", "success");
+  } catch (error) {
+    showToast(`Error generando bitácora: ${error.message}`, "error");
   } finally {
     hideLoading();
   }

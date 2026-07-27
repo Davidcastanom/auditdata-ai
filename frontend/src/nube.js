@@ -417,7 +417,7 @@ export class NubeValidación {
             <button class="drawer-section__toggle" type="button" onclick="this.parentElement.classList.toggle('is-open')">
               Distribución de Frecuencias <span class="toggle-badge">${allVals.length} valores</span> <span class="toggle-arrow">▾</span>
             </button>
-            <div class="drawer-section__body">
+            <div class="drawer-section__body freq-scroll">
               <div class="freq-header"><span>Valor</span><span></span><span>%</span><span>Frec</span></div>
               ${rows}
             </div>
