@@ -86,6 +86,7 @@ class ColumnProfile:
     mean: float | None = None
     median: float | None = None
     distribution_pct: float = 0.0
+    value_distribution: list[dict[str, Any]] = field(default_factory=list)
 
 
 def load_dataset(filename: str, payload: bytes) -> tuple[list[str], list[dict[str, Any]], int]:
@@ -851,6 +852,7 @@ def _profile_column(header: str, rows: list[dict[str, Any]]) -> ColumnProfile:
         _add_numeric_stats(profile, numeric_values)
     else:
         _add_format_groups(profile, present)
+        _add_value_distribution(profile, present)
 
     return profile
 
@@ -892,6 +894,18 @@ def _looks_like_date(value: str) -> bool:
         except ValueError:
             continue
     return False
+
+
+def _add_value_distribution(profile: ColumnProfile, values: list[str]) -> None:
+    if not values:
+        return
+    from collections import Counter
+    freq = Counter(str(v).strip() for v in values if str(v).strip())
+    n = len(values)
+    profile.value_distribution = [
+        {"value": val, "freq": count, "pct": round(count / n * 100, 2)}
+        for val, count in freq.most_common()
+    ]
 
 
 def _add_numeric_stats(profile: ColumnProfile, values: list[float]) -> None:

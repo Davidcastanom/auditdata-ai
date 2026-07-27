@@ -408,7 +408,34 @@ function renderProfile() {
           ).join('<br>');
           detailRows += `<tr><td>Variantes</td><td>${groups}</td></tr>`;
         }
-        if (!detailRows) {
+
+        const valDist = column.value_distribution || [];
+        let freqHtml = '';
+        if (valDist.length > 0 && column.detected_type !== 'number') {
+          const maxPct = Math.max(...valDist.map(v => v.pct), 1);
+          const freqRows = valDist.slice(0, 20).map(v => {
+            const barW = Math.max((v.pct / maxPct) * 100, 2);
+            return `<div class="freq-row">
+              <span class="freq-val">${escapeHtml(v.value)}</span>
+              <span class="freq-bar-wrap"><span class="freq-bar" style="width:${barW}%"></span></span>
+              <span class="freq-pct">${v.pct}%</span>
+              <span class="freq-count">${v.freq}</span>
+            </div>`;
+          }).join('');
+          freqHtml = `<tr><td colspan="2">
+            <div class="drawer-section drawer-section--collapsible is-open" style="margin-top:8px;">
+              <button class="drawer-section__toggle" type="button" onclick="this.parentElement.classList.toggle('is-open')">
+                Distribución de Frecuencias <span class="toggle-badge">${valDist.length} valores</span> <span class="toggle-arrow">▾</span>
+              </button>
+              <div class="drawer-section__body">
+                <div class="freq-header"><span>Valor</span><span></span><span>%</span><span>Frec</span></div>
+                ${freqRows}
+              </div>
+            </div>
+          </td></tr>`;
+        }
+
+        if (!detailRows && !freqHtml) {
           detailRows = '<tr><td colspan="2" style="color:var(--color-muted);">Sin detalles adicionales</td></tr>';
         }
 
@@ -425,7 +452,7 @@ function renderProfile() {
       <tr class="profile-detail" id="profileDetail-${idx}" style="display:none;">
         <td colspan="7">
           <table class="detail-table">
-            <tbody>${detailRows}</tbody>
+            <tbody>${detailRows}${freqHtml}</tbody>
           </table>
         </td>
       </tr>`;
