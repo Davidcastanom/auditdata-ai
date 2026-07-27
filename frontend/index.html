@@ -278,9 +278,9 @@
                   <th>Tipo</th>
                   <th>Unicos</th>
                   <th>Faltantes</th>
-                  <th>Min</th>
-                  <th>Max</th>
+                  <th>Distribucion %</th>
                   <th>Ejemplos</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody id="profileTable"></tbody>
@@ -352,7 +352,8 @@
                       Selecciona Accion
                       <select id="advActionSelect">
                         <option value="">Selecciona accion...</option>
-                        <option value="fill_missing">Rellenar celdas vacias</option>
+                        <option value="fill_empty">Rellenar celdas vacias</option>
+                        <option value="fill_missing">Rellenar faltantes (mean/median/mode)</option>
                         <option value="replace_value">Reemplazar texto/valor</option>
                         <option value="rename_column">Renombrar columna</option>
                         <option value="change_type">Cambiar tipo de dato</option>

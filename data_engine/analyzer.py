@@ -85,6 +85,7 @@ class ColumnProfile:
     max_value: float | None = None
     mean: float | None = None
     median: float | None = None
+    distribution_pct: float = 0.0
 
 
 def load_dataset(filename: str, payload: bytes) -> tuple[list[str], list[dict[str, Any]], int]:
@@ -406,6 +407,23 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
                     row[column] = new_val
                     changed += 1
             log.append(_log_entry(column, f"Cambiar tipo de dato a {target_type}", ai_reason, f"{changed} valores convertidos."))
+
+        elif kind == "fill_empty" and column in headers:
+            fill_val = action.get("value", "NULL")
+            changed = 0
+            for row in rows:
+                old_val = row.get(column, "")
+                if not old_val or not str(old_val).strip():
+                    row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+                    changelog.append({
+                        "action": f"Rellenar vacio con '{fill_val}'",
+                        "column": column,
+                        "reason": ai_reason,
+                        "changes": [{"row": str(row_id), "column": column, "old": str(old_val) or "(vacio)", "new": str(fill_val)}],
+                    })
+                    row[column] = fill_val
+                    changed += 1
+            log.append(_log_entry(column, f"Rellenar vacios con '{fill_val}'", ai_reason, f"{changed} celdas rellenadas."))
 
     clean_csv = rows_to_csv(headers, rows)
     after = analyze_dataset(_clean_filename(filename), clean_csv.encode("utf-8"))
@@ -817,14 +835,19 @@ def _profile_column(header: str, rows: list[dict[str, Any]]) -> ColumnProfile:
     present = [value for value in normalized if value != ""]
     detected_type = _detect_type(present)
     unique_values = len(set(map(str, present)))
+    total = len(values)
+    missing = len(values) - len(present)
+    distribution_pct = round((total - missing) / total * 100, 2) if total > 0 else 0
+
     profile = ColumnProfile(
         name=header,
         detected_type=detected_type,
-        total_rows=len(rows),
-        missing=len(values) - len(present),
+        total_rows=total,
+        missing=missing,
         unique_values=unique_values,
         examples=list(dict.fromkeys(map(str, present)))[:8],
     )
+    profile.distribution_pct = distribution_pct
 
     if detected_type == "number":
         numeric_values = [_to_float(value) for value in present]

@@ -455,6 +455,51 @@ th {
   color: var(--color-warning);
 }
 
+.dist--ok {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.dist--warn {
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
+.dist--error {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.profile-row {
+  cursor: pointer;
+}
+
+.profile-row:hover {
+  background: rgba(0, 102, 255, 0.04);
+}
+
+.profile-toggle {
+  font-weight: 700;
+  font-size: 0.9rem;
+  min-width: 28px;
+}
+
+.detail-table {
+  width: 100%;
+  font-size: 0.78rem;
+}
+
+.detail-table td {
+  padding: 3px 10px;
+  border: none;
+}
+
+.detail-table td:first-child {
+  color: var(--color-muted);
+  width: 120px;
+  font-weight: 500;
+}
+
 .cards-list {
   display: grid;
   gap: var(--space-3);

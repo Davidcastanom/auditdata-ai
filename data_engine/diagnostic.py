@@ -83,6 +83,7 @@ class ColumnDiagnostic:
     verdict: str
     issues: list[IssueGroup] = field(default_factory=list)
     total_rows: int = 0
+    profiler: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -93,6 +94,7 @@ class ColumnDiagnostic:
             "issues": [i.to_dict() for i in self.issues],
             "total_rows": self.total_rows,
             "issue_count": len(self.issues),
+            "profiler": self.profiler,
         }
 
 
@@ -106,6 +108,153 @@ class DatasetDiagnostic:
             "columns": [c.to_dict() for c in self.columns],
             "summary": self.summary,
         }
+
+
+def _classify_column_by_frequency(values: list[str]) -> dict[str, Any]:
+    """FastTextProfiler v3.0 — Classify a text column by frequency distribution.
+
+    Returns dict with: type, coverage, dominant_values, suspicious_values, confidence, risk.
+    """
+    non_empty = [v.strip() for v in values if v.strip()]
+    n = len(non_empty)
+    if n == 0:
+        return {"type": "VACIA", "coverage": 0, "confidence": 1.0, "risk": "BAJO",
+                "dominant_values": [], "suspicious_values": [], "total_categories": 0}
+
+    freq: Counter = Counter(non_empty)
+    unique_count = len(freq)
+    p_unique = unique_count / n * 100
+
+    sorted_vals = freq.most_common()
+    top_counts = [count for _, count in sorted_vals]
+
+    def coverage(top_k: int) -> float:
+        return sum(top_counts[:top_k]) / n * 100
+
+    top1 = coverage(1)
+    top2 = coverage(2)
+    top3 = coverage(3)
+    top5 = coverage(5)
+    top10 = coverage(10)
+
+    column_type = "TEXTO_LIBRE"
+    dominant_k = 0
+
+    if p_unique >= 95:
+        column_type = "IDENTIFICADOR"
+    elif top1 >= 95:
+        column_type = "CONSTANTE"
+        dominant_k = 1
+    elif top2 >= 95:
+        column_type = "BOOLEANA"
+        dominant_k = 2
+    elif top3 >= 90:
+        column_type = "CATEGORICA"
+        dominant_k = 3
+    elif top5 >= 90:
+        column_type = "CATEGORICA"
+        dominant_k = 5
+    elif top10 >= 90:
+        column_type = "CATEGORICA"
+        dominant_k = 10
+
+    guard_pct = p_unique
+    guard_moda_pct = top1
+    if guard_pct > 50 and guard_moda_pct < 5:
+        column_type = "TEXTO_LIBRE"
+        dominant_k = 0
+
+    dominant_values = [{"value": val, "freq": count, "pct": round(count / n * 100, 2)}
+                       for val, count in sorted_vals[:dominant_k]]
+
+    suspicious_values = []
+    if dominant_k > 0:
+        dominant_set = {val for val, _ in sorted_vals[:dominant_k]}
+        for val, count in sorted_vals[dominant_k:]:
+            pct = count / n * 100
+            row_indices = [i for i, v in enumerate(values) if v.strip() == val]
+            suspicious_values.append({
+                "value": val, "freq": count,
+                "pct": round(pct, 2),
+                "rows": row_indices[:20],
+            })
+
+    if dominant_k > 0:
+        coverage_val = sum(top_counts[:dominant_k]) / n * 100
+    else:
+        coverage_val = 0
+
+    if coverage_val >= 95:
+        risk = "BAJO"
+    elif coverage_val >= 90:
+        risk = "MEDIO"
+    elif coverage_val >= 50:
+        risk = "ALTO"
+    else:
+        risk = "MANUAL"
+
+    if risk == "BAJO":
+        confidence = 95
+    elif risk == "MEDIO":
+        confidence = 85
+    elif risk == "ALTO":
+        confidence = 70
+    else:
+        confidence = 50
+
+    return {
+        "type": column_type,
+        "coverage": round(coverage_val, 2),
+        "dominant_values": dominant_values,
+        "suspicious_values": suspicious_values,
+        "confidence": confidence,
+        "risk": risk,
+        "total_categories": unique_count,
+        "top1": round(top1, 2),
+        "top2": round(top2, 2),
+        "top3": round(top3, 2),
+        "top5": round(top5, 2),
+        "top10": round(top10, 2),
+    }
+
+
+def _check_categorical_suspicious(
+    profiler: dict[str, Any], values: list[str], total_rows: int
+) -> list[IssueGroup]:
+    """Build issue groups from profiler suspicious categories for CATEGORICA/BOOLEANA columns."""
+    issues: list[IssueGroup] = []
+    suspicious = profiler.get("suspicious_values", [])
+    if not suspicious:
+        return issues
+
+    all_rows: list[int] = []
+    examples: list[dict[str, Any]] = []
+    for sv in suspicious[:10]:
+        all_rows.extend(sv.get("rows", []))
+        examples.append({
+            "value": sv["value"],
+            "freq": sv["freq"],
+            "pct": sv["pct"],
+            "row": sv["rows"][0] if sv.get("rows") else 0,
+        })
+
+    risk = profiler.get("risk", "MEDIO")
+    severity_map = {"BAJO": "BAJA", "MEDIO": "MEDIA", "ALTO": "ALTA", "MANUAL": "ALTA"}
+    severity = severity_map.get(risk, "MEDIA")
+
+    issues.append(IssueGroup(
+        category="Categorias sospechosas (FastProfiler)",
+        category_code="CATEGORICAL",
+        severity=severity,
+        count=sum(sv["freq"] for sv in suspicious),
+        total_rows=total_rows,
+        percentage=sum(sv["freq"] for sv in suspicious) / total_rows * 100 if total_rows > 0 else 0,
+        description=f"{len(suspicious)} categoria(s) fuera del conjunto dominante (cobertura: {profiler.get('coverage', 0)}%)",
+        examples=examples,
+        affected_rows=list(set(all_rows)),
+    ))
+
+    return issues
 
 
 EXCEL_ROW_OFFSET = 2
@@ -137,26 +286,36 @@ def diagnose_column(header: str, values: list[str], total_rows: int, row_offset:
     inferred_domain = domain_info["domain"] if domain_info else None
     confidence = 0.95 if domain_info else 0.5
 
+    profiler = _classify_column_by_frequency(values)
+
     issues: list[IssueGroup] = []
 
     issues.extend(_check_missing(values, total_rows))
     issues.extend(_check_duplicates(header, values, total_rows))
-    issues.extend(_check_date_formats(values, total_rows))
-    issues.extend(_check_numeric_domain_violations(values, total_rows, domain_info))
-    issues.extend(_check_text_errors(values, total_rows))
-    issues.extend(_check_categorical_inconsistency(values, total_rows, domain_info))
-    issues.extend(_check_type_errors(values, total_rows, domain_info))
-    issues.extend(_check_unit_inconsistency(values, total_rows, domain_info))
-    issues.extend(_check_encoding(values, total_rows))
-    issues.extend(_check_formula_errors(values, total_rows))
-    issues.extend(_check_scientific_notation(values, total_rows))
-    issues.extend(_check_multivalue_cells(values, total_rows))
-    issues.extend(_check_mixed_languages(values, total_rows, domain_info))
-    issues.extend(_check_ghost_characters(values, total_rows))
-    issues.extend(_check_text_truncation(values, total_rows))
-    issues.extend(_check_boolean_inconsistency(values, total_rows))
-    issues.extend(_check_coleccion_inconsistencia(values, total_rows, domain_info))
-    issues.extend(_check_type_per_cell(values, total_rows, domain_info))
+
+    column_type = profiler["type"]
+    is_free_text = column_type == "TEXTO_LIBRE"
+    is_identifier = column_type == "IDENTIFICADOR"
+    is_constant = column_type == "CONSTANTE"
+
+    if not is_free_text and not is_identifier and not is_constant:
+        issues.extend(_check_date_formats(values, total_rows))
+        issues.extend(_check_numeric_domain_violations(values, total_rows, domain_info))
+        issues.extend(_check_text_errors(values, total_rows))
+        issues.extend(_check_categorical_inconsistency(values, total_rows, domain_info))
+        issues.extend(_check_type_validation(values, total_rows, domain_info))
+        issues.extend(_check_unit_inconsistency(values, total_rows, domain_info))
+        issues.extend(_check_encoding(values, total_rows))
+        issues.extend(_check_formula_errors(values, total_rows))
+        issues.extend(_check_scientific_notation(values, total_rows))
+        issues.extend(_check_multivalue_cells(values, total_rows))
+        issues.extend(_check_mixed_languages(values, total_rows, domain_info))
+        issues.extend(_check_ghost_characters(values, total_rows))
+        issues.extend(_check_text_truncation(values, total_rows))
+        issues.extend(_check_boolean_inconsistency(values, total_rows))
+        issues.extend(_check_coleccion_inconsistencia(values, total_rows, domain_info))
+    elif column_type in ("CATEGORICA", "BOOLEANA"):
+        issues.extend(_check_categorical_suspicious(profiler, values, total_rows))
 
     if not issues:
         return ColumnDiagnostic(
@@ -165,6 +324,7 @@ def diagnose_column(header: str, values: list[str], total_rows: int, row_offset:
             confidence=confidence,
             verdict="LIMPIA",
             total_rows=total_rows,
+            profiler=profiler,
         )
 
     for issue in issues:
@@ -177,6 +337,7 @@ def diagnose_column(header: str, values: list[str], total_rows: int, row_offset:
         verdict=f"{len(issues)} problema(s) detectado(s)",
         issues=issues,
         total_rows=total_rows,
+        profiler=profiler,
     )
 
 
@@ -629,11 +790,11 @@ def _check_categorical_inconsistency(
     return issues
 
 
-def _check_type_errors(
+def _check_type_validation(
     values: list[str], total: int, domain_info: dict | None
 ) -> list[IssueGroup]:
+    """Unified type validation: merges TYPE_ERROR + TYPE_PER_CELL."""
     issues: list[IssueGroup] = []
-
     if not domain_info:
         return issues
 
@@ -652,16 +813,16 @@ def _check_type_errors(
             wrong_rows.append(i)
             wrong_vals.append(v)
 
-    if wrong_rows:
+    if wrong_rows and len(wrong_rows) < len(non_empty_indices):
         examples = [{"row": wrong_rows[j], "value": wrong_vals[j]} for j in range(min(5, len(wrong_rows)))]
         issues.append(IssueGroup(
             category="Errores de tipo de dato",
-            category_code="TYPE_ERROR",
+            category_code="TYPE_VALIDATION",
             severity="ALTA",
             count=len(wrong_rows),
             total_rows=total,
             percentage=len(wrong_rows) / total * 100 if total > 0 else 0,
-            description=f"Valores que no se pueden convertir a '{expected}': {len(wrong_rows)} de {len(non_empty_indices)}",
+            description=f"Valores que no coinciden con tipo esperado '{expected}': {len(wrong_rows)} de {len(non_empty_indices)}",
             examples=examples,
             affected_rows=wrong_rows,
         ))
@@ -991,38 +1152,8 @@ def _check_coleccion_inconsistencia(
 def _check_type_per_cell(
     values: list[str], total: int, domain_info: dict | None
 ) -> list[IssueGroup]:
-    issues: list[IssueGroup] = []
-    non_empty_indices = [(i, v.strip()) for i, v in enumerate(values) if v.strip() and not is_hidden_missing(v)]
-
-    if not non_empty_indices or not domain_info:
-        return issues
-
-    expected = domain_info.get("expected_type", "text")
-    if expected == "text":
-        return issues
-
-    wrong_rows: list[int] = []
-    wrong_vals: list[str] = []
-    for i, v in non_empty_indices:
-        if expected == "number" and not _is_numeric(v) or expected == "date" and not date_pattern.search(v):
-            wrong_rows.append(i)
-            wrong_vals.append(v)
-
-    if wrong_rows and len(wrong_rows) < len(non_empty_indices):
-        examples = [{"row": wrong_rows[j], "value": wrong_vals[j]} for j in range(min(5, len(wrong_rows)))]
-        issues.append(IssueGroup(
-            category="Valores de tipo inesperado",
-            category_code="UNEXPECTED_TYPE",
-            severity="ALTA",
-            count=len(wrong_rows),
-            total_rows=total,
-            percentage=len(wrong_rows) / total * 100 if total > 0 else 0,
-            description=f"Valores que no coinciden con tipo esperado '{expected}': {len(wrong_rows)} ocurrencias",
-            examples=examples,
-            affected_rows=wrong_rows,
-        ))
-
-    return issues
+    """DEPRECATED: Merged into _check_type_validation()."""
+    return []
 
 
 # ── HELPERS ──────────────────────────────────────────────────────────────────

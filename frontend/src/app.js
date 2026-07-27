@@ -374,27 +374,76 @@ function renderProfile() {
   const analysis = store.state.analysis;
   if (!analysis) return;
   els.profileTitle.textContent = `Perfilado técnico - ${analysis.filename}`;
+
+  const overall = analysis.scores.overall;
+  const qualityClass = overall >= 90 ? 'status--ok' : overall >= 70 ? 'status--warn' : 'status--error';
   els.metrics.innerHTML = [
     metric("Filas", analysis.row_count),
     metric("Columnas", analysis.column_count),
     metric("Duplicados", analysis.duplicate_rows),
-    metric("Calidad general", `${analysis.scores.overall}%`),
+    metric("Calidad general", `<span class="status ${qualityClass}">${overall}%</span>`),
   ].join("");
 
   els.profileTable.innerHTML = analysis.columns
     .map(
-      (column) => `
-      <tr>
+      (column, idx) => {
+        const dist = column.distribution_pct != null ? column.distribution_pct : '-';
+        const distNum = typeof dist === 'number' ? dist : 0;
+        const distClass = distNum >= 90 ? 'dist--ok' : distNum >= 70 ? 'dist--warn' : 'dist--error';
+        const examples = (column.examples || []).slice(0, 4).join(', ');
+        const hasStats = column.min_value != null || column.max_value != null;
+        const hasFormatGroups = (column.format_groups || []).length > 0;
+
+        let detailRows = '';
+        if (hasStats) {
+          detailRows += `<tr><td>Min</td><td>${valueOrDash(column.min_value)}</td></tr>`;
+          detailRows += `<tr><td>Max</td><td>${valueOrDash(column.max_value)}</td></tr>`;
+          detailRows += `<tr><td>Media</td><td>${valueOrDash(column.mean)}</td></tr>`;
+          detailRows += `<tr><td>Mediana</td><td>${valueOrDash(column.median)}</td></tr>`;
+          detailRows += `<tr><td>Outliers</td><td>${column.outliers || 0}</td></tr>`;
+        }
+        if (hasFormatGroups) {
+          const groups = column.format_groups.slice(0, 3).map(g =>
+            `"${g.canonical}" ← ${(g.variants || []).slice(0, 3).join(', ')}`
+          ).join('<br>');
+          detailRows += `<tr><td>Variantes</td><td>${groups}</td></tr>`;
+        }
+        if (!detailRows) {
+          detailRows = '<tr><td colspan="2" style="color:var(--color-muted);">Sin detalles adicionales</td></tr>';
+        }
+
+        return `
+      <tr class="profile-row" data-profile-idx="${idx}">
         <td>${escapeHtml(column.name)}</td>
         <td><span class="tag">${escapeHtml(column.detected_type)}</span></td>
         <td>${column.unique_values}</td>
         <td>${column.missing}</td>
-        <td>${valueOrDash(column.min_value)}</td>
-        <td>${valueOrDash(column.max_value)}</td>
-        <td>${escapeHtml((column.examples || []).slice(0, 4).join(", "))}</td>
-      </tr>`,
+        <td><span class="${distClass}">${dist}%</span></td>
+        <td>${escapeHtml(examples)}</td>
+        <td><button class="button button--ghost button--sm profile-toggle" data-toggle-idx="${idx}" type="button">+</button></td>
+      </tr>
+      <tr class="profile-detail" id="profileDetail-${idx}" style="display:none;">
+        <td colspan="7">
+          <table class="detail-table">
+            <tbody>${detailRows}</tbody>
+          </table>
+        </td>
+      </tr>`;
+      }
     )
     .join("");
+
+  els.profileTable.querySelectorAll('.profile-toggle').forEach(btn => {
+    btn.onclick = () => {
+      const idx = btn.dataset.toggleIdx;
+      const detail = document.querySelector(`#profileDetail-${idx}`);
+      if (detail) {
+        const isOpen = detail.style.display !== 'none';
+        detail.style.display = isOpen ? 'none' : '';
+        btn.textContent = isOpen ? '+' : '-';
+      }
+    };
+  });
 }
 
 function renderRules() {
@@ -1227,6 +1276,7 @@ function labelForAction(kind) {
     remove_duplicate_rows: "Eliminar duplicados",
     flag_outliers: "Marcar outliers",
     fill_missing: "Rellenar celdas vacias",
+    fill_empty: "Rellenar celdas vacias",
     replace_with_null: "Reemplazar con NULL",
     rename_column: "Renombrar columna",
     drop_duplicates: "Eliminar duplicados",
@@ -1341,14 +1391,18 @@ els.advActionSelect.addEventListener("change", () => {
   els.advParam1Input.value = "";
   els.advParam2Input.value = "";
   
-  if (action === "fill_missing") {
+  let helpEl = document.querySelector('#advHelpText');
+  if (!helpEl) { helpEl = document.createElement('div'); helpEl.id = 'advHelpText'; els.advParam1Label.appendChild(helpEl); }
+  helpEl.style.cssText = 'font-size:0.75rem;color:var(--color-muted);margin-top:4px;';
+
+  if (action === "fill_empty") {
+    els.advParam1Label.firstChild.textContent = "Nuevo valor para celdas vacias";
+    els.advParam1Input.placeholder = "Ej. N/A, NULL, 0, Sin dato";
+    helpEl.innerHTML = 'Detecta automaticamente las celdas vacias de la columna y las rellena con el valor indicado. No necesitas buscar el valor original.';
+    els.advParam2Row.style.display = "none";
+  } else if (action === "fill_missing") {
     els.advParam1Label.firstChild.textContent = "Estrategia de relleno";
     els.advParam1Input.placeholder = "null / mean / median / mode";
-    els.advParam1Input.type = "text";
-    // Add help text
-    let helpEl = document.querySelector('#advHelpText');
-    if (!helpEl) { helpEl = document.createElement('div'); helpEl.id = 'advHelpText'; els.advParam1Label.appendChild(helpEl); }
-    helpEl.style.cssText = 'font-size:0.75rem;color:var(--color-muted);margin-top:4px;';
     helpEl.innerHTML = '<strong>null</strong> = vacio explicito · <strong>mean</strong> = media · <strong>median</strong> = mediana · <strong>mode</strong> = moda (valor mas frecuente)';
     els.advParam2Row.style.display = "none";
   } else if (action === "replace_value") {
@@ -1357,31 +1411,20 @@ els.advActionSelect.addEventListener("change", () => {
     els.advParam2Label.firstChild.textContent = "Nuevo valor (reemplazo)";
     els.advParam2Input.placeholder = "Ej. Bogota";
     els.advParam2Row.style.display = "block";
-    let helpEl = document.querySelector('#advHelpText');
-    if (!helpEl) { helpEl = document.createElement('div'); helpEl.id = 'advHelpText'; els.advParam1Label.appendChild(helpEl); }
-    helpEl.style.cssText = 'font-size:0.75rem;color:var(--color-muted);margin-top:4px;';
     helpEl.innerHTML = 'Busca todas las celdas con el valor exacto y las reemplaza por el nuevo.';
-    els.advParam2Row.style.display = "block";
   } else if (action === "rename_column") {
     els.advParam1Label.firstChild.textContent = "Nuevo nombre de columna";
     els.advParam1Input.placeholder = "Ej. edad_anios";
-    let helpEl = document.querySelector('#advHelpText');
-    if (!helpEl) { helpEl = document.createElement('div'); helpEl.id = 'advHelpText'; els.advParam1Label.appendChild(helpEl); }
-    helpEl.style.cssText = 'font-size:0.75rem;color:var(--color-muted);margin-top:4px;';
     helpEl.innerHTML = 'Cambia el nombre de la columna. El nombre anterior desaparece del CSV.';
   } else if (action === "change_type") {
     els.advParam1Label.firstChild.textContent = "Nuevo tipo de dato";
     els.advParam1Input.placeholder = "number / text / boolean";
-    let helpEl = document.querySelector('#advHelpText');
-    if (!helpEl) { helpEl = document.createElement('div'); helpEl.id = 'advHelpText'; els.advParam1Label.appendChild(helpEl); }
-    helpEl.style.cssText = 'font-size:0.75rem;color:var(--color-muted);margin-top:4px;';
     helpEl.innerHTML = '<strong>number</strong> = convierte a numero · <strong>text</strong> = texto libre · <strong>boolean</strong> = true/false → si/no';
   } else {
     els.advParam1Label.firstChild.textContent = "Parametro 1";
     els.advParam1Input.placeholder = "Selecciona accion primero";
     els.advParam1Input.disabled = true;
-    let helpEl = document.querySelector('#advHelpText');
-    if (helpEl) helpEl.innerHTML = '';
+    helpEl.innerHTML = '';
   }
 });
 
@@ -1394,6 +1437,10 @@ els.applyAdvActionButton.addEventListener("click", () => {
   
   if (!column || !kind) {
     alert("Por favor selecciona columna y acción.");
+    return;
+  }
+  if (kind === "fill_empty" && !param1) {
+    alert("Por favor especifica el valor para rellenar las celdas vacías.");
     return;
   }
   if (kind === "fill_missing" && !["null", "mean", "median", "mode"].includes(param1)) {
@@ -1417,13 +1464,16 @@ els.applyAdvActionButton.addEventListener("click", () => {
     return;
   }
   
-  const action = {
-    kind,
-    column,
-    reason,
-    method: kind === "fill_missing" ? param1 : param1,
-    value: kind === "replace_value" ? param2 : (kind === "fill_missing" ? param1 : param1)
-  };
+  let action;
+  if (kind === "fill_empty") {
+    action = { kind, column, reason, value: param1 };
+  } else if (kind === "fill_missing") {
+    action = { kind, column, reason, method: param1, value: param1 };
+  } else if (kind === "replace_value") {
+    action = { kind, column, reason, method: param1, value: param2 };
+  } else {
+    action = { kind, column, reason, method: param1, value: param1 };
+  }
   
   addAction(action);
   
