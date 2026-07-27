@@ -392,11 +392,43 @@ export class NubeValidación {
       colDiag = this.diagnosticData.columns.find(c => c.column === columnName);
     }
     const issues = colDiag?.issues || [];
+    const profiler = colDiag?.profiler || {};
 
-    if (issues.length === 0) {
+    let extraSections = '';
+    if (['CATEGORICA', 'BOOLEANA', 'CONSTANTE', 'TEXTO_LIBRE'].includes(profiler.type)) {
+      const allVals = [
+        ...(profiler.dominant_values || []),
+        ...(profiler.suspicious_values || []),
+      ].sort((a, b) => b.pct - a.pct);
+      if (allVals.length > 0) {
+        const maxPct = Math.max(...allVals.map(v => v.pct), 1);
+        const rows = allVals.map(v => {
+          const barW = Math.max((v.pct / maxPct) * 100, 2);
+          const isSusp = (profiler.suspicious_values || []).some(s => s.value === v.value);
+          return `<div class="freq-row${isSusp ? ' freq-row--suspicious' : ''}">
+            <span class="freq-val">${this._escHtml(v.value)}</span>
+            <span class="freq-bar-wrap"><span class="freq-bar" style="width:${barW}%"></span></span>
+            <span class="freq-pct">${v.pct}%</span>
+            <span class="freq-count">${v.freq}</span>
+          </div>`;
+        }).join('');
+        extraSections = `
+          <div class="drawer-section drawer-section--collapsible">
+            <button class="drawer-section__toggle" type="button" onclick="this.parentElement.classList.toggle('is-open')">
+              Distribución de Frecuencias <span class="toggle-badge">${allVals.length} valores</span> <span class="toggle-arrow">▾</span>
+            </button>
+            <div class="drawer-section__body">
+              <div class="freq-header"><span>Valor</span><span></span><span>%</span><span>Frec</span></div>
+              ${rows}
+            </div>
+          </div>`;
+      }
+    }
+
+    if (issues.length === 0 && !extraSections) {
       diagBox.innerHTML = `<p class="empty-state">No se registraron problemas técnicos en esta columna.</p>`;
     } else {
-      diagBox.innerHTML = issues.map(iss => `
+      const issuesHtml = issues.map(iss => `
         <div class="drawer-issue-item">
           <strong>${this._escHtml(iss.category || iss.category_code)}</strong>: ${iss.count || 0} ocurrencias (${(iss.percentage || 0).toFixed(1)}%).
           <div class="depur-examples" style="margin-top: 4px;">
@@ -404,6 +436,7 @@ export class NubeValidación {
           </div>
         </div>
       `).join('');
+      diagBox.innerHTML = extraSections + issuesHtml;
     }
 
     recsBox.innerHTML = `<p class="empty-state">Las recomendaciónes de IA estan disponibles en el Step 4 (Depuración).</p>`;

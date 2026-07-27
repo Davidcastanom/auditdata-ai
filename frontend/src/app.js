@@ -623,11 +623,72 @@ function openDepurDrawer(columnName) {
   const diagnostic = store.state.diagnostic;
   const colDiag = diagnostic?.columns?.find(c => c.column === columnName);
   const issues = colDiag?.issues || [];
+  const profiler = colDiag?.profiler || {};
 
-  if (issues.length === 0) {
+  let extraSections = '';
+
+  const profileCol = (store.state.analysis?.columns || []).find(c => c.name === columnName);
+  const pType = profiler.type || profileCol?.detected_type || '';
+
+  if (['CATEGORICA', 'BOOLEANA', 'CONSTANTE', 'TEXTO_LIBRE'].includes(pType)) {
+    const allVals = [
+      ...(profiler.dominant_values || []),
+      ...(profiler.suspicious_values || []),
+    ].sort((a, b) => b.pct - a.pct);
+    if (allVals.length > 0) {
+      const maxPct = Math.max(...allVals.map(v => v.pct), 1);
+      const rows = allVals.map(v => {
+        const barW = Math.max((v.pct / maxPct) * 100, 2);
+        const isSuspicious = (profiler.suspicious_values || []).some(s => s.value === v.value);
+        return `<div class="freq-row${isSuspicious ? ' freq-row--suspicious' : ''}">
+          <span class="freq-val">${escapeHtml(v.value)}</span>
+          <span class="freq-bar-wrap"><span class="freq-bar" style="width:${barW}%"></span></span>
+          <span class="freq-pct">${v.pct}%</span>
+          <span class="freq-count">${v.freq}</span>
+        </div>`;
+      }).join('');
+      extraSections += `
+        <div class="drawer-section drawer-section--collapsible">
+          <button class="drawer-section__toggle" type="button" onclick="this.parentElement.classList.toggle('is-open')">
+            Distribución de Frecuencias <span class="toggle-badge">${allVals.length} valores</span> <span class="toggle-arrow">▾</span>
+          </button>
+          <div class="drawer-section__body">
+            <div class="freq-header"><span>Valor</span><span></span><span>%</span><span>Frec</span></div>
+            ${rows}
+          </div>
+        </div>`;
+    }
+  }
+
+  if (pType === 'number' || profileCol?.detected_type === 'number') {
+    const s = profileCol || {};
+    const stats = [
+      ['Mínimo', s.min_value],
+      ['Máximo', s.max_value],
+      ['Promedio', s.mean],
+      ['Mediana', s.median],
+      ['Outliers', s.outliers != null ? `${s.outliers} valores` : null],
+    ].filter(([, v]) => v != null);
+    if (stats.length > 0) {
+      const rows = stats.map(([label, val]) =>
+        `<div class="stat-row"><span class="stat-label">${label}</span><span class="stat-value">${typeof val === 'number' ? val.toLocaleString('es-CO') : escapeHtml(String(val))}</span></div>`
+      ).join('');
+      extraSections += `
+        <div class="drawer-section drawer-section--collapsible">
+          <button class="drawer-section__toggle" type="button" onclick="this.parentElement.classList.toggle('is-open')">
+            Estadísticas de Columna <span class="toggle-arrow">▾</span>
+          </button>
+          <div class="drawer-section__body">
+            ${rows}
+          </div>
+        </div>`;
+    }
+  }
+
+  if (issues.length === 0 && !extraSections) {
     diagBox.innerHTML = `<p class="empty-state">No se detectaron problemas en esta columna.</p>`;
   } else {
-    diagBox.innerHTML = issues.map(iss => {
+    const issuesHtml = issues.map(iss => {
       const sevClass = iss.severity === 'CRITICA' ? 'severity--critica' : iss.severity === 'ALTA' ? 'severity--alta' : iss.severity === 'MEDIA' ? 'severity--media' : 'severity--baja';
       const exHtml = (iss.examples || []).slice(0, 3).map(e => `<div class="drawer-issue-example">${renderExample(e)}</div>`).join('');
       const rowsHtml = iss.affected_rows?.length > 0
@@ -645,6 +706,7 @@ function openDepurDrawer(columnName) {
           ${rowsHtml}
         </div>`;
     }).join('');
+    diagBox.innerHTML = extraSections + issuesHtml;
   }
 
   recsBox.innerHTML = '<div class="nube-loading" style="padding:var(--space-3);"><div class="nube-spinner"></div><p style="font-size:0.8rem;">Cargando recomendaciónes...</p></div>';
