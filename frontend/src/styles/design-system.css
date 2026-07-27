@@ -500,6 +500,53 @@ th {
   font-weight: 500;
 }
 
+.drawer-rec-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.drawer-rec-text {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.drawer-rec-action-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.drawer-rec-action-badge {
+  background: var(--color-primary);
+  color: white;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.drawer-rec-method {
+  font-size: 0.75rem;
+  color: var(--color-cyan);
+  font-family: var(--font-mono);
+}
+
+.drawer-rec-rows {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  color: var(--color-muted);
+}
+
+.tag--sm {
+  min-height: 18px;
+  font-size: 0.65rem;
+  padding: 0 0.4rem;
+}
+
 .cards-list {
   display: grid;
   gap: var(--space-3);

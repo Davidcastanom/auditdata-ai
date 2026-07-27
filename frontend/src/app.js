@@ -717,31 +717,41 @@ async function fetchDepurRecommendations(columnName, colDiag, recsBox) {
 
     recsBox.innerHTML = recs.map((rec, idx) => {
       const rows = rec.affected_rows || [];
-      const rowsText = rows.length > 0 ? rows.slice(0, 8).join(', ') + (rows.length > 8 ? ` (+${rows.length - 8})` : '') : 'N/A';
+      const rowsText = rows.length > 0 ? rows.slice(0, 5).join(', ') + (rows.length > 5 ? ` (+${rows.length - 5})` : '') : 'N/A';
       const actionKind = rec.action?.kind || 'flag_outliers';
-      const actionMethod = rec.action?.method || 'N/A';
+      const actionMethod = rec.action?.method || rec.action?.value || '';
       const actionLabel = labelForAction(actionKind);
+      const shortText = (rec.text || '').length > 80 ? (rec.text || '').substring(0, 80) + '...' : (rec.text || '');
+
       return `
       <div class="drawer-rec-card" data-rec-idx="${idx}">
-        <p style="margin:0 0 6px;"><strong>${escapeHtml(rec.category || '')}:</strong> ${escapeHtml(rec.text || '')}</p>
-        ${rows.length > 0 ? `<p style="margin:0 0 6px;font-size:0.75rem;color:var(--color-muted);">Filas: <code>${escapeHtml(rowsText)}</code></p>` : ''}
+        <div class="drawer-rec-header">
+          <span class="tag tag--sm">${escapeHtml(rec.category || '')}</span>
+          <span style="font-size:0.75rem;color:var(--color-muted);">${rows.length} fila(s)</span>
+        </div>
+        <p class="drawer-rec-text">${escapeHtml(shortText)}</p>
+        <div class="drawer-rec-action-line">
+          <span class="drawer-rec-action-badge">${escapeHtml(actionLabel)}</span>
+          ${actionMethod ? `<span class="drawer-rec-method">→ ${escapeHtml(actionMethod)}</span>` : ''}
+        </div>
+        ${rows.length > 0 ? `<p class="drawer-rec-rows">Filas: <code>${escapeHtml(rowsText)}</code></p>` : ''}
         <div class="drawer-rec-reason">
-          <textarea rows="2" placeholder="Justifica esta decision (opcional)..." data-rec-reason="${idx}"></textarea>
+          <textarea rows="1" placeholder="Justificacion (opcional)..." data-rec-reason="${idx}"></textarea>
         </div>
         <div class="drawer-rec-actions">
-          <button class="button button--primary button--sm" type="button" data-accept-rec="${idx}" data-col="${escapeAttr(columnName)}" data-kind="${escapeAttr(actionKind)}" data-method="${escapeAttr(actionMethod)}" data-rows="${escapeAttr(JSON.stringify(rows))}">Revisar y Aplicar</button>
-          <button class="button button--ghost button--sm" type="button" data-dismiss-rec="${idx}">Ignorar</button>
+          <button class="button button--primary button--sm" type="button" data-accept-rec="${idx}" data-col="${escapeAttr(columnName)}" data-kind="${escapeAttr(actionKind)}" data-method="${escapeAttr(actionMethod)}" data-rows="${escapeAttr(JSON.stringify(rows))}">Aceptar</button>
+          <button class="button button--ghost button--sm" type="button" data-dismiss-rec="${idx}">Cancelar</button>
         </div>
         <div class="drawer-rec-validation" id="recValidation-${idx}" style="display:none;">
           <div class="rec-validation__summary">
             <div class="rec-validation__row"><span class="rec-validation__label">Accion:</span> <strong>${escapeHtml(actionLabel)}</strong></div>
             <div class="rec-validation__row"><span class="rec-validation__label">Columna:</span> ${escapeHtml(columnName)}</div>
-            ${actionMethod !== 'N/A' ? `<div class="rec-validation__row"><span class="rec-validation__label">Metodo:</span> ${escapeHtml(actionMethod)}</div>` : ''}
-            <div class="rec-validation__row"><span class="rec-validation__label">Filas afectadas:</span> <code>${escapeHtml(rowsText)}</code> (${rows.length} total)</div>
+            ${actionMethod ? `<div class="rec-validation__row"><span class="rec-validation__label">Metodo:</span> ${escapeHtml(actionMethod)}</div>` : ''}
+            <div class="rec-validation__row"><span class="rec-validation__label">Filas:</span> <code>${escapeHtml(rowsText)}</code> (${rows.length})</div>
           </div>
           <div class="drawer-rec-actions" style="margin-top:var(--space-2);">
             <button class="button button--success button--sm" type="button" data-confirm-rec="${idx}">Confirmar y Documentar</button>
-            <button class="button button--ghost button--sm" type="button" data-cancel-validation="${idx}">Cancelar</button>
+            <button class="button button--ghost button--sm" type="button" data-cancel-validation="${idx}">Volver</button>
           </div>
         </div>
       </div>`;

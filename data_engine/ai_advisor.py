@@ -699,14 +699,16 @@ async def get_column_depuration_recommendations(
     system_prompt = (
         "Eres el Copiloto de Calidad de Datos de AuditData AI. "
         "Genera recomendaciones de depuración para UNA COLUMNA específica.\n"
-        "REGLAS:\n"
+        "REGLAS CRÍTICAS:\n"
         "1. Respetas la soberanía del analista — él decide finalmente.\n"
         "2. Español profesional.\n"
-        "3. DUPLICADOS: Solo aplican a filas completas del dataset (columna __dataset__). "
-        "Valores repetidos en una columna individual NO son duplicados.\n"
-        "4. Prioriza acciones que no pierdan datos.\n"
-        "5. Cada recomendación DEBE incluir 'affected_rows' con números de fila específicos.\n"
-        "6. En 'text', referencia las filas específicas.\n"
+        "3. DUPLICADOS: Solo aplican a filas completas del dataset.\n"
+        "4. El campo 'text' DEBE ser MÁXIMO 1 ORACIÓN CORTA (máx 80 caracteres). "
+        "NO des explicaciones largas. Solo di qué acción aplicar y por qué en una frase.\n"
+        "5. Cada recomendación DEBE tener un 'action' válido con 'kind' y 'column'.\n"
+        "6. Genera UNA recomendación por cada categoría de error encontrada.\n"
+        "7. El 'text' es para mostrar al analista como título rápido. "
+        "La justificación completa va en el campo 'action.reason'.\n"
     )
 
     issues = column_diagnostic.get("issues", [])
@@ -733,12 +735,24 @@ async def get_column_depuration_recommendations(
         f"Dominio: {domain} | Filas totales: {total}\n"
         f"PROBLEMAS DETECTADOS:\n{issues_text}"
         f"Valores de ejemplo: {samples_str}\n\n"
-        f"Genera una lista JSON de recomendaciones de depuración para esta columna.\n"
-        f"FORMATO:\n"
-        f'{{"recommendations": [{{"category": "MISSING", "count": 5, "affected_rows": [3,7], '
-        f'"text": "Justificación técnica con referencia a filas", '
-        f'"action": {{"kind": "fill_missing", "column": "{column_name}", "method": "median", "reason": "Justificación"}}, '
-        f'"confidence": 0.85}}]}}'
+        f"Para CADA problema detectado, genera UNA recomendación con action válido.\n"
+        f"IMPORTANTE: 'text' = máxima 1 oración corta (80 chars). "
+        f"'action.reason' = justificación completa.\n"
+        f"ACCIONES DISPONIBLES:\n"
+        f"- fill_missing (method: mean/median/mode) → para MISSING\n"
+        f"- standardize_text (method: trim/lowercase/title) → para TEXT_ERROR, CATEGORICAL\n"
+        f"- change_type (value: number/text) → para TYPE_VALIDATION\n"
+        f"- replace_value (method: valor_original, value: nuevo_valor) → para valores específicos\n"
+        f"- drop_missing_rows → para filas con faltantes críticos\n"
+        f"FORMATO JSON:\n"
+        f'{{"recommendations": [{{\n'
+        f'  "category": "MISSING",\n'
+        f'  "count": 5,\n'
+        f'  "affected_rows": [3,7],\n'
+        f'  "text": "Imputar faltantes con mediana (5 celdas vacías)",\n'
+        f'  "action": {{"kind": "fill_missing", "column": "{column_name}", "method": "median", "reason": "Justificación completa aquí"}},\n'
+        f'  "confidence": 0.85\n'
+        f'}}]}}'
     )
 
     messages = [
@@ -792,16 +806,26 @@ def _build_fallback_recommendations(
         desc = issue.get("description", issue.get("text", ""))
         kind, method = CATEGORY_ACTION_MAP.get(cat, ("flag_outliers", "flag"))
 
+        if kind == "fill_missing":
+            text = f"Imputar {count} vacío(s) con {method}"
+        elif kind == "standardize_text":
+            text = f"Estandarizar {count} valor(es) de formato"
+        elif kind == "replace_value":
+            text = f"Reemplazar {count} valor(es) inconsistentes"
+        elif kind == "flag_outliers":
+            text = f"Revisar {count} outlier(s) detectado(s)"
+        else:
+            text = f"{cat}: {count} ocurrencia(s) detectada(s)"
+
         recs.append({
             "category": cat,
             "count": count,
-            "text": f"{desc or cat}: {count} ocurrencia(s) detectada(s). "
-                    f"Recomendacion basada en reglas del diagnostico.",
+            "text": text[:80],
             "action": {
                 "kind": kind,
                 "column": column_name,
                 "method": method,
-                "reason": f"Deteccion automatica: {cat}",
+                "reason": desc or f"Detección automática: {cat}",
             },
             "confidence": 0.6,
             "affected_rows": rows,
