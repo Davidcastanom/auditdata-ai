@@ -131,6 +131,7 @@ const els = {
   downloadPdfButton: document.querySelector("#downloadPdfButton"),
   downloadCsvButton: document.querySelector("#downloadCsvButton"),
   downloadAuditLogButton: document.querySelector("#downloadAuditLogButton"),
+  saveToCloudButton: document.querySelector("#saveToCloudButton"),
   resetButton: document.querySelector("#resetButton"),
   advColSelect: document.querySelector("#advColSelect"),
   advActionSelect: document.querySelector("#advActionSelect"),
@@ -220,6 +221,7 @@ els.downloadMarkdownButton.addEventListener("click", () => downloadReport("markd
 els.downloadPdfButton.addEventListener("click", () => downloadReport("pdf"));
 els.downloadAuditLogButton.addEventListener("click", downloadAuditLog);
 els.downloadCsvButton.addEventListener("click", downloadCleanCsv);
+els.saveToCloudButton.addEventListener("click", saveToCloud);
 els.undoButton.addEventListener("click", undoLastAction);
 els.resetButton.addEventListener("click", resetProject);
 
@@ -1344,6 +1346,50 @@ async function downloadAuditLog() {
     showToast("Bitácora de cambios descargada.", "success");
   } catch (error) {
     showToast(`Error generando bitácora: ${error.message}`, "error");
+  } finally {
+    hideLoading();
+  }
+}
+
+async function saveToCloud() {
+  const cleaning = store.state.cleaning;
+  if (!cleaning) {
+    showToast("No hay datos de limpieza para guardar.", "error");
+    return;
+  }
+  if (!currentUser || !authAvailable) {
+    showToast("Inicia sesión con Google para guardar en la nube.", "error");
+    return;
+  }
+  showLoading("Guardando en la nube...");
+  try {
+    let pdfBase64 = "";
+    try {
+      const pdfResp = await postJson("/api/report/pdf", {
+        cleaning: cleaning,
+        analyst: els.analystInput.value,
+        version: els.versionInput.value || "v1.0",
+        row_meaning: store.state.rowMeaning || "",
+        analysis_objective: store.state.analysisObjective || "",
+      });
+      pdfBase64 = pdfResp.content_base64 || "";
+    } catch (_) { /* PDF optional */ }
+    const id = await saveToHistory(
+      { filename: store.state.filename, row_count: store.state.analysis?.row_count || 0, column_count: store.state.analysis?.column_count || 0, row_meaning: store.state.rowMeaning || "", analysis_objective: store.state.analysisObjective || "" },
+      store.state.analysis,
+      store.state.actions,
+      cleaning.before,
+      cleaning.after,
+      pdfBase64
+    );
+    if (id) {
+      showToast("Sesión guardada en la nube correctamente.", "success");
+      loadHistory();
+    } else {
+      showToast("No se pudo guardar. Verifica tu conexión.", "error");
+    }
+  } catch (error) {
+    showToast(`Error guardando en la nube: ${error.message}`, "error");
   } finally {
     hideLoading();
   }
