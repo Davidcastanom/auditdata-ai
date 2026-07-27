@@ -485,6 +485,68 @@ def build_markdown_report(analysis: dict[str, Any], analyst: str = "-", version:
     return "\n".join(lines) + "\n"
 
 
+def _format_action_markdown(item: dict[str, Any]) -> tuple[str, str]:
+    """Convert an action dict to (label, result) strings for markdown report."""
+    kind = item.get("kind", item.get("action", ""))
+    column = item.get("column", "-")
+    method = item.get("method", "")
+    value = item.get("value", "")
+    rows = item.get("rows", [])
+
+    _labels = {
+        "analyst_note": "Nota del Analista",
+        "delete_column": "Eliminar columna",
+        "drop_missing_rows": "Eliminar filas con faltantes",
+        "impute_missing": "Imputar faltantes",
+        "standardize_text": "Estandarizar texto",
+        "remove_duplicate_rows": "Eliminar duplicados",
+        "flag_outliers": "Marcar outliers",
+        "fill_missing": "Rellenar celdas vacias",
+        "fill_empty": "Rellenar celdas vacias",
+        "replace_with_null": "Reemplazar con NULL",
+        "rename_column": "Renombrar columna",
+        "drop_duplicates": "Eliminar duplicados",
+        "convert_type": "Convertir tipo de dato",
+        "change_type": "Cambiar tipo de dato",
+        "drop_rows": "Eliminar filas",
+        "fix_format": "Corregir formato",
+        "replace_value": "Reemplazar valor",
+    }
+    label = _labels.get(kind, kind) or "-"
+
+    if kind in ("fill_empty", "fill_missing"):
+        result = f"Se rellenaron celdas vacias con '{value}'" if value else "Celdas vacias rellenadas"
+    elif kind == "replace_value":
+        result = f"Reemplazado: {method} -> {value}" if method else f"Valores reemplazados con '{value}'"
+    elif kind == "rename_column":
+        result = f"Renombrada a '{value}'" if value else "Columna renombrada"
+    elif kind in ("change_type", "convert_type"):
+        result = f"Tipo cambiado a '{method}'" if method else "Tipo de dato cambiado"
+    elif kind == "delete_column":
+        result = f"Columna '{column}' eliminada del dataset"
+    elif kind in ("remove_duplicate_rows", "drop_duplicates"):
+        count = len(rows) if rows else 0
+        result = f"{count} filas duplicadas eliminadas" if count else "Filas duplicadas eliminadas"
+    elif kind == "drop_missing_rows":
+        count = len(rows) if rows else 0
+        result = f"{count} filas con valores faltantes eliminadas" if count else "Filas con faltantes eliminadas"
+    elif kind == "drop_rows":
+        count = len(rows) if rows else 0
+        result = f"{count} filas eliminadas" if count else "Filas eliminadas"
+    elif kind == "analyst_note":
+        result = "Registrado en bitacora"
+    elif kind == "standardize_text":
+        result = f"Texto normalizado ({method})" if method else "Texto normalizado"
+    elif kind == "fix_format":
+        result = f"Formato corregido ({method})" if method else "Formato corregido"
+    elif kind == "flag_outliers":
+        result = f"{len(rows)} valores atipicos marcados" if rows else "Valores atipicos marcados"
+    else:
+        result = method or "Accion aplicada"
+
+    return label, result
+
+
 def build_cleaning_markdown_report(cleaning: dict[str, Any], analyst: str = "-", version: str = "v1.0", row_meaning: str = "", analysis_objective: str = "") -> str:
     """Create a comprehensive before/after report matching the academic Data Cleaning Report standard."""
 
@@ -612,7 +674,8 @@ def build_cleaning_markdown_report(cleaning: dict[str, Any], analyst: str = "-",
         lines.append("| N. | Columna | Acción | Justificación | Resultado |")
         lines.append("|---|---|---|---|---|")
         for i, item in enumerate(actions):
-            lines.append(f"| {i+1} | {item.get('column', '')} | {item.get('action', '')} | {item.get('reason', '')} | {item.get('result', '')} |")
+            action_label, result_text = _format_action_markdown(item)
+            lines.append(f"| {i+1} | {item.get('column', '-')} | {action_label} | {item.get('reason', '-')} | {result_text} |")
     else:
         lines.append("No se aplicaron acciones de limpieza.")
 
