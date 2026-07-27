@@ -171,10 +171,10 @@ const nube = new NubeValidación({
       if (act && act.kind) store.addAction(act);
     });
     renderLog();
-    els.systemStatus.textContent = `Acciónes registradas en bitácora: ${store.state.actions.length}`;
+    els.systemStatus.textContent = `Acciones registradas en bitácora: ${store.state.actions.length}`;
   },
   onAllReviewed: (actions) => {
-    els.systemStatus.textContent = `${actions.length} acciónes listas para depurar`;
+    els.systemStatus.textContent = `${actions.length} acciones listas para depurar`;
     els.nextButton.disabled = false;
     enableStep(4);
   },
@@ -894,7 +894,7 @@ function renderLog() {
   els.undoButton.disabled = actions.length === 0;
 
   if (!actions.length) {
-    els.actionsLog.innerHTML = `<p class="empty-state">Aún no hay acciónes registradas.</p>`;
+    els.actionsLog.innerHTML = `<p class="empty-state">Aún no hay acciones registradas.</p>`;
     return;
   }
   els.actionsLog.innerHTML = actions
@@ -1068,7 +1068,7 @@ function renderValidation() {
     validationRow("Exactitud", after.scores.accuracy >= 95, `${before.scores.accuracy}% → ${after.scores.accuracy}% (${outliersBefore} → ${outliersAfter} outliers)`),
     validationRow("Unicidad", after.duplicate_rows === 0, `${before.duplicate_rows} → ${after.duplicate_rows} filas duplicadas`),
     validationRow("Calidad general", after.scores.overall >= 90, `${before.scores.overall}% → ${after.scores.overall}%`),
-    validationRow("Documentación", cleaning.actions.length > 0, `${cleaning.actions.length} decisiónes documentadas en bitácora`),
+    validationRow("Documentación", cleaning.actions.length > 0, `${cleaning.actions.length} decisiones documentadas en bitácora`),
   ];
   els.validationTable.innerHTML = rows.join("");
 }
@@ -1100,13 +1100,13 @@ function renderReportPreview() {
 
   els.reportPreview.innerHTML = `
     <h3>Vista previa del Data Cleaning Report</h3>
-    <p>El informe PDF contiene 10 secciones: Información General, Resumen Ejecutivo, Indicadores Clave (antes/después), Problemas Encontrados (6 dimensiones), Outliers y Fuera de Rango, Plan de Acciónes, Evaluación de Calidad, Checklist de Validación, Riesgos Identificados, Metodología y Conclusión.</p>
+    <p>El informe PDF contiene 10 secciones: Información General, Resumen Ejecutivo, Indicadores Clave (antes/después), Problemas Encontrados (6 dimensiones), Outliers y Fuera de Rango, Plan de Acciones, Evaluación de Calidad, Checklist de Validación, Riesgos Identificados, Metodología y Conclusión.</p>
     <div style="margin: 0.75rem 0; padding: 0.75rem; background: var(--color-black); border-radius: var(--radius-sm); border: 1px solid var(--color-border);">
       <p style="margin:0 0 0.4rem;"><strong>Dataset:</strong> ${escapeHtml(before.filename)}</p>
       <p style="margin:0 0 0.4rem;"><strong>Calidad general:</strong> ${before.scores.overall}% → ${after.scores.overall}%</p>
       <p style="margin:0 0 0.4rem;"><strong>Registros:</strong> ${before.row_count} → ${after.row_count} | <strong>Columnas:</strong> ${before.column_count} → ${after.column_count}</p>
       <p style="margin:0 0 0.4rem;"><strong>Problemas detectados antes:</strong> ${missingBefore} faltantes, ${formatBefore} inconsistencias, ${before.duplicate_rows} duplicados, ${outliersBefore} outliers</p>
-      <p style="margin:0 0 0.4rem;"><strong>Acciónes documentadas:</strong> ${actions.length}</p>
+      <p style="margin:0 0 0.4rem;"><strong>Acciones documentadas:</strong> ${actions.length}</p>
       ${changedDims.length ? `<p style="margin:0;"><strong>Mejoras:</strong> ${changedDims.join(' | ')}</p>` : '<p style="margin:0;"><strong>Sin cambios significativos</strong></p>'}
     </div>
     <p style="font-size:0.85rem; color: var(--color-muted);">Salida disponible: informe PDF (formato academico), informe Markdown y dataset limpio CSV.</p>
@@ -1245,7 +1245,7 @@ async function downloadAuditLog() {
 }
 
 function resetProject() {
-  if (!confirm("¿Estás seguro? Se borrará todo: dataset, análisis, acciónes e informe.")) return;
+  if (!confirm("¿Estás seguro? Se borrará todo: dataset, análisis, acciones e informe.")) return;
   store.clear();
   els.systemStatus.textContent = "Esperando dataset";
   els.datasetMeta.textContent = "Motor Python local";
@@ -1254,7 +1254,7 @@ function resetProject() {
   els.metrics.innerHTML = "";
   els.profileTable.innerHTML = "";
   els.rulesBoard.innerHTML = "";
-  els.actionsLog.innerHTML = `<p class="empty-state">Aún no hay acciónes registradas.</p>`;
+  els.actionsLog.innerHTML = `<p class="empty-state">Aún no hay acciones registradas.</p>`;
   els.comparisonGrid.innerHTML = "";
   els.validationTable.innerHTML = "";
   els.reportPreview.innerHTML = "";
@@ -1390,7 +1390,7 @@ function cssEscape(value) {
 
 function populateAdvancedColumns() {
   const cols = store.state.analysis?.columns || [];
-  els.advColSelect.innerHTML = `<option value="">Seleccióna columna...</option>` +
+  els.advColSelect.innerHTML = `<option value="">Selecciona columna...</option>` +
     cols.map(c => `<option value="${escapeAttr(c.name)}">${escapeHtml(c.name)}</option>`).join("");
 }
 
@@ -1432,7 +1432,7 @@ els.advActionSelect.addEventListener("change", () => {
     helpEl.innerHTML = '<strong>number</strong> = convierte a numero · <strong>text</strong> = texto libre · <strong>boolean</strong> = true/false → si/no';
   } else {
     els.advParam1Label.firstChild.textContent = "Parámetro 1";
-    els.advParam1Input.placeholder = "Seleccióna acción primero";
+    els.advParam1Input.placeholder = "Selecciona acción primero";
     els.advParam1Input.disabled = true;
     helpEl.innerHTML = '';
   }
@@ -1446,7 +1446,7 @@ els.applyAdvActionButton.addEventListener("click", () => {
   const reason = els.advReasonInput.value.trim() || "Acción avanzada libre aplicada por el analista.";
   
   if (!column || !kind) {
-    alert("Por favor seleccióna columna y acción.");
+    alert("Por favor selecciona columna y acción.");
     return;
   }
   if (kind === "fill_empty" && !param1) {
@@ -1490,7 +1490,7 @@ els.applyAdvActionButton.addEventListener("click", () => {
   els.advActionSelect.value = "";
   els.advParam1Input.value = "";
   els.advParam1Input.disabled = true;
-  els.advParam1Input.placeholder = "Seleccióna acción primero";
+  els.advParam1Input.placeholder = "Selecciona acción primero";
   els.advParam2Input.value = "";
   els.advReasonInput.value = "";
   els.advParam2Row.style.display = "none";
@@ -1536,7 +1536,7 @@ async function loadHistory() {
       const hasPdf = item.report_pdf_base64 && item.report_pdf_base64.length > 10;
       return `<div class="history-item${hasData ? " history-item--clickable" : ""}" data-session-id="${item.id}"${hasData ? ' role="button" tabindex="0"' : ""}>
         <div class="history-item__name">${escapeHtml(ds.filename || "dataset")}</div>
-        <div class="history-item__meta">${ds.row_count || 0} filas | ${ds.column_count || 0} columnas | ${actions.length} acciónes</div>
+        <div class="history-item__meta">${ds.row_count || 0} filas | ${ds.column_count || 0} columnas | ${actions.length} acciones</div>
         <div class="history-item__date">${formatDate(item.created_at)}</div>
         <div class="history-item__actions">
           ${hasData ? '<span class="history-item__action">Restaurar</span>' : ""}

@@ -6,7 +6,7 @@
     <title>AuditData AI | Data Cleaning Report secuencial</title>
     <meta
       name="description"
-      content="AuditData AI guia el proceso profesional de limpieza de datos: comprension, perfilado, reglas, depuración, validación e informe final."
+      content="AuditData AI guía el proceso profesional de limpieza de datos: comprensión, perfilado, reglas, depuración, validación e informe final."
     />
     <link rel="stylesheet" href="/frontend/src/styles/design-system.css" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" async defer></script>
@@ -38,7 +38,7 @@
           <div class="hs__text">
             <div class="hs__badge">Data Quality System</div>
             <h1>Limpieza de datos <span class="hl">guiada, documentada y profesional</span></h1>
-            <p class="hs__sub">Sube tu CSV o XLSX y recibe un diagnóstico completo: tipos de dato, valores nulos, duplicados y outliers. Luego toma decisiónes de limpieza con un wizard guiado y genera un reporte PDF profesional.</p>
+            <p class="hs__sub">Sube tu CSV o XLSX y recibe un diagnóstico completo: tipos de dato, valores nulos, duplicados y outliers. Luego toma decisiones de limpieza con un wizard guiado y genera un reporte PDF profesional.</p>
             <div class="hs__actions">
               <button class="btn-primary" id="heroStartButton" type="button">Comenzar ahora</button>
               <button class="btn-ghost" id="heroSkipButton" type="button">Probar sin cuenta</button>
@@ -82,7 +82,7 @@
               <div class="fc__icon fc__icon--blue">
                 <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               </div>
-              <h3>Comprension automatica</h3>
+              <h3>Comprensión automática</h3>
               <p>Identifica tipos de dato, valores nulos, duplicados y outliers en segundos al subir tu archivo.</p>
             </div>
             <div class="fc">
@@ -97,14 +97,14 @@
                 <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               </div>
               <h3>Reglas de limpieza</h3>
-              <p>Wizard guiado que propone acciónes: eliminar duplicados, imputar nulos, corregir formatos.</p>
+              <p>Wizard guiado que propone acciones: eliminar duplicados, imputar nulos, corregir formatos.</p>
             </div>
             <div class="fc">
               <div class="fc__icon fc__icon--yellow">
                 <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
               </div>
-              <h3>Acciónes con undo</h3>
-              <p>Cada acción es reversible. Aplica, deshace o modifica decisiónes en cualquier momento.</p>
+              <h3>Acciones con undo</h3>
+              <p>Cada acción es reversible. Aplica, deshace o modifica decisiones en cualquier momento.</p>
             </div>
             <div class="fc">
               <div class="fc__icon fc__icon--purple">
@@ -127,20 +127,20 @@
       <section class="hw" id="how">
         <div class="hw__inner">
           <div class="hw__head">
-            <h2>Como funciona</h2>
+            <h2>Cómo funciona</h2>
             <p>Tres pasos simples para obtener un reporte profesional de calidad de datos.</p>
           </div>
           <div class="hw__steps">
             <div class="hw__step">
               <div class="hw__num">1</div>
               <h3>Sube tu dataset</h3>
-              <p>Arrastra o seleccióna un archivo CSV o XLSX. La app analiza la estructura automaticamente.</p>
+              <p>Arrastra o selecciona un archivo CSV o XLSX. La app analiza la estructura automáticamente.</p>
             </div>
             <div class="hw__divider"></div>
             <div class="hw__step">
               <div class="hw__num">2</div>
-              <h3>Toma decisiónes</h3>
-              <p>El wizard te presenta problemas encontrados y sugiere acciónes. Tu decides que aplicar.</p>
+              <h3>Toma decisiones</h3>
+              <p>El wizard te presenta problemas encontrados y sugiere acciones. Tú decides qué aplicar.</p>
             </div>
             <div class="hw__divider"></div>
             <div class="hw__step">
@@ -235,12 +235,12 @@
             <p class="section-kicker">Etapa 01 - Comprensión</p>
             <h2>Antes de limpiar, entiende qué representa el dataset.</h2>
             <p>
-              Define la unidad de análisis y carga la fuente. Esta información se conserva para justificar decisiónes
+              Define la unidad de análisis y carga la fuente. Esta información se conserva para justificar decisiones
               como eliminar duplicados, imputar faltantes o retirar columnas.
             </p>
             <div class="form-grid">
               <label>
-                Que representa cada fila
+                Qué representa cada fila
                 <input id="rowMeaningInput" type="text" placeholder="Ej. participante, venta, cliente, evento" />
               </label>
               <label>
@@ -254,7 +254,7 @@
             <label class="dropzone" id="dropzone">
               <input id="fileInput" type="file" accept=".csv,.xlsx,.xlsm" />
               <span class="dropzone__icon">+</span>
-              <strong>Seleccióna o arrastra tu archivo</strong>
+              <strong>Selecciona o arrastra tu archivo</strong>
               <small>CSV, XLSX o XLSM</small>
             </label>
             <div class="actions-row">
@@ -292,7 +292,7 @@
       <section class="stage" data-step="2">
         <article class="panel">
           <p class="section-kicker">Etapa 03 - Reglas de Calidad</p>
-          <h2>Clasifica columnas y documenta decisiónes estructurales.</h2>
+          <h2>Clasifica columnas y documenta decisiones estructurales.</h2>
           <p>
             Puedes eliminar columnas que no aportan al objetivo del análisis. Toda eliminación requiere justificación,
             porque borrar información sin contexto rompe trazabilidad.
@@ -306,7 +306,7 @@
             <p class="section-kicker">Etapa 04 - Diagnóstico de Calidad</p>
           <h2>Valida los problemas encontrados en tu dataset.</h2>
           <p>
-            Revisa el diagnóstico de 28 categorías de calidad y seleccióna
+            Revisa el diagnóstico de 28 categorías de calidad y selecciona
             que problemas quieres abordar en la depuración.
           </p>
           <div id="nubeContainer" class="nube-container"></div>
@@ -316,9 +316,9 @@
       <section class="stage" data-step="4">
         <article class="panel">
           <p class="section-kicker">Etapa 05 - Depuración Guiada</p>
-          <h2>Aplica acciónes de limpieza con criterio documentado.</h2>
+          <h2>Aplica acciones de limpieza con criterio documentado.</h2>
           <p>
-            Seleccióna una columna para recibir recomendaciónes del Copiloto IA y
+            Selecciona una columna para recibir recomendaciónes del Copiloto IA y
             decidir que tratamiento aplicar. La bitácora documenta cada decisión.
           </p>
 
@@ -332,7 +332,7 @@
                   <span class="analyst-notes-panel__hint">Documenta observacíones y razones mientras depuras</span>
                 </div>
                 <div class="analyst-notes-panel__input">
-                  <textarea id="analystNoteInput" rows="3" placeholder="Escribe observacíones, razones o decisiónes..."></textarea>
+                  <textarea id="analystNoteInput" rows="3" placeholder="Escribe observacíones, razones o decisiones..."></textarea>
                   <button class="button button--primary button--sm" id="addAnalystNoteBtn" type="button">Agregar nota</button>
                 </div>
                 <div id="analystNotesList" class="analyst-notes-list"></div>
@@ -343,15 +343,15 @@
                 <div class="advanced-tools-panel__body">
                   <div class="form-grid" style="grid-template-columns: repeat(3, 1fr); margin-top: var(--space-2);">
                     <label>
-                      Seleccióna Columna
+                      Selecciona Columna
                       <select id="advColSelect">
-                        <option value="">Seleccióna columna...</option>
+                        <option value="">Selecciona columna...</option>
                       </select>
                     </label>
                     <label>
-                      Seleccióna Acción
+                      Selecciona Acción
                       <select id="advActionSelect">
-                        <option value="">Seleccióna acción...</option>
+                        <option value="">Selecciona acción...</option>
                         <option value="fill_empty">Rellenar celdas vacias</option>
                         <option value="fill_missing">Rellenar faltantes (mean/median/mode)</option>
                         <option value="replace_value">Reemplazar texto/valor</option>
@@ -361,7 +361,7 @@
                     </label>
                     <label id="advParam1Label">
                       Parámetro 1
-                      <input id="advParam1Input" type="text" placeholder="Seleccióna acción primero" disabled />
+                      <input id="advParam1Input" type="text" placeholder="Selecciona acción primero" disabled />
                     </label>
                   </div>
                   <div class="form-grid" style="grid-template-columns: 1fr; margin-top: var(--space-2); display: none;" id="advParam2Row">
@@ -385,11 +385,11 @@
 
             <aside class="audit-log">
               <div class="audit-log__header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
-                <h3 style="margin: 0;">Bitácora de decisiónes</h3>
+                <h3 style="margin: 0;">Bitácora de decisiones</h3>
                 <button class="button button--ghost" id="undoButton" type="button" style="min-height: 32px; padding: 0 var(--space-2); font-size: 0.8rem;" disabled>Deshacer</button>
               </div>
               <div id="actionsLog" class="log-list">
-                <p class="empty-state">Aún no hay acciónes registradas.</p>
+                <p class="empty-state">Aún no hay acciones registradas.</p>
               </div>
             </aside>
           </div>
@@ -466,7 +466,7 @@
       <div class="side-drawer__header">
         <div class="side-drawer__title-wrap">
           <span class="side-drawer__badge" id="drawerColBadge">Columna</span>
-          <h3 id="drawerColTitle">Seleccióna una columna</h3>
+          <h3 id="drawerColTitle">Selecciona una columna</h3>
           <span class="side-drawer__meta" id="drawerColMeta">Sin datos</span>
         </div>
         <button class="side-drawer__close" id="drawerCloseButton" type="button" title="Cerrar panel">&times;</button>
@@ -477,7 +477,7 @@
         <div class="drawer-section">
           <h4>Diagnóstico de Calidad</h4>
           <div id="drawerDiagnostics" class="drawer-diagnostics-box">
-            <p class="empty-state">Seleccióna una columna para inspeccionar.</p>
+            <p class="empty-state">Selecciona una columna para inspeccionar.</p>
           </div>
         </div>
 

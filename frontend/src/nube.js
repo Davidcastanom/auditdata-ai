@@ -6,7 +6,7 @@
  * MODO DE OPERACION:
  * ------------------
  * Validación manual: El analista revisa el diagnóstico 28 categorías
- * y seleccióna que problemas quiere abordar en la depuración.
+ * y selecciona que problemas quiere abordar en la depuración.
  *
  * La IA se utiliza exclusivamente en el Step 4 (Depuración) como
  * Copiloto Conversacional en el Side Drawer.
@@ -136,13 +136,13 @@ export class NubeValidación {
         </div>
         <div class="nube-actions-global">
           <button class="nube-btn nube-btn--ghost nube-btn--skip" id="nubeSkipManual" type="button">Omitir validación</button>
-          <button class="nube-btn nube-btn--ghost" id="nubeSelectAllManual" type="button">Selecciónar todo</button>
+          <button class="nube-btn nube-btn--ghost" id="nubeSelectAllManual" type="button">Seleccionar todo</button>
           <button class="nube-btn nube-btn--ghost nube-btn--danger" id="nubeDeselectAll" type="button">Limpiar selección</button>
         </div>
       </div>
       <div class="nube-progress">
         <div class="nube-progress__bar"><div class="nube-progress__fill nube-progress__fill--manual" style="width: 0%"></div></div>
-        <span class="nube-progress__text">0 de ${totalIssues} problemas selecciónados</span>
+        <span class="nube-progress__text">0 de ${totalIssues} problemas seleccionados</span>
       </div>
       <div class="nube-columns">
         ${cols.map(col => this._renderManualColumnCard(col)).join('')}
@@ -247,7 +247,7 @@ export class NubeValidación {
     const fill = this.container.querySelector('.nube-progress__fill');
     const text = this.container.querySelector('.nube-progress__text');
     if (fill) fill.style.width = `${pct}%`;
-    if (text) text.textContent = `${selected} de ${total} problemas selecciónados`;
+    if (text) text.textContent = `${selected} de ${total} problemas seleccionados`;
   }
 
   _confirmManualSelection() {
@@ -260,7 +260,7 @@ export class NubeValidación {
         column: ch.dataset.column,
         category: ch.dataset.category,
         count: parseInt(ch.dataset.count) || 0,
-        reason: `Problema ${ch.dataset.category} selecciónado en validación manual`,
+        reason: `Problema ${ch.dataset.category} seleccionado en validación manual`,
       };
       this.acceptedActions.push(actionData);
       this.onActionReady(actionData);

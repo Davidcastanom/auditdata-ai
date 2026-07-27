@@ -279,7 +279,7 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
                     if idx in target_set:
                         row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
                         changelog.append({
-                            "action": "Eliminar duplicado (selecciónado)",
+                            "action": "Eliminar duplicado (seleccionado)",
                             "column": "Dataset",
                             "reason": ai_reason,
                             "changes": [{"row": str(row_id), "column": "*", "old": "(fila duplicada)", "new": "(fila eliminada)"}],
@@ -287,7 +287,7 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
                     else:
                         clean_rows.append(row)
                 rows = clean_rows
-                log.append(_log_entry("Dataset", "Eliminar filas duplicadas", ai_reason, f"{before_count - len(rows)} filas eliminadas (selecciónadas)."))
+                log.append(_log_entry("Dataset", "Eliminar filas duplicadas", ai_reason, f"{before_count - len(rows)} filas eliminadas (seleccionadas)."))
             else:
                 seen: set[tuple[str, ...]] = set()
                 clean_rows = []
@@ -478,7 +478,7 @@ def build_markdown_report(analysis: dict[str, Any], analyst: str = "-", version:
         [
             "",
             "## Criterio metodologico",
-            "La herramienta no inventa datos. Los hallazgos se calculan sobre el dataset recibido y las acciónes de limpieza deben validarse con criterio de negocio antes de reemplazar, eliminar o imputar valores.",
+            "La herramienta no inventa datos. Los hallazgos se calculan sobre el dataset recibido y las acciones de limpieza deben validarse con criterio de negocio antes de reemplazar, eliminar o imputar valores.",
         ]
     )
     return "\n".join(lines) + "\n"
@@ -510,7 +510,7 @@ def build_cleaning_markdown_report(cleaning: dict[str, Any], analyst: str = "-",
         f"- Registros después: {after['row_count']}",
         f"- Columnas antes: {before['column_count']}",
         f"- Columnas después: {after['column_count']}",
-        f"- Acciónes documentadas: {len(actions)}",
+        f"- Acciones documentadas: {len(actions)}",
         f"- Fecha de generacion: {after['generated_at']}",
         "- Herramienta utilizada: AuditData AI - Motor Python",
         "",
@@ -605,15 +605,15 @@ def build_cleaning_markdown_report(cleaning: dict[str, Any], analyst: str = "-",
     else:
         lines.append("No se detectaron valores atipicos.")
 
-    lines.extend(["", "## 5. Plan y Acciónes de Limpieza"])
+    lines.extend(["", "## 5. Plan y Acciones de Limpieza"])
     if actions:
-        lines.append(f"Se documentaron {len(actions)} acciónes de limpieza.")
+        lines.append(f"Se documentaron {len(actions)} acciones de limpieza.")
         lines.append("| N. | Columna | Acción | Justificación | Resultado |")
         lines.append("|---|---|---|---|---|")
         for i, item in enumerate(actions):
             lines.append(f"| {i+1} | {item.get('column', '')} | {item.get('action', '')} | {item.get('reason', '')} | {item.get('result', '')} |")
     else:
-        lines.append("No se aplicaron acciónes de limpieza.")
+        lines.append("No se aplicaron acciones de limpieza.")
 
     lines.extend(["", "## 6. Evaluación de Calidad - Antes vs Después"])
     dims = [("Completitud", "completeness"), ("Consistencia", "consistency"), ("Exactitud", "accuracy"), ("Unicidad", "uniqueness")]
@@ -633,7 +633,7 @@ def build_cleaning_markdown_report(cleaning: dict[str, Any], analyst: str = "-",
         ("Consistencia >= 95%", after["scores"]["consistency"] >= 95),
         ("Exactitud >= 95%", after["scores"]["accuracy"] >= 95),
         ("Sin duplicados pendientes", after["duplicate_rows"] == 0),
-        ("Acciónes documentadas", len(actions) > 0),
+        ("Acciones documentadas", len(actions) > 0),
         ("Calidad general >= 90%", after["scores"]["overall"] >= 90),
     ]
     lines.append("| Criterio | Estado |")
@@ -974,7 +974,7 @@ def _recommendations(columns: list[ColumnProfile], duplicate_rows: int) -> list[
             recommendations.append(
                 {
                     "priority": "Alta",
-                    "message": f"Validar {column.missing} valores faltantes en '{column.name}' antes de tomar decisiónes.",
+                    "message": f"Validar {column.missing} valores faltantes en '{column.name}' antes de tomar decisiones.",
                 }
             )
         if column.format_issues:
@@ -1075,10 +1075,10 @@ def _risk_summary(analysis: dict[str, Any]) -> str:
 def _conclusión(analysis: dict[str, Any]) -> str:
     overall = analysis["scores"]["overall"]
     if overall >= 95:
-        return f"El dataset alcanza una calidad general de {overall}% y esta listo para análisis descriptivo, manteniendo la documentación de decisiónes aplicada."
+        return f"El dataset alcanza una calidad general de {overall}% y esta listo para análisis descriptivo, manteniendo la documentación de decisiones aplicada."
     if overall >= 80:
-        return f"El dataset alcanza una calidad general de {overall}%. Es utilizable, pero conviene revisar los riesgos pendientes antes de decisiónes finales."
-    return f"El dataset alcanza una calidad general de {overall}%. Se recomienda continuar la depuración antes de usarlo para toma de decisiónes."
+        return f"El dataset alcanza una calidad general de {overall}%. Es utilizable, pero conviene revisar los riesgos pendientes antes de decisiones finales."
+    return f"El dataset alcanza una calidad general de {overall}%. Se recomienda continuar la depuración antes de usarlo para toma de decisiones."
 
 
 def _executive_summary(analysis: dict[str, Any]) -> str:
@@ -1107,7 +1107,7 @@ def _cleaning_resumen(before: dict[str, Any], after: dict[str, Any], actions: li
     return (
         f"Se ejecutó un proceso secuencial de limpieza sobre el dataset '{before['filename']}', "
         f"compuesto por {before['row_count']} registros y {before['column_count']} columnas. "
-        f"Se documentaron {total_actions} acciónes de limpieza. "
+        f"Se documentaron {total_actions} acciones de limpieza. "
         f"La calidad general paso de {before['scores']['overall']}% a {after['scores']['overall']}%. "
         f"Las dimensiones con mejoras: {improvement_text}. "
         "Cada decisión quedo registrada para facilitar auditoria, mantenimiento y reutilización."
@@ -1140,7 +1140,7 @@ def generate_audit_log(changelog: list[dict[str, Any]], filename: str = "dataset
     lines.append("")
     lines.append("Documento de auditoría que registra cada modificación realizada sobre el dataset durante el proceso de limpieza.")
     lines.append("")
-    lines.append(f"**Total de acciónes registradas:** {len(changelog)}")
+    lines.append(f"**Total de acciones registradas:** {len(changelog)}")
     lines.append("")
 
     if not changelog:
@@ -1182,7 +1182,7 @@ def generate_audit_log(changelog: list[dict[str, Any]], filename: str = "dataset
     lines.append("")
     lines.append("Documento generado automáticamente por AuditData AI.")
     lines.append(f"- **Archivo original:** {filename}")
-    lines.append(f"- **Total de acciónes:** {len(changelog)}")
+    lines.append(f"- **Total de acciones:** {len(changelog)}")
     total_changes = sum(len(e.get("changes", [])) for e in changelog)
     lines.append(f"- **Total de celdas modificadas:** {total_changes}")
     lines.append("")

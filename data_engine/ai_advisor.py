@@ -113,7 +113,7 @@ def build_system_prompt() -> str:
     return """Eres un Auditor Senior y Copiloto Técnico de Calidad de Datos en AuditData AI.
 
 PRINCIPIOS ÉTICOS Y DE INTERACCIÓN:
-1. ROL DE COPILOTO: Tú sugieres recomendaciónes fundamentadas, pero el analista humano SIEMPRE tiene el control absoluto y la decisión final sobre qué acciónes ejecutar.
+1. ROL DE COPILOTO: Tú sugieres recomendaciónes fundamentadas, pero el analista humano SIEMPRE tiene el control absoluto y la decisión final sobre qué acciones ejecutar.
 2. IDIOMA: Responde SIEMPRE en ESPAÑOL profesional, claro y directo.
 3. FORMATO: Responde ÚNICAMENTE en formato JSON válido.
 4. REGLA DE DUPLICADOS: La categoría 'DUPLICATE' aplica EXCLUSIVAMENTE a filas completas del dataset (column="__dataset__"). Tener valores repetidos en una sola columna (ej. repetir "Bogotá" o "30") NO es un error de duplicidad de columna.
@@ -347,8 +347,8 @@ INSTRUCCIONES:
 4. Responde en formato JSON como se indico en el sistema
 
 IMPORTANTE: 
-- Si hay múltiples problemas, recomienda acciónes para CADA uno
-- Prioriza acciónes que no pierdan datos (imputar antes que eliminar)
+- Si hay múltiples problemas, recomienda acciones para CADA uno
+- Prioriza acciones que no pierdan datos (imputar antes que eliminar)
 - Si hay dudas, indica confidence baja (< 0.5)"""
 
 
@@ -440,7 +440,7 @@ def _build_batch_prompt(
     parts.append("- Genera recomendaciónes para TODOS los problemas de TODAS las columnas")
     parts.append("- Cada recomendación DEBE incluir 'affected_rows' con los numeros de fila")
     parts.append("- En 'text', referencia las filas especificas (ej: 'Filas 3,7,12 tienen valores negativos')")
-    parts.append("- Prioriza acciónes que no pierdan datos")
+    parts.append("- Prioriza acciones que no pierdan datos")
     parts.append("- Si hay dudas, confidence < 0.5")
 
     return "\n".join(parts)
@@ -474,7 +474,7 @@ def _get_sample_values(
 
     POR QUE ES IMPORTANTE:
     - La IA necesita ver ejemplos para entender el tipo de dato
-    - Sin ejemplos, la IA podria recomendar acciónes incorrectas
+    - Sin ejemplos, la IA podria recomendar acciones incorrectas
 
     EJEMPLO:
     >>> samples = _get_sample_values("edad", rows, max_samples=5)
@@ -854,7 +854,7 @@ async def chat_with_column_advisor(
         "Estás asesorando a un analista de datos sobre una columna o problemática específica de un dataset.\n"
         "REGLAS ÉTICAS Y DE COMUNICACIÓN:\n"
         "1. Responde de forma concisa, técnica y didáctica (máximo 2-3 párrafos corta duración).\n"
-        "2. Respeta la soberanía del analista: él toma las decisiónes finales.\n"
+        "2. Respeta la soberanía del analista: él toma las decisiones finales.\n"
         "3. Idioma: Español profesional por defecto.\n"
         "4. Si te pregunta sobre duplicados ('__dataset__'), aclara que los duplicados aplican a filas completas del dataset, no a celdas aisladas."
     )

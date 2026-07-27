@@ -2,7 +2,7 @@
 
 PDF report follows the academic Data Cleaning Report standard:
 Información General, Resumen Ejecutivo, Indicadores Clave,
-Problemas por Dimensión, Outliers, Plan de Acciónes,
+Problemas por Dimensión, Outliers, Plan de Acciones,
 Evaluación de Calidad, Checklist, Riesgos, Metodología y Conclusión.
 """
 
@@ -199,7 +199,7 @@ def _add_charts_section(story, styles, profile, total_rows=None, actions_log=Non
         "missing_values": "Valores Nulos por Columna",
         "data_types": "Distribucion de Tipos de Dato",
         "quality_gauge": "Calidad General del Dataset",
-        "cleaning_summary": "Resumen de Acciónes de Limpieza",
+        "cleaning_summary": "Resumen de Acciones de Limpieza",
     }
     for key, label in chart_labels.items():
         if key in charts:
@@ -259,7 +259,7 @@ def build_cleaning_pdf_report(cleaning: dict[str, Any], analyst: str = "-", vers
     styles = _styles()
     story = [
         Paragraph("DATA CLEANING REPORT", styles["TitleBar"]),
-        Paragraph("Limpieza, validación y trazabilidad de decisiónes", styles["SubtitleBar"]),
+        Paragraph("Limpieza, validación y trazabilidad de decisiones", styles["SubtitleBar"]),
         Spacer(1, 0.5 * cm),
     ]
 
@@ -267,7 +267,7 @@ def build_cleaning_pdf_report(cleaning: dict[str, Any], analyst: str = "-", vers
     _add_resumen_ejecutivo_cleaning(story, styles, before, after, actions)
     _add_indicadores_clave_cleaning(story, styles, before, after)
     _add_problemas_encontrados_cleaning(story, styles, before, after, actions)
-    _add_plan_acciónes(story, styles, actions)
+    _add_plan_acciones(story, styles, actions)
     _add_evaluación_calidad(story, styles, before, after)
     _add_checklist(story, styles, after, actions)
     _add_riesgos(story, styles, after)
@@ -312,7 +312,7 @@ def _add_información_general_cleaning(story, styles, before, after, actions, an
         ["Registros después", str(after["row_count"])],
         ["Columnas antes", str(before["column_count"])],
         ["Columnas después", str(after["column_count"])],
-        ["Acciónes documentadas", str(len(actions))],
+        ["Acciones documentadas", str(len(actions))],
         ["Fecha de generacion", after["generated_at"]],
         ["Herramienta utilizada", "AuditData AI - Motor Python"],
     ])
@@ -362,7 +362,7 @@ def _add_resumen_ejecutivo_cleaning(story, styles, before, after, actions):
     text = (
         f"Se ejecutó un proceso secuencial de limpieza sobre el dataset '{before['filename']}', "
         f"compuesto por {before['row_count']} registros y {before['column_count']} columnas. "
-        f"Se documentaron {total_actions} acciónes de limpieza. "
+        f"Se documentaron {total_actions} acciones de limpieza. "
         f"La calidad general paso de {before['scores']['overall']}% a {after['scores']['overall']}%. "
         f"Las dimensiones con mejoras: {improvement_text}. "
         "Cada decisión quedo registrada para facilitar auditoria, mantenimiento y reutilización."
@@ -709,11 +709,11 @@ def _add_recomendaciónes(story, styles, analysis):
     story.append(Spacer(1, 0.3 * cm))
 
 
-def _add_plan_acciónes(story, styles, actions):
+def _add_plan_acciones(story, styles, actions):
     story.append(Paragraph("5. PLAN Y ACCIONES DE LIMPIEZA", styles["Section"]))
     if actions:
         story.append(Paragraph(
-            f"Se documentaron {len(actions)} acciónes de limpieza. "
+            f"Se documentaron {len(actions)} acciones de limpieza. "
             "Cada acción incluye la columna afectada, la acción aplicada, "
             "la justificación técnica y el resultado obtenido.",
             styles["Body"],
@@ -731,7 +731,7 @@ def _add_plan_acciónes(story, styles, actions):
         ))
     else:
         story.append(Paragraph(
-            "No se aplicaron acciónes de limpieza. El dataset se mantiene en su estado original.",
+            "No se aplicaron acciones de limpieza. El dataset se mantiene en su estado original.",
             styles["Body"],
         ))
     story.append(Spacer(1, 0.3 * cm))
@@ -774,7 +774,7 @@ def _add_checklist(story, styles, after, actions):
         ("Consistencia >= 95%", after["scores"]["consistency"] >= 95),
         ("Exactitud >= 95%", after["scores"]["accuracy"] >= 95),
         ("Sin duplicados pendientes", after["duplicate_rows"] == 0),
-        ("Acciónes documentadas", len(actions) > 0),
+        ("Acciones documentadas", len(actions) > 0),
         ("Calidad general >= 90%", after["scores"]["overall"] >= 90),
     ]
     story.append(_table(
@@ -808,15 +808,15 @@ def _add_conclusión(story, styles, before, after):
     if overall >= 95:
         text = (
             f"El dataset limpio alcanza una calidad general de {overall}%. "
-            "Los datos son confiables para análisis descriptivo, toma de decisiónes "
+            "Los datos son confiables para análisis descriptivo, toma de decisiones "
             "y entrega a las areas interesadas. Se recomienda mantener la trazabilidad "
-            "de decisiónes aplicadas."
+            "de decisiones aplicadas."
         )
     elif overall >= 80:
         text = (
             f"El dataset limpio alcanza una calidad general de {overall}%. "
             "Es utilizable para análisis, pero se recomienda revisar los riesgos "
-            "pendientes antes de decisiónes criticas."
+            "pendientes antes de decisiones criticas."
         )
     else:
         text = (
