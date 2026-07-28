@@ -1,0 +1,26 @@
+id,nombre,edad,email,fecha_registro,salario,departamento,ciudad,telefono,activo,calificacion,notas
+1,Juan Pérez,34,juan.perez@email.com,2023-01-15,3500000,Ventas,Medellín,3001234567,Sí,4.5,Cliente frecuente
+2,María González,29,maria.gonzalez@email.com,15/01/2023,$2,800,000,ventas,medellin,300-123-4567,1,4.2,
+3,Juan Perez,34,juan.perez@email.com,2023-01-15,3500000,VENTAS,MEDELLIN,3001234567,si,4.5,Cliente frecuente
+4,  Carlos Rodríguez  ,45,carlos.rodriguez@email,2023/02/20,4200000.00,Marketing,Bogotá,(300) 987 6543,true,3.8,
+5,Ana Martínez,,ana.martinez@email.com,20-02-2023,-1500000,marketing,bogota ,3009876543,No,,Salario negativo revisar
+6,Pedro López,250,pedro.lopez@email.com,Feb 21 2023,2900000,Logística,Cali,3155551234,0,3.9,Edad inválida
+7,Laura Sánchez,31,laura.sanchez@email.com,2023-03-01,N/A,logistica,cali,315-555-1234,No,4.0,
+8,Laura Sánchez,31,laura.sanchez@email.com,2023-03-01,3100000,Logística,Cali,3155551234,no,4.0,Duplicado del registro 7
+9,Diego Ramírez,treinta y ocho,diego.ramirez@email.com,2023-03-15,3300000,IT,Medellín,,verdadero,4.7,Edad como texto
+10,Diego RamÃ­rez,38,diego.ramirez@email.com,15/03/2023,3300000,it,MedellÃ­n,3001112233,1,4.7,Problema de encoding
+11,Sofía Torres,27,sofia.torres@email.com,null,2600000,Ventas,Barranquilla,3204445566,Sí,,
+12,,33,,2023-04-10,3800000,Marketing,Cartagena,3187778899,No,3.5,Nombre y email faltantes
+13,Andrés Gómez,-5,andres.gomez@email.com,2023-04-12,2950000,Ventas,Bogota,3001239876,Si,4.1,Edad negativa
+14,Camila Ruiz,29,camila.ruiz@email.com,2023-13-45,3050000,Bentas,Bogotá,3009998877,Sí,4.3,Fecha imposible y typo en departamento
+15,Jorge Herrera,52,jorge.herrera@email.com,2023-05-05,7,500,000,IT,Medellín,300 111 2222,No,4.6,Salario mal formateado
+16,Valentina Cruz,,valentina.cruz@email.com,-,2700000,marketing,-,3211234567,-,-,Múltiples guiones como nulo
+17,valentina cruz,24,valentina.cruz@email.com,2023-05-20,2700000,Marketing,Medellín,3211234567,No,3.7,Duplicado con distinta capitalización
+18,Miguel Ángel Ortiz,41,miguel.ortiz@email.com,20230601,3600000,Logística,Cali,3005554433,true,4.0,Fecha en formato numérico plano
+19,Isabella Vargas,36,isabella.vargas@email,06/2023,2850000,ventas ,MEDELLÍN,3159991122,1,4.4,Email sin dominio completo
+20,Isabella Vargas,36,isabella.vargas@email.com,2023-06-15,2850000,Ventas,Medellín,3159991122,Sí,4.4,
+21,Nicolás Restrepo,60,nicolas.restrepo@email.com,2023-07-01,15000000,IT,Bogotá,3002223344,No,4.8,Posible outlier de salario
+22,Daniela Morales,22,daniela.morales@email.com,2023/07/10,2400000,Marketing,cali,3178889900,no,2.9,
+23,daniela morales ,22,daniela.morales@email.com,10-07-2023,2400000,marketing,Cali,3178889900,0,2.9,Duplicado con espacios extra
+24,Sebastián Peña,NaN,sebastian.pena@email.com,2023-08-05,3150000,Logística,Barranquilla,3006667788,Sí,,Edad como NaN string
+25,Gabriela Ríos,31,gabriela.rios@email.com,2023-08-12,tres millones,Ventas,Cartagena,3213334455,Si,4.2,Salario escrito en texto

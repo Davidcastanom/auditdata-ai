@@ -1149,13 +1149,6 @@ def _check_colección_inconsistencia(
     return issues
 
 
-def _check_type_per_cell(
-    values: list[str], total: int, domain_info: dict | None
-) -> list[IssueGroup]:
-    """DEPRECATED: Merged into _check_type_validation()."""
-    return []
-
-
 # ── HELPERS ──────────────────────────────────────────────────────────────────
 
 date_pattern = re.compile(r"\d{4}[-/]\d{2}[-/]\d{2}|\d{2}[-/]\d{2}[-/]\d{4}|\d{2}/\d{2}/\d{2}")

@@ -48,7 +48,7 @@ class CleanRequest(BaseModel):
     content_base64: str
     actions: list[ActionItem]
 
-class ReportMarkdownRequest(BaseModel):
+class ReportRequest(BaseModel):
     cleaning: dict[str, Any] | None = None
     analysis: dict[str, Any] | None = None
     analyst: str = "-"
@@ -56,13 +56,13 @@ class ReportMarkdownRequest(BaseModel):
     row_meaning: str = ""
     analysis_objective: str = ""
 
-class ReportPdfRequest(BaseModel):
-    cleaning: dict[str, Any] | None = None
-    analysis: dict[str, Any] | None = None
-    analyst: str = "-"
-    version: str = "v1.0"
-    row_meaning: str = ""
-    analysis_objective: str = ""
+
+def _decode_payload(content_base64: str) -> bytes:
+    """Decode base64 payload and enforce MAX_FILE_SIZE."""
+    payload = base64.b64decode(content_base64)
+    if len(payload) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="El archivo excede el limite de 10MB")
+    return payload
 
 @app.get("/api/health")
 def health():
@@ -71,9 +71,7 @@ def health():
 @app.post("/api/analyze")
 def analyze(req: AnalyzeRequest):
     try:
-        payload = base64.b64decode(req.content_base64)
-        if len(payload) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail="El archivo excede el límite de 10MB")
+        payload = _decode_payload(req.content_base64)
         analysis = analyze_dataset(req.filename, payload)
         return {"analysis": analysis}
     except HTTPException:
@@ -84,9 +82,7 @@ def analyze(req: AnalyzeRequest):
 @app.post("/api/diagnose")
 def diagnose(req: AnalyzeRequest):
     try:
-        payload = base64.b64decode(req.content_base64)
-        if len(payload) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail="El archivo excede el limite de 10MB")
+        payload = _decode_payload(req.content_base64)
         from data_engine.diagnostic import diagnose_dataset
         from data_engine.analyzer import load_dataset
         headers, rows, header_row_index = load_dataset(req.filename, payload)
@@ -102,10 +98,7 @@ def diagnose(req: AnalyzeRequest):
 def file_preview(req: AnalyzeRequest):
     """Detect encoding, delimiter, header row and return preview of the file."""
     try:
-        payload = base64.b64decode(req.content_base64)
-        if len(payload) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail="El archivo excede el limite de 10MB")
-        from data_engine.analyzer import detect_file_settings
+        payload = _decode_payload(req.content_base64)
         settings = detect_file_settings(req.filename, payload)
         return settings
     except HTTPException:
@@ -134,9 +127,7 @@ async def ai_recommend(req: AnalyzeRequest):
     Endpoint asíncrono para obtener recomendaciones de IA rápidas.
     """
     try:
-        payload = base64.b64decode(req.content_base64)
-        if len(payload) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail="El archivo excede el límite de 10MB")
+        payload = _decode_payload(req.content_base64)
 
         from data_engine.diagnostic import diagnose_dataset
         from data_engine.analyzer import load_dataset
@@ -164,9 +155,7 @@ async def ai_chat_column(req: AIChatRequest):
     Endpoint para chatear interactivamente con el Copiloto de IA sobre una columna o el dataset.
     """
     try:
-        payload = base64.b64decode(req.content_base64)
-        if len(payload) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail="El archivo excede el límite de 10MB")
+        payload = _decode_payload(req.content_base64)
 
         from data_engine.diagnostic import diagnose_dataset
         from data_engine.analyzer import load_dataset
@@ -201,9 +190,7 @@ async def ai_chat_column(req: AIChatRequest):
 async def ai_column_recommendations(req: ColumnRecommendRequest):
     """Genera recomendaciones de depuración para una columna específica."""
     try:
-        payload = base64.b64decode(req.content_base64)
-        if len(payload) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail="El archivo excede el límite de 10MB")
+        payload = _decode_payload(req.content_base64)
 
         from data_engine.diagnostic import diagnose_dataset
         from data_engine.analyzer import load_dataset
@@ -229,16 +216,13 @@ async def ai_column_recommendations(req: ColumnRecommendRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Error en column-recommendations: %s", e)
         return {"recommendations": [], "status": "error", "message": str(e)}
 
 
 @app.post("/api/clean")
 def clean(req: CleanRequest):
     try:
-        payload = base64.b64decode(req.content_base64)
-        if len(payload) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail="El archivo excede el límite de 10MB")
+        payload = _decode_payload(req.content_base64)
         actions_dict = [action.model_dump() for action in req.actions]
         cleaning = apply_cleaning_actions(req.filename, payload, actions_dict)
         return {"cleaning": cleaning}
@@ -248,7 +232,7 @@ def clean(req: CleanRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/report/markdown")
-def report_markdown(req: ReportMarkdownRequest):
+def report_markdown(req: ReportRequest):
     try:
         if req.cleaning:
             markdown = build_cleaning_markdown_report(
@@ -271,7 +255,7 @@ def report_markdown(req: ReportMarkdownRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/report/pdf")
-def report_pdf(req: ReportPdfRequest):
+def report_pdf(req: ReportRequest):
     try:
         if req.cleaning:
             pdf = build_cleaning_pdf_report(
@@ -297,9 +281,7 @@ def report_pdf(req: ReportPdfRequest):
 @app.post("/api/report/audit-log")
 def report_audit_log(req: CleanRequest):
     try:
-        payload = base64.b64decode(req.content_base64)
-        if len(payload) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail="El archivo excede el límite de 10MB")
+        payload = _decode_payload(req.content_base64)
         actions_dict = [action.model_dump() for action in req.actions]
         cleaning = apply_cleaning_actions(req.filename, payload, actions_dict)
         changelog = cleaning.get("changelog", [])

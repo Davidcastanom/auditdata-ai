@@ -72,16 +72,6 @@ export async function getCurrentUser() {
   }
 }
 
-export async function getSession() {
-  if (!authAvailable) return null;
-  try {
-    const { data: { session } } = await withTimeout(supabase.auth.getSession(), 3000);
-    return session;
-  } catch {
-    return null;
-  }
-}
-
 export async function saveToHistory(dataset, analysis, actions, before, after, reportPdfBase64) {
   if (!authAvailable || !supabase) return null;
   try {

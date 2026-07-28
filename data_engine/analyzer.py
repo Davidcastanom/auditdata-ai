@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 import logging
 import statistics
 import zipfile
@@ -734,10 +733,11 @@ def rows_to_csv(headers: list[str], rows: list[dict[str, Any]]) -> str:
     return output.getvalue()
 
 
-def analysis_to_json(analysis: dict[str, Any]) -> str:
-    """Stable JSON serialization for API responses and future automation."""
-
-    return json.dumps(analysis, ensure_ascii=False, indent=2)
+def _clean_filename(filename: str) -> str:
+    if "." in filename:
+        stem, ext = filename.rsplit(".", 1)
+        return f"{stem}_limpio.{ext}"
+    return f"{filename}_limpio.csv"
 
 
 def _find_header_row(raw_rows: list[tuple]) -> int:
@@ -1116,37 +1116,11 @@ def _standardize_text(value: str, mode: str) -> str:
     return normalized.title()
 
 
-def _dedupe_rows(headers: list[str], rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    seen: set[tuple[str, ...]] = set()
-    clean_rows = []
-    for row in rows:
-        key = tuple(str(row.get(header, "")).strip() for header in headers)
-        if key not in seen:
-            seen.add(key)
-            clean_rows.append(row)
-    return clean_rows
-
-
 def _clean_filename(filename: str) -> str:
     if "." in filename:
         stem, ext = filename.rsplit(".", 1)
         return f"{stem}_limpio.{ext}"
     return f"{filename}_limpio.csv"
-
-
-def _risk_summary(analysis: dict[str, Any]) -> str:
-    risks = []
-    if analysis["scores"]["completeness"] < 95:
-        risks.append("persisten valores faltantes que pueden sesgar indicadores.")
-    if analysis["scores"]["consistency"] < 95:
-        risks.append("persisten inconsistencias de formato que pueden fragmentar categorías.")
-    if analysis["scores"]["accuracy"] < 95:
-        risks.append("persisten outliers que requieren validación con la fuente original.")
-    if analysis["duplicate_rows"]:
-        risks.append("persisten duplicados que deben evaluarse segun la unidad de análisis.")
-    if not risks:
-        return "No se identifican riesgos críticos en el diagnóstico automatico posterior a la limpieza."
-    return "Riesgos pendientes: " + " ".join(risks)
 
 
 def _conclusión(analysis: dict[str, Any]) -> str:

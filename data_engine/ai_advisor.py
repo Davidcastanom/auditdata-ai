@@ -312,46 +312,6 @@ def get_ai_recommendations(
 # FUNCIONES AUXILIARES (CONSTRUIR PROMPTS)
 # ---------------------------------------------------------------------------
 
-def _build_prompt_for_column(
-    column_name: str,
-    issues: list[dict[str, Any]],
-    sample_values: list[str],
-    inferred_domain: str,
-    total_rows: int
-) -> str:
-    """
-    Construye el prompt especifico para una columna con problemas.
-    """
-    issues_text = "\n".join([
-        f"- {issue.get('category', '')}: {issue.get('count', 0)} ocurrencias ({issue.get('percentage', 0):.1f}%)"
-        for issue in issues
-    ])
-
-    samples_text = ", ".join(sample_values[:10]) if sample_values else "No disponibles"
-
-    return f"""ANALIZA LA SIGUIENTE COLUMNA Y RECOMIENDA ACCIONES DE LIMPIEZA:
-
-COLUMNA: {column_name}
-DOMINIO INFERIDO: {inferred_domain or "desconocido"}
-TOTAL FILAS: {total_rows}
-
-PROBLEMAS ENCONTRADOS:
-{issues_text}
-
-VALORES DE EJEMPLO: {samples_text}
-
-INSTRUCCIONES:
-1. Para cada problema, indica que tipo de limpieza es mejor
-2. Justifica técnicamente por que esa acción es correcta
-3. Asigna un nivel de confianza (0.0 a 1.0)
-4. Responde en formato JSON como se indico en el sistema
-
-IMPORTANTE: 
-- Si hay múltiples problemas, recomienda acciones para CADA uno
-- Prioriza acciones que no pierdan datos (imputar antes que eliminar)
-- Si hay dudas, indica confidence baja (< 0.5)"""
-
-
 def _build_batch_prompt(
     columns_with_issues: list[dict[str, Any]],
     sample_rows: list[dict[str, Any]] | None

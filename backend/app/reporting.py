@@ -653,52 +653,6 @@ def _add_problemas_encontrados_cleaning(story, styles, before, after, actions):
     story.append(Spacer(1, 0.3 * cm))
 
 
-def _add_outliers_section(story, styles, analysis):
-    story.append(Paragraph("5. VALORES ATIPICOS Y FUERA DE RANGO", styles["Section"]))
-    cols_with_outliers = [c for c in analysis["columns"] if c.get("outliers", 0) > 0]
-    if cols_with_outliers:
-        story.append(Paragraph(
-            "La siguiente tabla detalla los valores atipicos detectados por columna. "
-            "Los valores se marcan como atipicos si estan fuera del rango "
-            "[Q1 - 1.5*IQR, Q3 + 1.5*IQR].",
-            styles["Body"],
-        ))
-        story.append(_table(
-            [["Columna", "Outliers", "Ejemplos"]]
-            + [[
-                c["name"],
-                str(c["outliers"]),
-                ", ".join(str(v) for v in (c.get("outlier_examples") or [])[:5]),
-            ] for c in cols_with_outliers],
-            header=True,
-        ))
-    else:
-        story.append(Paragraph("No se detectaron valores atipicos en el dataset.", styles["Body"]))
-    story.append(Spacer(1, 0.3 * cm))
-
-
-def _add_outliers_cleaning(story, styles, before):
-    story.append(Paragraph("5. VALORES ATIPICOS Y FUERA DE RANGO", styles["Section"]))
-    cols_with_outliers = [c for c in before["columns"] if c.get("outliers", 0) > 0]
-    if cols_with_outliers:
-        story.append(Paragraph(
-            "Valores atipicos detectados antes del proceso de limpieza:",
-            styles["Body"],
-        ))
-        story.append(_table(
-            [["Columna", "Outliers", "Ejemplos"]]
-            + [[
-                c["name"],
-                str(c["outliers"]),
-                ", ".join(str(v) for v in (c.get("outlier_examples") or [])[:5]),
-            ] for c in cols_with_outliers],
-            header=True,
-        ))
-    else:
-        story.append(Paragraph("No se detectaron valores atipicos.", styles["Body"]))
-    story.append(Spacer(1, 0.3 * cm))
-
-
 def _add_recomendaciónes(story, styles, analysis):
     story.append(Paragraph("6. RECOMENDACIONES", styles["Section"]))
     for recommendation in analysis.get("recommendations", []):

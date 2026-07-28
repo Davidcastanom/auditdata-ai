@@ -1,187 +1,137 @@
 # AuditData AI
 
-**Herramienta profesional de limpieza y validación de calidad de datos con reportes PDF**
+**Herramienta profesional de limpieza y validación de calidad de datos con reportes PDF e IA**
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/Tests-13%2F13%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-18%2F18%20passing-brightgreen.svg)](tests/)
 [![Deploy](https://img.shields.io/badge/Deploy-Render-blue.svg)](https://auditdata-ai-1.onrender.com)
 
 ---
 
-## ¿Qué es AuditData AI?
+## Qué es AuditData AI
 
 AuditData AI es una herramienta de **Flujo Base** para diagnosticar, documentar y preparar datasets antes de usarlos en análisis, visualización o toma de decisiones.
 
 La herramienta **no inventa datos**. Calcula hallazgos, documenta riesgos y permite que el usuario valide las decisiones con criterio de negocio. Cada acción queda registrada con justificación técnica para garantizar trazabilidad completa.
 
-### Flujo de 6 Etapas
+---
+
+## Flujo de 7 Etapas
 
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│  01         │    │  02         │    │  03         │
-│  Comprender │───▶│  Perfilar   │───▶│  Reglas     │
-└─────────────┘    └─────────────┘    └─────────────┘
-                                              │
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│  06         │    │  05         │    │  04         │
-│  Informe    │◀───│  Validar    │◀───│  Depurar    │
-└─────────────┘    └─────────────┘    └─────────────┘
+┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+│  01      │  │  02      │  │  03      │  │  04      │
+│ Comprender├─▶│ Perfilar ├─▶│ Reglas   ├─▶│Diagnostico│
+└──────────┘  └──────────┘  └──────────┘  └──────────┘
+                                                    │
+┌──────────┐  ┌──────────┐  ┌──────────┐            │
+│  07      │  │  06      │  │  05      │            │
+│ Informe  ◀─┤ Validar   ◀─┤ Depurar   ◀────────────┘
+└──────────┘  └──────────┘  └──────────┘
 ```
 
-1. **Comprender** — Define la unidad de análisis (opcional), objetivo del análisis (opcional) y carga el dataset
-2. **Perfilar** — Diagnóstico técnico automático por columna
-3. **Reglas** — Clasifica columnas y documenta decisiones estructurales
-4. **Depurar** — Aplica acciones de limpieza con criterio documentado
-5. **Validar** — Demuestra la calidad antes de declarar el dataset listo
-6. **Informe** — Compila Data Cleaning Report en PDF (formato académico), Markdown y bitácora de cambios
+1. **Comprender** — Define unidad de análisis, objetivo y carga el dataset
+2. **Perfilar** — Diagnóstico técnico automático por columna (tipos, distribución, frecuencias)
+3. **Reglas** — Documenta decisiones estructurales (categorización de columnas)
+4. **Diagnóstico** — Detección de 28 categorías de problemas de calidad por columna
+5. **Depurar** — Aplica acciones de limpieza con Copiloto IA y control del analista
+6. **Validar** — Demuestra la calidad antes de declarar el dataset listo
+7. **Informe** — Compila Data Cleaning Report (PDF académico, Markdown, bitácora)
 
 ---
 
-## Instalación
-
-### Requisitos
-
-- Python 3.10 o superior
-- pip
-
-### Pasos
-
-```bash
-# 1. Clonar el repositorio
-git clone https://github.com/Davidcastanom/auditdata-ai.git
-cd auditdata-ai
-
-# 2. Crear entorno virtual
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# macOS/Linux:
-source .venv/bin/activate
-
-# 3. Instalar dependencias
-pip install -r requirements.txt
-
-# 4. (Opcional) Instalar con dependencias de IA y desarrollo
-pip install -e ".[ai,dev]"
-
-# 5. Copiar variables de entorno
-cp .env.example .env
-
-# 6. Ejecutar la aplicación
-python -m backend.app.server
-```
-
-Abrir en el navegador: **http://127.0.0.1:8000**
-
----
-
-## Estructura del Proyecto
+## Arquitectura
 
 ```
 auditdata-ai/
-├── backend/
-│   └── app/
-│       ├── main.py          # API FastAPI + Pydantic v2
-│       ├── reporting.py     # Generación de PDF (10 secciones, word wrap)
-│       └── server.py        # Runner de Uvicorn
+├── backend/app/
+│   ├── main.py              # API FastAPI + endpoints
+│   ├── reporting.py         # Generación de PDF (10 secciones)
+│   └── server.py            # Runner de Uvicorn
 ├── data_engine/
-│   └── analyzer.py          # Motor de análisis de calidad + bitácora de cambios
+│   ├── analyzer.py           # Motor de análisis + acciones de limpieza
+│   ├── diagnostic.py         # Diagnóstico de 28 categorías de calidad
+│   ├── ai_advisor.py         # Copiloto IA (Groq/Llama3.1)
+│   ├── charts.py             # Generación de gráficos para PDF
+│   └── domain_rules.py       # 20 reglas de dominio por tipo de columna
 ├── frontend/
-│   ├── index.html           # UI principal (wizard 6 pasos)
+│   ├── index.html            # UI principal (wizard 7 pasos)
 │   └── src/
-│       ├── app.js           # Orquestación de la UI
-│       ├── router.js        # Navegación por hash
-│       ├── state.js         # Estado con localStorage + undo individual
+│       ├── app.js            # Orquestación UI (modo local)
+│       ├── nube.js           # Orquestación UI (modo nube/Supabase)
+│       ├── auth.js           # Autenticación Google OAuth + Supabase
+│       ├── router.js         # Navegación por hash
+│       ├── state.js          # Estado con localStorage + undo
 │       └── styles/
 │           └── design-system.css
 ├── tests/
-│   ├── test_analyzer.py     # Tests del motor
-│   └── test_api.py          # Tests de integración (13 tests)
-├── samples/
-│   └── moveup_sample.csv    # Dataset de ejemplo
-├── docs/
-│   ├── AI_IMPLEMENTATION_PLAN.md   # Plan de implementación IA (5 fases)
-│   └── PRESENTACION_SCRIPT.md      # Guion de presentación (20 slides)
-├── .env.example
-├── pyproject.toml
-├── requirements.txt
-├── Dockerfile
-├── docker-compose.yml
-└── README.md
+│   ├── test_api.py           # 16 tests de integración
+│   ├── test_analyzer.py      # 2 tests del motor
+│   └── frontend/             # 34 tests E2E con Playwright
+├── docs/                     # Documentación (no modificar)
+├── samples/                  # Datasets de ejemplo
+├── render.yaml               # Configuración Render
+├── requirements.txt          # Dependencias Python
+└── .env.example              # Template de variables de entorno
 ```
 
 ---
 
-## Funcionalidades
+## Motor de Diagnóstico (28 categorías)
 
-### Motor de Análisis (`data_engine/analyzer.py`)
+El diagnóstico detecta automáticamente **28 categorías** de problemas agrupadas en:
 
-- Detección automática de tipos: texto, número, fecha, booleano
-- Conteo de valores faltantes por columna
-- Detección de filas duplicadas completas
-- Detección de inconsistencias de formato y variantes de texto
-- Detección de outliers numéricos con IQR (rango intercuartílico)
-- Score de calidad por dimensión (completitud, consistencia, exactitud, unicidad)
-- Recomendaciones automáticas priorizadas
-- Análisis independiente del web server (reutilizable desde CLI, notebook o automatización)
+| Categoría | Descripción |
+|-----------|-------------|
+| EMPTY | Columnas sin datos |
+| DUPLICATE | Filas duplicadas completas |
+| TYPE_VALIDATION | Errores de tipo por celda |
+| FORMAT_INCONSISTENCY | Formatos mezclados en misma columna |
+| CASE_INCONSISTENCY | Mayúsculas/minúsculas inconsistentes |
+| ENCODING_ERROR | Caracteres mal codificados |
+| TEXT_ERRORS | Errores de escritura |
+| SUSPICIOUS_VALUE | Valores fuera de patrón esperado |
+| BOOLEAN_NONSTANDARD | Valores booleanos no estándar |
+| NUMERIC_OUTLIER | Outliers numéricos (IQR) |
+| NUMERIC_RANGE | Valores fuera de rango esperado |
+| EMPTY_CELLS | Celdas vacías en columna |
+| ... y 16 más | Ver `data_engine/diagnostic.py` |
 
-### Acciones de Limpieza
+### Clasificación de columnas (FastTextProfiler v3.0)
+
+- **IDENTIFICADOR**: ≥95% valores únicos
+- **CONSTANTE**: Un solo valor ≥95%
+- **BOOLEANA**: Solo 2-3 valores principales ≥95%
+- **CATEGORICA**: Top 3/5/10 valores ≥90%
+- **TEXTO_LIBRE**: Ninguna regla matchea
+
+---
+
+## Copiloto IA (Groq/Llama3.1)
+
+- Recomendaciones de depuración por columna (max 80 caracteres por recomendación)
+- Chat interactivo para preguntas sobre el dataset
+- Funciona sin API key (recomendaciones fallback basadas en diagnóstico)
+- Modelo: `llama-3.1-8b-instant` (gratis, ~200ms latencia)
+
+---
+
+## Acciones de Limpieza
 
 | Acción | Descripción |
 |--------|-------------|
 | `delete_column` | Eliminar columna con justificación |
 | `drop_missing_rows` | Eliminar filas con faltantes |
-| `impute_missing` | Imputar con media, mediana, moda o valor personalizado |
+| `fill_missing` | Imputar con media, mediana, moda o valor personalizado |
+| `fill_empty` | Rellenar celdas vacías con valor específico |
 | `standardize_text` | Estandarizar mayúsculas/minúsculas/título |
 | `remove_duplicate_rows` | Eliminar filas duplicadas completas |
 | `flag_outliers` | Marcar outliers para revisión |
 | `rename_column` | Renombrar columna |
 | `replace_value` | Reemplazar un valor específico |
 | `change_type` | Cambiar tipo de dato |
-
-### Bitácora de Decisiones
-
-- Cada acción queda documentada: problema, tratamiento, justificación y resultado
-- **Botón ✕ individual** en cada entrada para deshacer una acción específica sin afectar las demás
-- Botón global "Deshacer" para quitar la última acción rápidamente
-- Justificaciones generadas con IA (Gemini) cuando la API key está configurada
-
-### Bitácora de Cambios (Audit Log)
-
-- Tracking de cambios a nivel de celda: fila, columna, valor antes → valor nuevo
-- Descargable como Markdown con tablas detalladas
-- Ideal para auditoría, cumplimiento regulatorio y reproducibilidad
-
-### Contexto Opcional del Dataset
-
-- **"Qué representa cada fila"** — Unidad de análisis (ej. participante, venta, cliente)
-- **"Objetivo del análisis"** — Propósito del análisis (ej. validar calidad antes del dashboard)
-- Campos opcionales: si se llenan aparecen en los reportes, si se dejan vacíos no afectan
-
-### Reportes PDF (Formato Académico)
-
-El informe PDF contiene **10 secciones** completas:
-
-| Sección | Contenido |
-|---------|-----------|
-| 1. Información General | Dataset, analista, contexto (opcional), registros antes/después, fecha, herramienta |
-| 2. Resumen Ejecutivo | Narrativa con conteos de problemas y % de calidad |
-| 3. Indicadores Clave | Tabla antes/después de las 4 dimensiones + general |
-| 4. Problemas Encontrados | 6 subsecciones: faltantes, duplicados, escritura, formatos, categorías, atípicos |
-| 5. Outliers y Fuera de Rango | Tabla detallada con min, max, media, mediana, ejemplos |
-| 6. Plan y Acciones | Tabla numerada con columna, acción, justificación, resultado |
-| 7. Evaluación de Calidad | Comparación antes/después con cambio calculado |
-| 8. Checklist | 6 criterios de validación con estado |
-| 9. Riesgos | Lista dinámica según scores |
-| 10. Metodología y Conclusión | Fórmulas de cálculo y recomendación final |
-
-### Otros Formatos
-
-- **Markdown** — Informe transparente y versionable (mismas 10 secciones)
-- **CSV** — Dataset limpio descargable
-- **Bitácora** — Registro de cada celda modificada (antes/después)
 
 ---
 
@@ -190,7 +140,12 @@ El informe PDF contiene **10 secciones** completas:
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | `POST` | `/api/analyze` | Analizar dataset |
+| `POST` | `/api/diagnose` | Diagnóstico de 28 categorías |
 | `POST` | `/api/clean` | Aplicar acciones de limpieza |
+| `POST` | `/api/file/preview` | Detectar encoding/delimitador |
+| `POST` | `/api/ai/recommend` | Recomendaciones IA batch |
+| `POST` | `/api/ai/chat-column` | Chat IA por columna |
+| `POST` | `/api/ai/column-recommendations` | Recomendación IA por columna |
 | `POST` | `/api/report/markdown` | Generar informe Markdown |
 | `POST` | `/api/report/pdf` | Generar informe PDF |
 | `POST` | `/api/report/audit-log` | Generar bitácora de cambios |
@@ -198,40 +153,76 @@ El informe PDF contiene **10 secciones** completas:
 | `GET` | `/` | Frontend web |
 | `GET` | `/docs` | Documentación Swagger |
 
-### Ejemplo de Request
+---
+
+## Variables de Entorno
+
+| Variable | Requerida | Descripción |
+|----------|-----------|-------------|
+| `SUPABASE_URL` | Sí (nube) | URL del proyecto Supabase |
+| `SUPABASE_ANON_KEY` | Sí (nube) | Key anon de Supabase |
+| `SUPABASE_SERVICE_KEY` | Sí (nube) | Key service_role de Supabase |
+| `GROQ_API_KEY` | No | API key de Groq para IA |
+| `ALLOWED_ORIGINS` | No | Orígenes CORS (default: `127.0.0.1:8000`) |
+| `HOST` | No | Host del servidor (default: `127.0.0.1`) |
+| `PORT` | No | Puerto del servidor (default: `8000`) |
+
+---
+
+## Instalación
 
 ```bash
-# Analizar un dataset
-curl -X POST http://localhost:8000/api/analyze \
-  -H "Content-Type: application/json" \
-  -d '{
-    "filename": "datos.csv",
-    "content_base64": "aWQsbm9tYnJlCjEsQW5hCjIsSnVhbg=="
-  }'
+# Clonar
+git clone https://github.com/Davidcastanom/auditdata-ai.git
+cd auditdata-ai
+
+# Entorno virtual
+python -m venv .venv
+.venv\Scripts\activate  # Windows
+source .venv/bin/activate  # macOS/Linux
+
+# Dependencias
+pip install -r requirements.txt
+
+# Variables de entorno
+cp .env.example .env
+# Editar .env con tus keys
+
+# Ejecutar
+python -m backend.app.server
 ```
+
+Abrir: **http://127.0.0.1:8000**
 
 ---
 
 ## Deploy
 
-### Opción 1: Docker
+### Docker
 
 ```bash
 docker-compose up --build
 ```
 
-### Opción 2: Render (producción actual)
+### Render (producción)
 
-1. Repositorio conectado: [Davidcastanom/auditdata-ai](https://github.com/Davidcastanom/auditdata-ai)
-2. Deploy activo en: [auditdata-ai-1.onrender.com](https://auditdata-ai-1.onrender.com)
-3. Variables de entorno configuradas:
-   - `ALLOWED_ORIGINS`: URL del deploy
-   - `GEMINI_API_KEY`: (opcional) Para justificaciones con IA
+- Repo: [Davidcastanom/auditdata-ai](https://github.com/Davidcastanom/auditdata-ai)
+- URL: [auditdata-ai-1.onrender.com](https://auditdata-ai-1.onrender.com)
+- Variables configuradas en `render.yaml`
 
-### Opción 3: Local
+---
+
+## Testing
 
 ```bash
-python -m backend.app.server
+# Tests Python (18/18)
+python -m pytest tests/ -v
+
+# Tests E2E (34/34)
+npx playwright test
+
+# Todos
+python -m pytest tests/ -v && npx playwright test
 ```
 
 ---
@@ -241,7 +232,6 @@ python -m backend.app.server
 | Color | Hex | Uso |
 |-------|-----|-----|
 | Azul eléctrico | `#0066FF` | Botones, links, acentos principales |
-| Azul oscuro | `#0052CC` | Hover, énfasis secundario |
 | Cian | `#00D4FF` | Acentos especiales, tags |
 | Negro | `#0A0A0F` | Fondo principal |
 | Gris oscuro | `#12121A` | Tarjetas, superficies |
@@ -250,73 +240,28 @@ python -m backend.app.server
 
 ---
 
-## Testing
-
-```bash
-# Ejecutar todos los tests
-python -m pytest tests/ -v
-
-# Output:
-# test_analyze_dataset ................... PASSED
-# test_cleaning_actions ................. PASSED
-# test_health ........................... PASSED
-# test_root_returns_html ................ PASSED
-# test_docs_available ................... PASSED
-# test_analyze_valid_csv ................ PASSED
-# test_analyze_invalid_format ........... PASSED
-# test_analyze_invalid_base64 ........... PASSED
-# test_clean_with_actions ............... PASSED
-# test_cleaning_markdown_report ......... PASSED
-# test_cleaning_pdf_report .............. PASSED
-# test_markdown_report_from_analysis .... PASSED
-# test_pdf_report_from_analysis ......... PASSED
-# -----------------------------------------------
-# 13 passed in ~3s
-```
-
----
-
-## Variables de Entorno
-
-| Variable | Requerida | Descripción |
-|----------|-----------|-------------|
-| `GEMINI_API_KEY` | No | API key de Google Gemini para justificaciones con IA |
-| `HOST` | No | Host del servidor (default: `127.0.0.1`) |
-| `PORT` | No | Puerto del servidor (default: `8000`) |
-| `ALLOWED_ORIGINS` | No | Orígenes permitidos para CORS (separados por coma) |
-
----
-
 ## Roadmap
 
 ### Completado
-- [x] Motor de análisis de calidad con 4 dimensiones
-- [x] 9 acciones de limpieza documentadas
-- [x] Reporte PDF con 10 secciones (formato académico, word wrap)
-- [x] Reporte Markdown con mismas 10 secciones
-- [x] Bitácora de cambios a nivel de celda (antes/después)
-- [x] Justificaciones con IA (Gemini)
-- [x] Deshacer individual por acción (✕) + deshacer global
-- [x] Contexto opcional: unidad de análisis y objetivo
-- [x] Loading overlay con spinner
-- [x] Paleta de colores unificada en todo el stack
-- [x] Timezone Colombia (UTC-5) para fechas de reporte
-- [x] Tests automatizados (13/13)
-- [x] Deploy en Render + Docker
-- [x] Plan de implementación IA (5 fases)
-- [x] Guion de presentación (20 slides)
+- [x] Motor de análisis con 4 dimensiones (completitud, consistencia, exactitud, unicidad)
+- [x] Diagnóstico de 28 categorías de calidad
+- [x] 10 acciones de limpieza documentadas
+- [x] Copiloto IA con Groq/Llama3.1 (recomendaciones + chat)
+- [x] Reporte PDF con 10 secciones (formato académico, gráficos light theme)
+- [x] Reporte Markdown con mismas secciones
+- [x] Bitácora de cambios a nivel de celda
+- [x] Autenticación Google OAuth + Supabase
+- [x] Guardar historial en la nube
+- [x] File preview modal (encoding, delimitador, header row)
+- [x] Detección automática de dominios de columna (20 reglas)
+- [x] FastTextProfiler v3.0 (clasificación por frecuencia)
+- [x] 18 tests Python + 34 tests E2E
 
 ### Próximo
-- [ ] **IA: Sugerencia automática de acciones de limpieza** basada en el diagnóstico
-- [ ] **IA: Chat asistente** para resolver dudas sobre el dataset
-- [ ] **IA: Clasificación automática de outliers** (error vs dato real)
-- [ ] **IA: Generación de reglas de validación** por tipo de industria
-- [ ] Descripción de cada columna con contexto del negocio
-- [ ] Soporte para múltiples datasets en un mismo proyecto
-- [ ] Historial de análisis en base de datos
-- [ ] Autenticación de usuarios
 - [ ] Exportar reporte como DOCX
+- [ ] Soporte para múltiples datasets en un mismo proyecto
 - [ ] Multi-idioma (español, inglés, portugués)
+- [ ] Descripción de cada columna con contexto del negocio
 
 ---
 
