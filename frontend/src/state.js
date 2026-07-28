@@ -10,6 +10,7 @@ export class Store {
       diagnostic: null,
       cleaning: null,
       actions: [],
+      duplicateKeyColumns: null,
     };
   }
 
@@ -42,6 +43,7 @@ export class Store {
       diagnostic: null,
       cleaning: null,
       actions: [],
+      duplicateKeyColumns: null,
     };
     this.saveState();
   }
@@ -99,6 +101,11 @@ export class Store {
 
   undoAction() {
     return this.removeAction(this.state.actions.length - 1);
+  }
+
+  setDuplicateKeyColumns(columns) {
+    this.state.duplicateKeyColumns = columns;
+    this.saveState();
   }
 
   setStep(step) {

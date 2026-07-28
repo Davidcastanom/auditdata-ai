@@ -13,6 +13,7 @@ from data_engine.analyzer import (
     apply_cleaning_actions,
     build_cleaning_markdown_report,
     build_markdown_report,
+    csv_to_xlsx,
     detect_file_settings,
     generate_audit_log,
 )
@@ -33,6 +34,7 @@ app.add_middleware(
 class AnalyzeRequest(BaseModel):
     filename: str
     content_base64: str
+    duplicate_key_columns: list[str] | None = None
 
 class ActionItem(BaseModel):
     kind: str
@@ -47,6 +49,7 @@ class CleanRequest(BaseModel):
     filename: str
     content_base64: str
     actions: list[ActionItem]
+    duplicate_key_columns: list[str] | None = None
 
 class ReportRequest(BaseModel):
     cleaning: dict[str, Any] | None = None
@@ -72,7 +75,7 @@ def health():
 def analyze(req: AnalyzeRequest):
     try:
         payload = _decode_payload(req.content_base64)
-        analysis = analyze_dataset(req.filename, payload)
+        analysis = analyze_dataset(req.filename, payload, duplicate_key_columns=req.duplicate_key_columns)
         return {"analysis": analysis}
     except HTTPException:
         raise
@@ -224,7 +227,16 @@ def clean(req: CleanRequest):
     try:
         payload = _decode_payload(req.content_base64)
         actions_dict = [action.model_dump() for action in req.actions]
-        cleaning = apply_cleaning_actions(req.filename, payload, actions_dict)
+        cleaning = apply_cleaning_actions(req.filename, payload, actions_dict, duplicate_key_columns=req.duplicate_key_columns)
+        clean_csv = cleaning.get("clean_csv", "")
+        xlsx_b64 = ""
+        if clean_csv:
+            try:
+                xlsx_bytes = csv_to_xlsx(clean_csv)
+                xlsx_b64 = base64.b64encode(xlsx_bytes).decode("ascii")
+            except Exception:
+                xlsx_b64 = ""
+        cleaning["xlsx_base64"] = xlsx_b64
         return {"cleaning": cleaning}
     except HTTPException:
         raise

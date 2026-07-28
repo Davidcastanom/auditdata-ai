@@ -130,6 +130,7 @@ const els = {
   downloadMarkdownButton: document.querySelector("#downloadMarkdownButton"),
   downloadPdfButton: document.querySelector("#downloadPdfButton"),
   downloadCsvButton: document.querySelector("#downloadCsvButton"),
+  downloadXlsxButton: document.querySelector("#downloadXlsxButton"),
   downloadAuditLogButton: document.querySelector("#downloadAuditLogButton"),
   saveToCloudButton: document.querySelector("#saveToCloudButton"),
   resetButton: document.querySelector("#resetButton"),
@@ -221,6 +222,7 @@ els.downloadMarkdownButton.addEventListener("click", () => downloadReport("markd
 els.downloadPdfButton.addEventListener("click", () => downloadReport("pdf"));
 els.downloadAuditLogButton.addEventListener("click", downloadAuditLog);
 els.downloadCsvButton.addEventListener("click", downloadCleanCsv);
+els.downloadXlsxButton.addEventListener("click", downloadCleanXlsx);
 els.saveToCloudButton.addEventListener("click", saveToCloud);
 els.undoButton.addEventListener("click", undoLastAction);
 els.resetButton.addEventListener("click", resetProject);
@@ -279,12 +281,14 @@ async function analyzeSelectedFile() {
   els.systemStatus.textContent = "Perfilando dataset con Python...";
   els.analyzeButton.disabled = true;
   showLoading("Analizando tu dataset... Esto puede tardar unos segundos.");
+  startTimer();
 
   try {
     store.setContext(els.rowMeaningInput.value.trim(), els.objectiveInput.value.trim());
     const response = await postJson("/api/analyze", {
       filename: store.state.filename,
       content_base64: store.state.fileBase64,
+      duplicate_key_columns: store.state.duplicateKeyColumns,
     });
     store.setAnalysis(response.analysis);
     renderProfile();
@@ -296,6 +300,7 @@ async function analyzeSelectedFile() {
     enableStep(2);
     enableStep(3);
     els.systemStatus.textContent = "Perfilado completado";
+    stopTimer("Perfilado");
     els.datasetMeta.textContent = `${store.state.analysis.row_count} filas | ${store.state.analysis.column_count} columnas`;
     router.navigate(1);
   } catch (error) {
@@ -403,6 +408,12 @@ function renderProfile() {
           detailRows += `<tr><td>Media</td><td>${valueOrDash(column.mean)}</td></tr>`;
           detailRows += `<tr><td>Mediana</td><td>${valueOrDash(column.median)}</td></tr>`;
           detailRows += `<tr><td>Outliers</td><td>${column.outliers || 0}</td></tr>`;
+          if (column.outlier_analysis_skipped) {
+            detailRows += `<tr><td colspan="2" style="color:var(--warning);font-style:italic;">Muestra insuficiente para detectar outliers</td></tr>`;
+          }
+        }
+        if (column.invalid_type_count > 0) {
+          detailRows += `<tr><td>Tipos inválidos</td><td style="color:var(--warning);">${column.invalid_type_count} valores no numéricos ocultos</td></tr>`;
         }
         if (hasFormatGroups) {
           const groups = column.format_groups.slice(0, 3).map(g =>
@@ -483,8 +494,33 @@ function renderRules() {
     .filter(a => a.kind === "delete_column")
     .map(a => a.column);
 
+  const currentKey = store.state.duplicateKeyColumns;
+  const columnOptions = analysis.headers
+    .map(h => `<option value="${escapeAttr(h)}" ${currentKey && currentKey.includes(h) ? 'selected' : ''}>${escapeHtml(h)}</option>`)
+    .join("");
+
   els.rulesBoard.innerHTML = `
     <div class="rules-intro">
+      <div class="key-column-selector" style="margin-bottom: var(--space-4); padding: var(--space-3); background: var(--surface_2); border-radius: var(--radius); border: 1px solid var(--border);">
+        <label style="font-weight: 600; display: block; margin-bottom: var(--space-1);">
+          Columna clave de duplicados (opcional)
+        </label>
+        <p style="font-size: 0.85rem; color: var(--muted); margin: 0 0 var(--space-2);">Selecciona la columna que identifica un registro de forma única. Si no seleccionas nada, se compara la fila completa.</p>
+        <select id="duplicateKeySelect" style="width: 100%; padding: var(--space-2); background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius);">
+          <option value="">Ninguna — comparar fila completa</option>
+          ${columnOptions}
+        </select>
+      </div>
+      <div style="margin-bottom: var(--space-4); padding: var(--space-3); background: var(--surface_2); border-radius: var(--radius); border: 1px solid var(--border);">
+        <label style="font-weight: 600; display: block; margin-bottom: var(--space-1);">Plantilla por tipo de dataset</label>
+        <p style="font-size: 0.85rem; color: var(--muted); margin: 0 0 var(--space-2);">Preconfigura reglas típicas para tu tipo de datos.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="button button--ghost button--sm" type="button" data-template="ventas">Ventas</button>
+          <button class="button button--ghost button--sm" type="button" data-template="rrhh">RRHH</button>
+          <button class="button button--ghost button--sm" type="button" data-template="financiero">Financiero</button>
+          <button class="button button--ghost button--sm" type="button" data-template="general">General</button>
+        </div>
+      </div>
       <p class="action-desc">Revisa cada columna del dataset. Si alguna no es necesaria para tu análisis, elimínala aquí con una justificación. Las columnas eliminadas no aparecerán en el reporte final.</p>
     </div>
   ` + analysis.columns
@@ -524,6 +560,38 @@ function renderRules() {
       const reason = input?.value || "Columna retirada por decisión del analista.";
       addAction({ kind: "delete_column", column, reason });
       renderRules();
+    });
+  });
+
+  const keySelect = document.getElementById("duplicateKeySelect");
+  if (keySelect) {
+    keySelect.value = currentKey && currentKey.length > 0 ? currentKey[0] : "";
+    keySelect.addEventListener("change", () => {
+      const val = keySelect.value;
+      store.setDuplicateKeyColumns(val ? [val] : null);
+    });
+  }
+
+  const TEMPLATES = {
+    ventas: { duplicate_key: ["email", "id"], notes: "Dataset de ventas: revisar montos, fechas y clientes." },
+    rrhh: { duplicate_key: ["email", "id"], notes: "Dataset RRHH: revisar edades, salarios, departamentos." },
+    financiero: { duplicate_key: ["id", "numero_cuenta"], notes: "Dataset financiero: revisar montos, fechas, cuentas." },
+    general: { duplicate_key: null, notes: "" },
+  };
+  document.querySelectorAll("[data-template]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const tmpl = TEMPLATES[btn.dataset.template];
+      if (!tmpl) return;
+      if (tmpl.duplicate_key) {
+        const headers = analysis.headers;
+        const matchKey = tmpl.duplicate_key.find(k => headers.some(h => h.toLowerCase().includes(k)));
+        if (matchKey) {
+          const matchedHeader = headers.find(h => h.toLowerCase().includes(matchKey));
+          store.setDuplicateKeyColumns([matchedHeader]);
+          if (keySelect) keySelect.value = matchedHeader;
+        }
+      }
+      showToast(`Plantilla "${btn.dataset.template}" aplicada.`, "success");
     });
   });
 }
@@ -1095,11 +1163,13 @@ function addAnalystNote() {
 async function runCleaning() {
   showLoading("Aplicando limpieza documentada y generando reporte...");
   els.systemStatus.textContent = "Aplicando limpieza documentada...";
+  startTimer();
   try {
     const response = await postJson("/api/clean", {
       filename: store.state.filename,
       content_base64: store.state.fileBase64,
       actions: store.state.actions,
+      duplicate_key_columns: store.state.duplicateKeyColumns,
     });
     store.setCleaning(response.cleaning);
     renderValidation();
@@ -1107,6 +1177,7 @@ async function runCleaning() {
     enableStep(4);
     enableStep(5);
     els.systemStatus.textContent = "Limpieza compilada y validada";
+    stopTimer("Limpieza");
     if (currentUser && authAvailable) {
       let pdfBase64 = "";
       try {
@@ -1330,6 +1401,17 @@ function downloadCleanCsv() {
   showToast("Dataset limpio descargado.", "success");
 }
 
+function downloadCleanXlsx() {
+  const cleaning = store.state.cleaning;
+  if (!cleaning || !cleaning.xlsx_base64) {
+    showToast("No hay dataset XLSX disponible. Ejecuta la limpieza primero.", "error");
+    return;
+  }
+  const bytes = Uint8Array.from(atob(cleaning.xlsx_base64), c => c.charCodeAt(0));
+  downloadBlob("dataset_limpio.xlsx", new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+  showToast("Dataset XLSX descargado.", "success");
+}
+
 async function downloadAuditLog() {
   if (!store.state.fileBase64 || !store.state.actions.length) {
     showToast("No hay acciones documentadas para generar bitácora.", "error");
@@ -1392,6 +1474,26 @@ async function saveToCloud() {
     showToast(`Error guardando en la nube: ${error.message}`, "error");
   } finally {
     hideLoading();
+  }
+}
+
+// --- Timer display for processing time ---
+let _timerStart = 0;
+const timerDisplay = document.getElementById("timerDisplay");
+
+function startTimer() {
+  _timerStart = performance.now();
+  if (timerDisplay) {
+    timerDisplay.style.display = "inline";
+    timerDisplay.textContent = "...";
+  }
+}
+
+function stopTimer(label) {
+  if (timerDisplay && _timerStart > 0) {
+    const elapsed = ((performance.now() - _timerStart) / 1000).toFixed(1);
+    timerDisplay.textContent = `${label}: ${elapsed}s`;
+    setTimeout(() => { timerDisplay.style.display = "none"; }, 5000);
   }
 }
 

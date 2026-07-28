@@ -11,6 +11,7 @@ import csv
 import io
 import logging
 import statistics
+import unicodedata
 import zipfile
 import os
 from collections import Counter
@@ -86,6 +87,8 @@ class ColumnProfile:
     median: float | None = None
     distribution_pct: float = 0.0
     value_distribution: list[dict[str, Any]] = field(default_factory=list)
+    invalid_type_count: int = 0
+    outlier_analysis_skipped: bool = False
 
 
 def load_dataset(filename: str, payload: bytes) -> tuple[list[str], list[dict[str, Any]], int]:
@@ -104,11 +107,11 @@ def load_dataset(filename: str, payload: bytes) -> tuple[list[str], list[dict[st
     raise ValueError("Formato no soportado. Usa CSV o XLSX.")
 
 
-def analyze_dataset(filename: str, payload: bytes) -> dict[str, Any]:
+def analyze_dataset(filename: str, payload: bytes, duplicate_key_columns: list[str] | None = None) -> dict[str, Any]:
     """Run the complete reusable quality diagnosis for a dataset."""
 
     headers, rows, _header_idx = load_dataset(filename, payload)
-    duplicate_rows = _count_duplicate_rows(headers, rows)
+    duplicate_rows = _count_duplicate_rows(headers, rows, key_columns=duplicate_key_columns)
     columns = [_profile_column(header, rows) for header in headers]
     scores = _quality_scores(columns, duplicate_rows, len(rows), max(len(headers), 1))
 
@@ -126,7 +129,7 @@ def analyze_dataset(filename: str, payload: bytes) -> dict[str, Any]:
     }
 
 
-def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str, Any]]) -> dict[str, Any]:
+def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str, Any]], duplicate_key_columns: list[str] | None = None) -> dict[str, Any]:
     """Apply documented cleaning actions and return before/after evidence.
 
     Every action creates a log entry. This follows the professional rule from
@@ -135,7 +138,7 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
     """
 
     headers, rows, _header_idx = load_dataset(filename, payload)
-    before = analyze_dataset(filename, payload)
+    before = analyze_dataset(filename, payload, duplicate_key_columns=duplicate_key_columns)
     log: list[dict[str, str]] = []
     changelog: list[dict[str, Any]] = []
 
@@ -426,7 +429,7 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
             log.append(_log_entry(column, f"Rellenar vacíos con '{fill_val}'", ai_reason, f"{changed} celdas rellenadas."))
 
     clean_csv = rows_to_csv(headers, rows)
-    after = analyze_dataset(_clean_filename(filename), clean_csv.encode("utf-8"))
+    after = analyze_dataset(_clean_filename(filename), clean_csv.encode("utf-8"), duplicate_key_columns=duplicate_key_columns)
     return {"before": before, "after": after, "actions": log, "clean_csv": clean_csv, "changelog": changelog}
 
 
@@ -733,6 +736,23 @@ def rows_to_csv(headers: list[str], rows: list[dict[str, Any]]) -> str:
     return output.getvalue()
 
 
+def csv_to_xlsx(csv_content: str, filename: str = "dataset.xlsx") -> bytes:
+    """Convert CSV string to XLSX bytes using openpyxl."""
+    if not openpyxl:
+        raise RuntimeError("openpyxl no esta instalado. Instala con: pip install openpyxl")
+    reader = csv.DictReader(io.StringIO(csv_content))
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Datos Limpios"
+    headers = reader.fieldnames or []
+    ws.append(headers)
+    for row in reader:
+        ws.append([row.get(h, "") for h in headers])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
 def _clean_filename(filename: str) -> str:
     if "." in filename:
         stem, ext = filename.rsplit(".", 1)
@@ -911,6 +931,8 @@ def _profile_column(header: str, rows: list[dict[str, Any]]) -> ColumnProfile:
 
     if detected_type == "number":
         numeric_values = [_to_float(value) for value in present]
+        invalid_type_count = len(present) - len([v for v in numeric_values if v is not None])
+        profile.invalid_type_count = invalid_type_count
         numeric_values = [value for value in numeric_values if value is not None]
         _add_numeric_stats(profile, numeric_values)
     else:
@@ -980,6 +1002,7 @@ def _add_numeric_stats(profile: ColumnProfile, values: list[float]) -> None:
     profile.median = round(statistics.median(values), 4)
 
     if len(values) < 4:
+        profile.outlier_analysis_skipped = True
         return
     sorted_values = sorted(values)
     q1 = statistics.median(sorted_values[: len(sorted_values) // 2])
@@ -1007,16 +1030,33 @@ def _add_format_groups(profile: ColumnProfile, values: list[str]) -> None:
             profile.format_issues += len(variants)
 
 
-def _count_duplicate_rows(headers: list[str], rows: list[dict[str, Any]]) -> int:
+def _count_duplicate_rows(headers: list[str], rows: list[dict[str, Any]], key_columns: list[str] | None = None) -> int:
+    """Count full-row duplicates, optionally using only key_columns for comparison.
+
+    When key_columns is None, compares ALL columns (legacy behavior).
+    When key_columns has values, builds the key from those columns only,
+    normalizing (strip + lowercase + remove accents) for comparison only.
+    """
     seen: set[tuple[str, ...]] = set()
     duplicates = 0
+    compare_headers = key_columns if key_columns else headers
     for row in rows:
-        key = tuple(str(row.get(header, "")).strip() for header in headers)
+        if key_columns:
+            key = tuple(_normalize_for_comparison(row.get(h, "")) for h in compare_headers)
+        else:
+            key = tuple(str(row.get(header, "")).strip() for header in headers)
         if key in seen:
             duplicates += 1
         else:
             seen.add(key)
     return duplicates
+
+
+def _normalize_for_comparison(value: Any) -> str:
+    """Normalize a value for duplicate comparison: strip + lowercase + remove accents."""
+    text = str(value).strip().lower()
+    nfkd = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
 def _quality_scores(columns: list[ColumnProfile], duplicate_rows: int, row_count: int, column_count: int) -> dict[str, float]:
