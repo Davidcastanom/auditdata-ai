@@ -477,7 +477,7 @@
 
       <div class="side-drawer__body">
         <!-- Tarjeta de Diagnóstico Rápido (colapsable) -->
-        <div class="drawer-section drawer-section--collapsible is-open" id="diagnosticSection">
+        <div class="drawer-section drawer-section--collapsible" id="diagnosticSection">
           <button class="drawer-section__toggle" type="button" onclick="this.parentElement.classList.toggle('is-open')">
             Diagnóstico de Calidad <span class="toggle-badge" id="diagnosticBadge">0 problemas</span> <span class="toggle-arrow">▾</span>
           </button>
@@ -487,6 +487,9 @@
             </div>
           </div>
         </div>
+
+        <!-- Secciones dinámicas: Frecuencias y Estadísticas (insertadas por JS) -->
+        <div id="drawerExtraSections" class="drawer-extra-sections"></div>
 
         <!-- Chat Interactivo con el Copiloto IA -->
         <div class="drawer-section drawer-section--chat">

@@ -784,7 +784,10 @@ function openDepurDrawer(columnName) {
     }
   }
 
-  if (issues.length === 0 && !extraSections) {
+  const extraContainer = document.querySelector('#drawerExtraSections');
+  if (extraContainer) extraContainer.innerHTML = extraSections;
+
+  if (issues.length === 0) {
     diagBox.innerHTML = `<p class="empty-state">No se detectaron problemas en esta columna.</p>`;
   } else {
     const issuesHtml = issues.map(iss => {
@@ -805,7 +808,7 @@ function openDepurDrawer(columnName) {
           ${rowsHtml}
         </div>`;
     }).join('');
-    diagBox.innerHTML = extraSections + issuesHtml;
+    diagBox.innerHTML = issuesHtml;
   }
 
   const history = depurChatHistory[columnName] || [];

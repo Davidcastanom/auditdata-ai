@@ -288,6 +288,8 @@ python -m pytest tests/test_analyzer.py -v     # 2 tests motor
 - [x] Dead code removal y consolidación de modelos
 - [x] Respuestas de IA estructuradas como listas (no párrafos)
 - [x] Análisis profundo con fila exacta + valor ejemplo por hallazgo
+- [x] Drawer de columna con secciones colapsables independientes (diagnóstico, frecuencias, estadísticas, chat)
+- [x] Chat ocupa todo el espacio restante del drawer lateral
 
 ### Próximo
 - [ ] Apply all safe recommendations in one click (H1c)
