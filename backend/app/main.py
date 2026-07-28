@@ -183,6 +183,39 @@ async def ai_chat_column(req: AIChatRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+class ColumnDeepAnalysisRequest(BaseModel):
+    filename: str
+    content_base64: str
+    column: str
+
+
+@app.post("/api/ai/column-deep-analysis")
+async def ai_column_deep_analysis(req: ColumnDeepAnalysisRequest):
+    """
+    Analiza una columna como experto senior: hallazgos + recomendaciones estructuradas.
+    """
+    try:
+        payload = _decode_payload(req.content_base64)
+
+        from data_engine.analyzer import load_dataset
+        from data_engine.ai_advisor import analyze_column_deep
+
+        headers, rows, header_row_index = load_dataset(req.filename, payload)
+        column_values = [row.get(req.column, "") for row in rows]
+
+        result = await analyze_column_deep(
+            column_name=req.column,
+            column_values=column_values,
+            total_rows=len(rows),
+        )
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        return {"analysis": f"Error: {e}", "status": "error"}
+
+
 @app.post("/api/clean")
 def clean(req: CleanRequest):
     try:

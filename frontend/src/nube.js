@@ -30,6 +30,7 @@ export class NubeValidación {
     this.diagnosticData = null;
     this.currentDrawerColumn = null;
     this.drawerChatHistory = {};
+    this.columnAnalysisCache = {};
   }
 
   _escHtml(str) {
@@ -167,6 +168,9 @@ export class NubeValidación {
     const displayName = isDataset ? 'Dataset Global (Filas Duplicadas)' : rawCol;
     const displayDomain = isDataset ? 'Multicolumna' : (colData.inferred_domain || 'general');
 
+    const hasAnalysis = !isDataset;
+    const analysisId = `colAnalysis_${rawCol}`;
+
     return `
       <div class="nube-column nube-column--manual" data-column="${this._escHtml(rawCol)}">
         <div class="nube-column__header">
@@ -179,6 +183,17 @@ export class NubeValidación {
             <button class="button button--ghost button--sm" data-inspect-col="${this._escHtml(rawCol)}" type="button">Inspeccionar</button>
           </div>
         </div>
+        ${hasAnalysis ? `
+        <div class="nube-column-ia drawer-section--collapsible" data-col-analysis="${this._escHtml(rawCol)}">
+          <button class="drawer-section__toggle nube-ia-toggle" type="button" onclick="this.parentElement.classList.toggle('is-open')">
+            Recomendaci\u00f3n de Copiloto <span class="toggle-arrow">\u25be</span>
+          </button>
+          <div class="drawer-section__body nube-ia-body">
+            <button class="button button--primary button--sm btn-analyze-col" data-analyze-col="${this._escHtml(rawCol)}" type="button">Ejecutar an\u00e1lisis</button>
+            <div id="${analysisId}" class="nube-ia-output"></div>
+          </div>
+        </div>
+        ` : ''}
         <div class="nube-column__body">
           ${issues.map(issue => `
             <div class="nube-manual-issue" data-category="${this._escHtml(issue.category_code)}">
@@ -226,6 +241,8 @@ export class NubeValidación {
       };
     });
 
+    this._bindColumnAnalysisButtons();
+
     if (selectAll) selectAll.addEventListener('click', () => {
       checks.forEach(ch => { ch.checked = true; });
       this._updateManualProgress();
@@ -236,6 +253,52 @@ export class NubeValidación {
     });
     if (confirmBtn) confirmBtn.addEventListener('click', () => this._confirmManualSelection());
     if (skipManual) skipManual.addEventListener('click', () => this._handleSkipValidation());
+  }
+
+  _bindColumnAnalysisButtons() {
+    this.container.querySelectorAll('.btn-analyze-col').forEach(btn => {
+      btn.onclick = async () => {
+        const col = btn.getAttribute('data-analyze-col');
+        if (!col) return;
+
+        if (this.columnAnalysisCache[col]) {
+          document.getElementById(`colAnalysis_${col}`).innerHTML = this.columnAnalysisCache[col];
+          return;
+        }
+
+        const outputEl = document.getElementById(`colAnalysis_${col}`);
+        if (!outputEl) return;
+
+        btn.disabled = true;
+        btn.textContent = 'Analizando...';
+        outputEl.innerHTML = '<div class="nube-loading" style="padding:var(--space-2);"><div class="nube-spinner"></div></div>';
+
+        try {
+          const response = await fetch('/api/ai/column-deep-analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              filename: this.filename,
+              content_base64: this.contentBase64,
+              column: col,
+            }),
+          });
+
+          if (!response.ok) throw new Error('Error en el an\u00e1lisis');
+
+          const data = await response.json();
+          const analysis = data.analysis || 'Sin resultados';
+          const html = `<div class="nube-ia-result">${this._renderMarkdown(analysis)}</div>`;
+          this.columnAnalysisCache[col] = html;
+          outputEl.innerHTML = html;
+        } catch (e) {
+          outputEl.innerHTML = `<p class="empty-state" style="font-size:0.8rem;">Error: ${this._escHtml(e.message)}</p>`;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Ejecutar an\u00e1lisis';
+        }
+      };
+    });
   }
 
   _updateManualProgress() {
@@ -345,19 +408,43 @@ export class NubeValidación {
     const lines = code.split('\n');
     const out = [];
     let inList = false, listType = null;
-    for (const line of lines) {
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
       const t = line.trim();
       const bm = t.match(/^[-*]\s+(.+)/);
       const nm = t.match(/^\d+[.)]\s+(.+)/);
-      if (bm) {
-        if (!inList || listType !== 'ul') { if (inList) out.push(`</${listType}>`); out.push('<ul>'); inList = true; listType = 'ul'; }
-        out.push(`<li>${bm[1]}</li>`);
-      } else if (nm) {
-        if (!inList || listType !== 'ol') { if (inList) out.push(`</${listType}>`); out.push('<ol>'); inList = true; listType = 'ol'; }
-        out.push(`<li>${nm[1]}</li>`);
+      if (bm || nm) {
+        const isOl = !!nm;
+        const prefix = isOl ? 'ol' : 'ul';
+        const content = (isOl ? nm[1] : bm[1]);
+        if (!inList || listType !== prefix) {
+          if (inList) out.push(`</${listType}>`);
+          out.push(`<${prefix}>`);
+          inList = true;
+          listType = prefix;
+        }
+        let itemHtml = content;
+        i++;
+        while (i < lines.length) {
+          const next = lines[i];
+          const nextTrim = next.trim();
+          if (nextTrim === '') { i++; break; }
+          const nextBm = nextTrim.match(/^[-*]\s+(.+)/);
+          const nextNm = nextTrim.match(/^\d+[.)]\s+(.+)/);
+          if (nextBm || nextNm) break;
+          if (next.startsWith('   ') || next.startsWith('\t')) {
+            itemHtml += '<br>' + nextTrim;
+            i++;
+          } else {
+            break;
+          }
+        }
+        out.push(`<li>${itemHtml}</li>`);
       } else {
         if (inList) { out.push(`</${listType}>`); inList = false; listType = null; }
         out.push(t === '' ? '<br>' : line);
+        i++;
       }
     }
     if (inList) out.push(`</${listType}>`);

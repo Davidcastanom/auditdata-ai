@@ -857,36 +857,44 @@ function renderMarkdown(text) {
   const withCode = withBold.replace(/`(.+?)`/g, '<code>$1</code>');
   const lines = withCode.split('\n');
   const out = [];
-  let inList = false;
-  let listType = null;
-  for (let i = 0; i < lines.length; i++) {
+  let inList = false, listType = null;
+  let i = 0;
+  while (i < lines.length) {
     const line = lines[i];
-    const trimmed = line.trim();
-    const bulletMatch = trimmed.match(/^[-*]\s+(.+)/);
-    const numMatch = trimmed.match(/^\d+[.)]\s+(.+)/);
-    if (bulletMatch) {
-      if (!inList || listType !== 'ul') {
+    const t = line.trim();
+    const bm = t.match(/^[-*]\s+(.+)/);
+    const nm = t.match(/^\d+[.)]\s+(.+)/);
+    if (bm || nm) {
+      const isOl = !!nm;
+      const prefix = isOl ? 'ol' : 'ul';
+      const content = isOl ? nm[1] : bm[1];
+      if (!inList || listType !== prefix) {
         if (inList) out.push(`</${listType}>`);
-        out.push('<ul>');
+        out.push(`<${prefix}>`);
         inList = true;
-        listType = 'ul';
+        listType = prefix;
       }
-      out.push(`<li>${bulletMatch[1]}</li>`);
-    } else if (numMatch) {
-      if (!inList || listType !== 'ol') {
-        if (inList) out.push(`</${listType}>`);
-        out.push('<ol>');
-        inList = true;
-        listType = 'ol';
+      let itemHtml = content;
+      i++;
+      while (i < lines.length) {
+        const n = lines[i];
+        const nt = n.trim();
+        if (nt === '') { i++; break; }
+        const nb = nt.match(/^[-*]\s+(.+)/);
+        const nn = nt.match(/^\d+[.)]\s+(.+)/);
+        if (nb || nn) break;
+        if (n.startsWith('   ') || n.startsWith('\t')) {
+          itemHtml += '<br>' + nt;
+          i++;
+        } else {
+          break;
+        }
       }
-      out.push(`<li>${numMatch[1]}</li>`);
+      out.push(`<li>${itemHtml}</li>`);
     } else {
       if (inList) { out.push(`</${listType}>`); inList = false; listType = null; }
-      if (trimmed === '') {
-        out.push('<br>');
-      } else {
-        out.push(line);
-      }
+      out.push(t === '' ? '<br>' : line);
+      i++;
     }
   }
   if (inList) out.push(`</${listType}>`);

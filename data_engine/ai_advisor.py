@@ -730,3 +730,97 @@ async def chat_with_column_advisor(
             "status": "error"
         }
 
+
+# ---------------------------------------------------------------------------
+# ANALISIS PROFUNDO DE COLUMNA (Recomendacion de Copiloto)
+# ---------------------------------------------------------------------------
+
+DEEP_MODEL = "llama-3.1-8b-instant"
+DEEP_MAX_TOKENS = 1536
+DEEP_TEMPERATURE = 0.2
+
+
+def _get_deep_client() -> Groq | AsyncGroq | None:
+    """Inicializa cliente Groq con la API key de recomendaciones (si existe) o la principal."""
+    api_key = os.getenv("RECOMENDACIONES_GROQ_KEY") or os.getenv("GROQ_API_KEY")
+    if not api_key:
+        logger.warning("Sin API key para análisis profundo.")
+        return None
+    try:
+        if AsyncGroq is not None:
+            return AsyncGroq(api_key=api_key)
+        return Groq(api_key=api_key)
+    except Exception as e:
+        logger.error("Error al inicializar cliente deep: %s", e)
+        return None
+
+
+async def analyze_column_deep(
+    column_name: str,
+    column_values: list[str],
+    total_rows: int = 0,
+) -> dict[str, Any]:
+    """
+    Analiza una columna como experto senior y devuelve hallazgos + recomendaciones.
+    """
+    client = _get_deep_client()
+    if not client:
+        return {
+            "analysis": "IA deshabilitada. Configura RECOMENDACIONES_GROQ_KEY o GROQ_API_KEY.",
+            "status": "no_api_key",
+        }
+
+    sample = column_values[:50]
+    n_missing = sum(1 for v in column_values if not v or v.strip() == "")
+    n_total = total_rows or len(column_values)
+
+    system_prompt = (
+        "Eres un analista senior de calidad de datos con 15 anios de experiencia. "
+        "Tu especialidad es detectar anomalias, patrones sucios e inconsistencias en columnas de datasets. "
+        "Responde UNICAMENTE en el formato de lista numerada que se indica. "
+        "Se directo, tecnico y profesional. Idioma: espanol."
+    )
+
+    user_prompt = (
+        f"COLUMNA: '{column_name}'\n"
+        f"Total filas: {n_total} | Vacios: {n_missing}\n"
+        f"Valores de ejemplo ({len(sample)} mostrados): {sample}\n\n"
+        "INSTRUCCIONES:\n"
+        "- Identifica SOLO anomalias reales (no describas datos normales)\n"
+        "- Clasifica cada hallazgo por tipo de error y filas afectadas\n"
+        "- Da una recomendacion ACCIONABLE y CONCRETA por cada hallazgo\n"
+        "- Sin introduccion, sin despedida, sin texto adicional\n\n"
+        "FORMATO EXACTO (sin desviaciones):\n"
+        "1. **NOMBRE_HALLAZGO** (N filas)\n"
+        "   Descripcion breve del problema.\n"
+        "   -> **Recomendacion**: accion especifica a tomar.\n\n"
+        "2. **SIGUIENTE_HALLAZGO** (N filas)\n"
+        "   Descripcion breve.\n"
+        "   -> **Recomendacion**: accion especifica.\n"
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+    try:
+        if isinstance(client, AsyncGroq):
+            res = await client.chat.completions.create(
+                model=DEEP_MODEL, messages=messages,
+                max_tokens=DEEP_MAX_TOKENS, temperature=DEEP_TEMPERATURE,
+            )
+        else:
+            res = client.chat.completions.create(
+                model=DEEP_MODEL, messages=messages,
+                max_tokens=DEEP_MAX_TOKENS, temperature=DEEP_TEMPERATURE,
+            )
+        answer = res.choices[0].message.content
+        return {"analysis": answer, "status": "success"}
+    except Exception as e:
+        logger.error("Error en analyze_column_deep: %s", e)
+        return {
+            "analysis": f"Error al analizar columna: {e}",
+            "status": "error",
+        }
+
