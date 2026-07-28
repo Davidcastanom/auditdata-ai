@@ -2774,12 +2774,16 @@ th {
   border-radius: var(--radius-sm);
   padding: var(--space-3);
   flex: 1;
-  min-height: 120px;
-  max-height: 420px;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+.drawer-diagnostics-scroll {
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .chat-bubble {

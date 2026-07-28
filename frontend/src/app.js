@@ -721,6 +721,9 @@ function openDepurDrawer(columnName) {
   const issues = colDiag?.issues || [];
   const profiler = colDiag?.profiler || {};
 
+  const diagBadge = document.querySelector('#diagnosticBadge');
+  if (diagBadge) diagBadge.textContent = `${issues.length} problema${issues.length !== 1 ? 's' : ''}`;
+
   let extraSections = '';
 
   const profileCol = (store.state.analysis?.columns || []).find(c => c.name === columnName);

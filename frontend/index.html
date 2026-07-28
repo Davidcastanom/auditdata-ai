@@ -476,11 +476,15 @@
       </div>
 
       <div class="side-drawer__body">
-        <!-- Tarjeta de Diagnóstico Rápido -->
-        <div class="drawer-section">
-          <h4>Diagnóstico de Calidad</h4>
-          <div id="drawerDiagnostics" class="drawer-diagnostics-box">
-            <p class="empty-state">Selecciona una columna para inspeccionar.</p>
+        <!-- Tarjeta de Diagnóstico Rápido (colapsable) -->
+        <div class="drawer-section drawer-section--collapsible is-open" id="diagnosticSection">
+          <button class="drawer-section__toggle" type="button" onclick="this.parentElement.classList.toggle('is-open')">
+            Diagnóstico de Calidad <span class="toggle-badge" id="diagnosticBadge">0 problemas</span> <span class="toggle-arrow">▾</span>
+          </button>
+          <div class="drawer-section__body drawer-diagnostics-scroll">
+            <div id="drawerDiagnostics" class="drawer-diagnostics-box">
+              <p class="empty-state">Selecciona una columna para inspeccionar.</p>
+            </div>
           </div>
         </div>
 
