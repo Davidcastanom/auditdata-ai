@@ -742,7 +742,7 @@ DEEP_TEMPERATURE = 0.2
 
 def _get_deep_client() -> Groq | AsyncGroq | None:
     """Inicializa cliente Groq con la API key de recomendaciones (si existe) o la principal."""
-    api_key = os.getenv("RECOMENDACIONES_GROQ_KEY") or os.getenv("GROQ_API_KEY")
+    api_key = os.getenv("Recomendaciones_de_copiloto") or os.getenv("RECOMENDACIONES_GROQ_KEY") or os.getenv("GROQ_API_KEY")
     if not api_key:
         logger.warning("Sin API key para análisis profundo.")
         return None
