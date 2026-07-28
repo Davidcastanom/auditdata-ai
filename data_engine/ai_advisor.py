@@ -646,154 +646,6 @@ async def get_ai_recommendations_async(
         return get_ai_recommendations(diagnostic, sample_rows)
 
 
-async def get_column_depuration_recommendations(
-    column_name: str,
-    column_diagnostic: dict[str, Any],
-    sample_rows: list[dict[str, Any]] | None = None
-) -> dict[str, Any]:
-    """Genera recomendaciónes de depuración enfocadas en una sola columna."""
-    client = init_async_groq_client() or init_groq_client()
-    if not client:
-        return _build_fallback_recommendations(column_name, column_diagnostic)
-
-    system_prompt = (
-        "Eres el Copiloto de Calidad de Datos de AuditData AI. "
-        "Genera recomendaciónes de depuración para UNA COLUMNA específica.\n"
-        "REGLAS CRÍTICAS:\n"
-        "1. Respetas la soberanía del analista — él decide finalmente.\n"
-        "2. Español profesional.\n"
-        "3. DUPLICADOS: Solo aplican a filas completas del dataset.\n"
-        "4. El campo 'text' DEBE ser MÁXIMO 1 ORACIÓN CORTA (máx 80 caracteres). "
-        "NO des explicaciones largas. Solo di qué acción aplicar y por qué en una frase.\n"
-        "5. Cada recomendación DEBE tener un 'action' válido con 'kind' y 'column'.\n"
-        "6. Genera UNA recomendación por cada categoría de error encontrada.\n"
-        "7. El 'text' es para mostrar al analista como título rápido. "
-        "La justificación completa va en el campo 'action.reason'.\n"
-    )
-
-    issues = column_diagnostic.get("issues", [])
-    issues_text = ""
-    for issue in issues:
-        cat = issue.get("category_code", "UNKNOWN")
-        count = issue.get("count", 0)
-        pct = issue.get("percentage", 0)
-        desc = issue.get("description", "")
-        issues_text += f"  - {cat}: {count} ocurrencias ({pct:.1f}%). {desc}\n"
-        for ex in issue.get("examples", [])[:3]:
-            if "row" in ex:
-                issues_text += f"    Fila {ex['row']}: valor='{ex.get('value', '')}'\n"
-            elif "rows" in ex:
-                issues_text += f"    Filas {ex['rows']}: coinciden al {ex.get('match', '?')}\n"
-
-    samples = _get_sample_values(column_name, sample_rows) if column_name != "__dataset__" else []
-    samples_str = ", ".join(samples[:8]) if samples else "No disponibles"
-    domain = column_diagnostic.get("inferred_domain", "desconocido")
-    total = column_diagnostic.get("total_rows", 0)
-
-    user_prompt = (
-        f"COLUMNA: {column_name}\n"
-        f"Dominio: {domain} | Filas totales: {total}\n"
-        f"PROBLEMAS DETECTADOS:\n{issues_text}"
-        f"Valores de ejemplo: {samples_str}\n\n"
-        f"Para CADA problema detectado, genera UNA recomendación con action válido.\n"
-        f"IMPORTANTE: 'text' = máxima 1 oración corta (80 chars). "
-        f"'action.reason' = justificación completa.\n"
-        f"ACCIONES DISPONIBLES:\n"
-        f"- fill_missing (method: mean/median/mode) → para MISSING\n"
-        f"- standardize_text (method: trim/lowercase/title) → para TEXT_ERROR, CATEGORICAL\n"
-        f"- change_type (value: number/text) → para TYPE_VALIDATION\n"
-        f"- replace_value (method: valor_original, value: nuevo_valor) → para valores específicos\n"
-        f"- drop_missing_rows → para filas con faltantes críticos\n"
-        f"FORMATO JSON:\n"
-        f'{{"recommendations": [{{\n'
-        f'  "category": "MISSING",\n'
-        f'  "count": 5,\n'
-        f'  "affected_rows": [3,7],\n'
-        f'  "text": "Imputar faltantes con mediana (5 celdas vacías)",\n'
-        f'  "action": {{"kind": "fill_missing", "column": "{column_name}", "method": "median", "reason": "Justificación completa aquí"}},\n'
-        f'  "confidence": 0.85\n'
-        f'}}]}}'
-    )
-
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
-    ]
-
-    try:
-        if isinstance(client, AsyncGroq):
-            res = await client.chat.completions.create(
-                model=MODEL, messages=messages, max_tokens=2048, temperature=0.3
-            )
-        else:
-            res = client.chat.completions.create(
-                model=MODEL, messages=messages, max_tokens=2048, temperature=0.3
-            )
-        answer = res.choices[0].message.content
-        parsed = _parse_ai_response(answer)
-        recs = parsed.get("recommendations", []) if isinstance(parsed, dict) else []
-        return {"recommendations": recs, "status": "success"}
-    except Exception as e:
-        logger.error("Error en get_column_depuration_recommendations: %s", e)
-        return _build_fallback_recommendations(column_name, column_diagnostic)
-
-
-CATEGORY_ACTION_MAP = {
-    "MISSING": ("fill_missing", "mode"),
-    "TEXT_ERROR": ("standardize_text", "trim"),
-    "CATEGORICAL": ("standardize_text", "trim"),
-    "TYPE_ERROR": ("change_type", "text"),
-    "OUT_OF_RANGE": ("flag_outliers", "flag"),
-    "NUMERIC_DOMAIN": ("flag_outliers", "flag"),
-    "DATE_FORMAT": ("standardize_text", "trim"),
-    "UNIT_ERROR": ("standardize_text", "trim"),
-    "ENCODING": ("standardize_text", "trim"),
-    "DUPLICATE": ("drop_duplicates", "first"),
-}
-
-
-def _build_fallback_recommendations(
-    column_name: str,
-    column_diagnostic: dict[str, Any]
-) -> dict[str, Any]:
-    """Genera recomendaciónes sin IA a partir del diagnóstico."""
-    issues = column_diagnostic.get("issues", [])
-    recs = []
-    for issue in issues:
-        cat = issue.get("category_code", issue.get("category", "UNKNOWN"))
-        count = issue.get("count", 0)
-        rows = issue.get("affected_rows", [])[:10]
-        desc = issue.get("description", issue.get("text", ""))
-        kind, method = CATEGORY_ACTION_MAP.get(cat, ("flag_outliers", "flag"))
-
-        if kind == "fill_missing":
-            text = f"Imputar {count} vacío(s) con {method}"
-        elif kind == "standardize_text":
-            text = f"Estandarizar {count} valor(es) de formato"
-        elif kind == "replace_value":
-            text = f"Reemplazar {count} valor(es) inconsistentes"
-        elif kind == "flag_outliers":
-            text = f"Revisar {count} outlier(s) detectado(s)"
-        else:
-            text = f"{cat}: {count} ocurrencia(s) detectada(s)"
-
-        recs.append({
-            "category": cat,
-            "count": count,
-            "text": text[:80],
-            "action": {
-                "kind": kind,
-                "column": column_name,
-                "method": method,
-                "reason": desc or f"Detección automática: {cat}",
-            },
-            "confidence": 0.6,
-            "affected_rows": rows,
-        })
-
-    return {"recommendations": recs, "status": "fallback"}
-
-
 async def chat_with_column_advisor(
     column_name: str,
     user_query: str,
@@ -809,14 +661,29 @@ async def chat_with_column_advisor(
             "status": "no_api_key"
         }
 
+    is_first_message = not chat_history or len(chat_history) == 0
+    verbosity_rule = (
+        "PRIMER MENSAJE: Puedes dar una visión general estructurada con viñetas, "
+        "pero sé directo y profesional.\n"
+        "MENSAJES SIGUIENTES: Sé aún más conciso. Responde en 1-2 líneas o 3-4 viñetas máximo. "
+        "Ahorra tokens. Ve al grano."
+    ) if is_first_message else (
+        "RESPUESTA MUY CONCISA: Máximo 3 viñetas. Una línea por idea. "
+        "Sé directo, formal y técnico. Ahorra tokens al máximo. "
+        "No repitas información del historial."
+    )
+
     system_prompt = (
         "Eres el Copiloto de Calidad de Datos de AuditData AI. "
-        "Estás asesorando a un analista de datos sobre una columna o problemática específica de un dataset.\n"
-        "REGLAS ÉTICAS Y DE COMUNICACIÓN:\n"
-        "1. Responde de forma concisa, técnica y didáctica (máximo 2-3 párrafos corta duración).\n"
-        "2. Respeta la soberanía del analista: él toma las decisiones finales.\n"
-        "3. Idioma: Español profesional por defecto.\n"
-        "4. Si te pregunta sobre duplicados ('__dataset__'), aclara que los duplicados aplican a filas completas del dataset, no a celdas aisladas."
+        "Asesoras a un analista sobre una columna específica de un dataset.\n"
+        "REGLAS:\n"
+        "1. Idioma: SIEMPRE español profesional, formal y directo.\n"
+        "2. Formato: Estructura tu respuesta como LISTA con viñetas (- item). "
+        "Cada viñeta = una idea completa. No uses párrafos largos.\n"
+        "3. Usa **negritas** para conceptos clave y `código` para valores/filas.\n"
+        "4. Sé soberano: el analista decide. No ordenes, sugiere.\n"
+        "5. Duplicados: solo aplican a filas completas del dataset, no a celdas.\n"
+        f"6. {verbosity_rule}"
     )
 
     issues_summary = ""

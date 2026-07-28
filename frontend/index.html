@@ -484,24 +484,22 @@
           </div>
         </div>
 
-        <!-- Sugerencias del Copiloto IA -->
-        <div class="drawer-section">
-          <h4>Recomendaciones del Copiloto IA</h4>
-          <div id="drawerAIRecs" class="drawer-recs-box">
-            <p class="empty-state">No hay recomendaciónes activas.</p>
-          </div>
-        </div>
-
-        <!-- Chat Interactivo en Lenguaje Natural -->
+        <!-- Chat Interactivo con el Copiloto IA -->
         <div class="drawer-section drawer-section--chat">
           <h4>Conversar con el Copiloto IA</h4>
           <div id="drawerChatFeed" class="chat-feed">
             <div class="chat-bubble chat-bubble--ai">
-              <strong>Copiloto IA:</strong> ¡Hola! Soy tu asistente técnico de calidad de datos. Pregúntame cualquier duda sobre cómo tratar las inconsistencias de esta columna. Recuerda que la decisión final es tuya.
+              <strong>Copiloto IA:</strong> Hola, soy tu copiloto de calidad de datos. Puedes preguntarme sobre:
+              <ul>
+                <li>Cómo limpiar inconsistenciaes detectadas</li>
+                <li>Qué acción recomiendo para cada problema</li>
+                <li>Explicación técnica de cada categoría de error</li>
+              </ul>
+              La decisión final es tuya. ¿En qué te ayudo?
             </div>
           </div>
           <div class="chat-input-row">
-            <input type="text" id="drawerChatInput" placeholder="Haz una pregunta técnica sobre esta columna..." />
+            <input type="text" id="drawerChatInput" placeholder="Pregunta técnica sobre esta columna..." />
             <button class="button button--primary" id="drawerChatSendButton" type="button">Enviar</button>
           </div>
         </div>

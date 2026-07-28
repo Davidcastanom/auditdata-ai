@@ -338,6 +338,32 @@ export class NubeValidación {
 
   // --- Side Drawer (used in Step 3 for inspection) ---
 
+  _renderMarkdown(text) {
+    const esc = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const bold = esc.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    const code = bold.replace(/`(.+?)`/g, '<code>$1</code>');
+    const lines = code.split('\n');
+    const out = [];
+    let inList = false, listType = null;
+    for (const line of lines) {
+      const t = line.trim();
+      const bm = t.match(/^[-*]\s+(.+)/);
+      const nm = t.match(/^\d+[.)]\s+(.+)/);
+      if (bm) {
+        if (!inList || listType !== 'ul') { if (inList) out.push(`</${listType}>`); out.push('<ul>'); inList = true; listType = 'ul'; }
+        out.push(`<li>${bm[1]}</li>`);
+      } else if (nm) {
+        if (!inList || listType !== 'ol') { if (inList) out.push(`</${listType}>`); out.push('<ol>'); inList = true; listType = 'ol'; }
+        out.push(`<li>${nm[1]}</li>`);
+      } else {
+        if (inList) { out.push(`</${listType}>`); inList = false; listType = null; }
+        out.push(t === '' ? '<br>' : line);
+      }
+    }
+    if (inList) out.push(`</${listType}>`);
+    return out.join('\n');
+  }
+
   initDrawerEvents() {
     const drawer = document.querySelector('#aiColumnDrawer');
     const backdrop = document.querySelector('#aiColumnDrawerBackdrop');
@@ -370,7 +396,6 @@ export class NubeValidación {
     const title = document.querySelector('#drawerColTitle');
     const meta = document.querySelector('#drawerColMeta');
     const diagBox = document.querySelector('#drawerDiagnostics');
-    const recsBox = document.querySelector('#drawerAIRecs');
     const chatFeed = document.querySelector('#drawerChatFeed');
 
     if (!drawer || !backdrop) return;
@@ -439,8 +464,6 @@ export class NubeValidación {
       diagBox.innerHTML = extraSections + issuesHtml;
     }
 
-    recsBox.innerHTML = `<p class="empty-state">Las recomendaciónes de IA estan disponibles en el Step 4 (Depuración).</p>`;
-
     const history = this.drawerChatHistory[columnName] || [];
     chatFeed.innerHTML = '';
     history.forEach(msg => {
@@ -450,9 +473,15 @@ export class NubeValidación {
       chatFeed.appendChild(div);
     });
     if (history.length === 0) {
+      const issueList = issues.length > 0
+        ? `<ul>${issues.map(i => `<li><strong>${this._escHtml(i.category_code)}</strong> (${i.count} filas, ${(i.percentage || 0).toFixed(1)}%)</li>`).join('')}</ul>`
+        : '';
       chatFeed.innerHTML = `
         <div class="chat-bubble chat-bubble--ai">
-          <strong>Copiloto IA:</strong> Hola, estoy analizando la columna <code>${this._escHtml(columnName)}</code>. Preguntame cualquier duda técnica sobre como depurar sus datos. Tu tienes el control final.
+          <strong>Copiloto IA:</strong> Analicé <code>${this._escHtml(columnName)}</code>.
+          ${issues.length > 0
+            ? `Encontré <strong>${issues.length}</strong> problema(s):${issueList}Pregúntame cómo corregirlos. Tú tienes el control final.`
+            : 'No encontré problemas de calidad. ¿Quieres que revise alguna condición específica?'}
         </div>
       `;
     }
@@ -503,7 +532,7 @@ export class NubeValidación {
 
       const data = await response.json();
       const answer = data.response || 'Sin respuesta';
-      thinkingDiv.innerHTML = `<strong>Copiloto IA:</strong> ${this._escHtml(answer)}`;
+      thinkingDiv.innerHTML = `<strong>Copiloto IA:</strong> ${this._renderMarkdown(answer)}`;
       this.drawerChatHistory[columnName].push({ role: 'assistant', content: answer });
     } catch (e) {
       thinkingDiv.innerHTML = `<strong>Copiloto IA:</strong> Error al consultar: ${this._escHtml(e.message)}`;

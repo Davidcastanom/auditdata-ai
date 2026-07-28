@@ -706,7 +706,6 @@ function openDepurDrawer(columnName) {
   const title = document.querySelector('#drawerColTitle');
   const meta = document.querySelector('#drawerColMeta');
   const diagBox = document.querySelector('#drawerDiagnostics');
-  const recsBox = document.querySelector('#drawerAIRecs');
   const chatFeed = document.querySelector('#drawerChatFeed');
 
   if (!drawer || !backdrop) return;
@@ -817,13 +816,12 @@ function openDepurDrawer(columnName) {
     chatFeed.appendChild(div);
   });
   if (history.length === 0) {
-    chatFeed.innerHTML = `
-      <div class="chat-bubble chat-bubble--ai">
-        <strong>Copiloto:</strong> Hola, estoy analizando la columna <code>${escapeHtml(columnName)}</code>.
-        ${issues.length > 0 ? `Detecte <strong>${issues.length}</strong> problema(s): ${issues.map(i => i.category_code).join(', ')}.` : 'No hay problemas detectados.'}
-        Preguntame lo que necesites o usa las recomendaciónes de abajo para depurar. Tu tienes el control.
-      </div>
-    `;
+    const welcomeText = issues.length > 0
+      ? `<strong>Copiloto:</strong> Analicé <code>${escapeHtml(columnName)}</code>. Detecté <strong>${issues.length}</strong> problema(s):
+<ul>${issues.map(i => `<li><strong>${escapeHtml(i.category_code)}</strong> (${i.count} filas, ${(i.percentage || 0).toFixed(1)}%): ${escapeHtml(i.description || '')}</li>`).join('')}</ul>
+Pregúntame cómo corregir cada uno o pídeme una recomendación específica. Tú decides.`
+      : `<strong>Copiloto:</strong> Analicé <code>${escapeHtml(columnName)}</code>. No encontré problemas de calidad. ¿Quieres que revise alguna condición específica?`;
+    chatFeed.innerHTML = `<div class="chat-bubble chat-bubble--ai">${welcomeText}</div>`;
   }
 
   drawer.classList.add('is-active');
@@ -848,139 +846,51 @@ function openDepurDrawer(columnName) {
     }
     drawer._eventsBound = true;
   }
-
-  fetchDepurRecommendations(columnName, colDiag, recsBox);
 }
 
-async function fetchDepurRecommendations(columnName, colDiag, recsBox) {
-  try {
-    const response = await fetch('/api/ai/column-recommendations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filename: store.state.filename,
-        content_base64: store.state.fileBase64,
-        column: columnName
-      })
-    });
-
-    if (!response.ok) throw new Error('Error al obtener recomendaciónes');
-
-    const data = await response.json();
-    const recs = data.recommendations || [];
-
-    if (recs.length === 0) {
-      recsBox.innerHTML = `<p class="empty-state">Sin recomendaciónes automaticas. Pregunta al Copiloto.</p>`;
-      return;
+function renderMarkdown(text) {
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  const withBold = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  const withCode = withBold.replace(/`(.+?)`/g, '<code>$1</code>');
+  const lines = withCode.split('\n');
+  const out = [];
+  let inList = false;
+  let listType = null;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    const bulletMatch = trimmed.match(/^[-*]\s+(.+)/);
+    const numMatch = trimmed.match(/^\d+[.)]\s+(.+)/);
+    if (bulletMatch) {
+      if (!inList || listType !== 'ul') {
+        if (inList) out.push(`</${listType}>`);
+        out.push('<ul>');
+        inList = true;
+        listType = 'ul';
+      }
+      out.push(`<li>${bulletMatch[1]}</li>`);
+    } else if (numMatch) {
+      if (!inList || listType !== 'ol') {
+        if (inList) out.push(`</${listType}>`);
+        out.push('<ol>');
+        inList = true;
+        listType = 'ol';
+      }
+      out.push(`<li>${numMatch[1]}</li>`);
+    } else {
+      if (inList) { out.push(`</${listType}>`); inList = false; listType = null; }
+      if (trimmed === '') {
+        out.push('<br>');
+      } else {
+        out.push(line);
+      }
     }
-
-    recsBox.innerHTML = recs.map((rec, idx) => {
-      const rows = rec.affected_rows || [];
-      const rowsText = rows.length > 0 ? rows.slice(0, 5).join(', ') + (rows.length > 5 ? ` (+${rows.length - 5})` : '') : 'N/A';
-      const actionKind = rec.action?.kind || 'flag_outliers';
-      const actionMethod = rec.action?.method || rec.action?.value || '';
-      const actionLabel = labelForAction(actionKind);
-      const shortText = (rec.text || '').length > 80 ? (rec.text || '').substring(0, 80) + '...' : (rec.text || '');
-
-      return `
-      <div class="drawer-rec-card" data-rec-idx="${idx}">
-        <div class="drawer-rec-header">
-          <span class="tag tag--sm">${escapeHtml(rec.category || '')}</span>
-          <span style="font-size:0.75rem;color:var(--color-muted);">${rows.length} fila(s)</span>
-        </div>
-        <p class="drawer-rec-text">${escapeHtml(shortText)}</p>
-        <div class="drawer-rec-action-line">
-          <span class="drawer-rec-action-badge">${escapeHtml(actionLabel)}</span>
-          ${actionMethod ? `<span class="drawer-rec-method">→ ${escapeHtml(actionMethod)}</span>` : ''}
-        </div>
-        ${rows.length > 0 ? `<p class="drawer-rec-rows">Filas: <code>${escapeHtml(rowsText)}</code></p>` : ''}
-        <div class="drawer-rec-reason">
-          <textarea rows="1" placeholder="Justificación (opcional)..." data-rec-reason="${idx}"></textarea>
-        </div>
-        <div class="drawer-rec-actions">
-          <button class="button button--primary button--sm" type="button" data-accept-rec="${idx}" data-col="${escapeAttr(columnName)}" data-kind="${escapeAttr(actionKind)}" data-method="${escapeAttr(actionMethod)}" data-rows="${escapeAttr(JSON.stringify(rows))}">Aceptar</button>
-          <button class="button button--ghost button--sm" type="button" data-dismiss-rec="${idx}">Cancelar</button>
-        </div>
-        <div class="drawer-rec-validation" id="recValidation-${idx}" style="display:none;">
-          <div class="rec-validation__summary">
-            <div class="rec-validation__row"><span class="rec-validation__label">Acción:</span> <strong>${escapeHtml(actionLabel)}</strong></div>
-            <div class="rec-validation__row"><span class="rec-validation__label">Columna:</span> ${escapeHtml(columnName)}</div>
-            ${actionMethod ? `<div class="rec-validation__row"><span class="rec-validation__label">Metodo:</span> ${escapeHtml(actionMethod)}</div>` : ''}
-            <div class="rec-validation__row"><span class="rec-validation__label">Filas:</span> <code>${escapeHtml(rowsText)}</code> (${rows.length})</div>
-          </div>
-          <div class="drawer-rec-actions" style="margin-top:var(--space-2);">
-            <button class="button button--success button--sm" type="button" data-confirm-rec="${idx}">Confirmar y Documentar</button>
-            <button class="button button--ghost button--sm" type="button" data-cancel-validation="${idx}">Volver</button>
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-
-    recsBox.querySelectorAll('[data-accept-rec]').forEach(btn => {
-      btn.onclick = () => {
-        const idx = Number(btn.dataset.acceptRec);
-        const card = btn.closest('.drawer-rec-card');
-        const validation = card.querySelector(`#recValidation-${idx}`);
-        if (validation) {
-          btn.style.display = 'none';
-          validation.style.display = 'block';
-        }
-      };
-    });
-
-    recsBox.querySelectorAll('[data-cancel-validation]').forEach(btn => {
-      btn.onclick = () => {
-        const idx = Number(btn.dataset.cancelValidation);
-        const card = btn.closest('.drawer-rec-card');
-        const validation = card.querySelector(`#recValidation-${idx}`);
-        const applyBtn = card.querySelector(`[data-accept-rec="${idx}"]`);
-        if (validation) validation.style.display = 'none';
-        if (applyBtn) applyBtn.style.display = '';
-      };
-    });
-
-    recsBox.querySelectorAll('[data-confirm-rec]').forEach(btn => {
-      btn.onclick = () => {
-        const idx = Number(btn.dataset.confirmRec);
-        const card = btn.closest('.drawer-rec-card');
-        const applyBtn = card.querySelector(`[data-accept-rec="${idx}"]`);
-        const kind = applyBtn.dataset.kind;
-        const col = applyBtn.dataset.col;
-        const method = applyBtn.dataset.method;
-        const rows = JSON.parse(applyBtn.dataset.rows || '[]');
-        const reasonTextarea = card.querySelector(`[data-rec-reason="${idx}"]`);
-        const userReason = reasonTextarea?.value?.trim() || '';
-        const autoReason = `Validado y confirmado desde Copiloto IA: ${card.querySelector('p')?.textContent || ''}`;
-        addAction({
-          kind,
-          column: col,
-          method,
-          rows,
-          _rowsKey: `${kind}_${rows.join(',')}`,
-          reason: userReason || autoReason,
-        });
-        card.innerHTML = `<div class="rec-confirmed"><span class="status status--ok">Aplicada y documentada en bitácora</span></div>`;
-        renderDepurationBoard();
-      };
-    });
-
-    recsBox.querySelectorAll('[data-dismiss-rec]').forEach(btn => {
-      btn.onclick = () => btn.closest('.drawer-rec-card')?.remove();
-    });
-  } catch (e) {
-    recsBox.innerHTML = `
-      <div class="empty-state" style="text-align:center;padding:var(--space-3);">
-        <p style="margin:0 0 8px;">No se pudieron cargar las recomendaciónes.</p>
-        <p style="margin:0 0 12px;font-size:0.8rem;color:var(--color-muted);">Verifica tu conexión y vuelve a intentar.</p>
-        <button class="button button--primary button--sm retry-recommendations" type="button">
-          Reintentar
-        </button>
-      </div>`;
-    recsBox.querySelector('.retry-recommendations')?.addEventListener('click', () => {
-      recsBox.innerHTML = '<div class="nube-loading" style="padding:var(--space-3);"><div class="nube-spinner"></div><p style="font-size:0.8rem;">Cargando recomendaciónes...</p></div>';
-      fetchDepurRecommendations(columnName, colDiag, recsBox);
-    });
   }
+  if (inList) out.push(`</${listType}>`);
+  return out.join('\n');
 }
 
 async function sendDepurChatMessage(columnName, query) {
@@ -1018,7 +928,7 @@ async function sendDepurChatMessage(columnName, query) {
 
     const data = await response.json();
     const answer = data.response || 'Sin respuesta';
-    thinkingDiv.innerHTML = `<strong>Copiloto:</strong> ${escapeHtml(answer)}`;
+    thinkingDiv.innerHTML = `<strong>Copiloto:</strong> ${renderMarkdown(answer)}`;
     depurChatHistory[columnName].push({ role: 'assistant', content: answer });
   } catch (e) {
     thinkingDiv.innerHTML = `<strong>Copiloto:</strong> Error: ${escapeHtml(e.message)}`;

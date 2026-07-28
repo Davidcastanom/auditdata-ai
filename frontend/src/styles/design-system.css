@@ -2448,8 +2448,7 @@ th {
   font-family: var(--font-mono);
 }
 
-.drawer-diagnostics-box,
-.drawer-recs-box {
+.drawer-diagnostics-box {
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -2708,12 +2707,20 @@ th {
 }
 
 /* CHAT FEED STYLES */
+.drawer-section--chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 .chat-feed {
   background: var(--color-black);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
-  max-height: 220px;
+  flex: 1;
+  min-height: 120px;
+  max-height: 420px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -2724,8 +2731,8 @@ th {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   font-size: 0.85rem;
-  line-height: 1.5;
-  max-width: 90%;
+  line-height: 1.55;
+  max-width: 92%;
 }
 
 .chat-bubble--ai {
@@ -2733,6 +2740,30 @@ th {
   border: 1px solid var(--color-border);
   color: var(--color-text);
   align-self: flex-start;
+}
+
+.chat-bubble ul,
+.chat-bubble ol {
+  margin: 4px 0 2px;
+  padding-left: 1.3rem;
+}
+.chat-bubble li {
+  margin-bottom: 3px;
+  font-size: 0.83rem;
+  line-height: 1.45;
+}
+.chat-bubble li:last-child {
+  margin-bottom: 0;
+}
+.chat-bubble code {
+  font-size: 0.78rem;
+  background: var(--color-black);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+.chat-bubble strong {
+  color: var(--color-accent);
 }
 
 .chat-bubble--user {

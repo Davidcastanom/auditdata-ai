@@ -118,12 +118,6 @@ class AIChatRequest(BaseModel):
     chat_history: list[dict[str, str]] | None = None
 
 
-class ColumnRecommendRequest(BaseModel):
-    filename: str
-    content_base64: str
-    column: str
-
-
 @app.post("/api/ai/recommend")
 async def ai_recommend(req: AnalyzeRequest):
     """
@@ -187,39 +181,6 @@ async def ai_chat_column(req: AIChatRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/api/ai/column-recommendations")
-async def ai_column_recommendations(req: ColumnRecommendRequest):
-    """Genera recomendaciones de depuración para una columna específica."""
-    try:
-        payload = _decode_payload(req.content_base64)
-
-        from data_engine.diagnostic import diagnose_dataset
-        from data_engine.analyzer import load_dataset
-        from data_engine.ai_advisor import get_column_depuration_recommendations
-
-        headers, rows, header_row_index = load_dataset(req.filename, payload)
-        diagnostic = diagnose_dataset(headers, rows, header_row_index)
-        diag_dict = diagnostic.to_dict()
-
-        col_diag = {"issues": [], "inferred_domain": None, "total_rows": len(rows)}
-        for col in diag_dict.get("columns", []):
-            if col.get("column") == req.column:
-                col_diag = col
-                break
-
-        result = await get_column_depuration_recommendations(
-            column_name=req.column,
-            column_diagnostic=col_diag,
-            sample_rows=rows[:20]
-        )
-        return result
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        return {"recommendations": [], "status": "error", "message": str(e)}
 
 
 @app.post("/api/clean")
