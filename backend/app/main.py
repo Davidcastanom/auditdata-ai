@@ -201,11 +201,13 @@ async def ai_column_deep_analysis(req: ColumnDeepAnalysisRequest):
         from data_engine.ai_advisor import analyze_column_deep
 
         headers, rows, header_row_index = load_dataset(req.filename, payload)
-        column_values = [row.get(req.column, "") for row in rows]
+        # file_row = header_row_index + 2 + i  (header_row_index es 0-based, fila 1 del archivo = header)
+        file_row_start = header_row_index + 2
+        column_data = [(file_row_start + i, row.get(req.column, "")) for i, row in enumerate(rows)]
 
         result = await analyze_column_deep(
             column_name=req.column,
-            column_values=column_values,
+            column_data=column_data,
             total_rows=len(rows),
         )
         return result

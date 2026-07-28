@@ -757,11 +757,12 @@ def _get_deep_client() -> Groq | AsyncGroq | None:
 
 async def analyze_column_deep(
     column_name: str,
-    column_values: list[str],
+    column_data: list[tuple[int, str]],
     total_rows: int = 0,
 ) -> dict[str, Any]:
     """
     Analiza una columna como experto senior y devuelve hallazgos + recomendaciones.
+    column_data: lista de (numero_fila_en_archivo, valor)
     """
     client = _get_deep_client()
     if not client:
@@ -770,9 +771,11 @@ async def analyze_column_deep(
             "status": "no_api_key",
         }
 
-    sample = column_values[:50]
-    n_missing = sum(1 for v in column_values if not v or v.strip() == "")
-    n_total = total_rows or len(column_values)
+    n_total = total_rows or len(column_data)
+    n_missing = sum(1 for _, v in column_data if not v or v.strip() == "")
+
+    sample_rows = column_data[:50]
+    sample_str = "; ".join([f"Fila {r}={v}" for r, v in sample_rows])
 
     system_prompt = (
         "Eres un analista senior de calidad de datos con 15 anios de experiencia. "
@@ -784,19 +787,24 @@ async def analyze_column_deep(
     user_prompt = (
         f"COLUMNA: '{column_name}'\n"
         f"Total filas: {n_total} | Vacios: {n_missing}\n"
-        f"Valores de ejemplo ({len(sample)} mostrados): {sample}\n\n"
+        f"Datos (fila=valor, primeras {len(sample_rows)}):\n{sample_str}\n\n"
         "INSTRUCCIONES:\n"
         "- Identifica SOLO anomalias reales (no describas datos normales)\n"
-        "- Clasifica cada hallazgo por tipo de error y filas afectadas\n"
-        "- Da una recomendacion ACCIONABLE y CONCRETA por cada hallazgo\n"
+        "- Si NO hay anomalias responde exactamente: No hay hallazgos significativos.\n"
+        "- Por cada hallazgo incluye: numero(s) de FILA exacto(s) y el VALOR de ejemplo\n"
+        "- Clasifica cada hallazgo por tipo de error\n"
+        "- Da una recomendacion ACCIONABLE y CONCRETA\n"
         "- Sin introduccion, sin despedida, sin texto adicional\n\n"
-        "FORMATO EXACTO (sin desviaciones):\n"
-        "1. **NOMBRE_HALLAZGO** (N filas)\n"
-        "   Descripcion breve del problema.\n"
-        "   -> **Recomendacion**: accion especifica a tomar.\n\n"
-        "2. **SIGUIENTE_HALLAZGO** (N filas)\n"
-        "   Descripcion breve.\n"
+        "FORMATO EXACTO:\n"
+        "1. **NOMBRE_HALLAZGO** (Filas 5, 12, 18)\n"
+        "   Valor ejemplo: \"juan.perez@\"\n"
+        "   -> **Recomendacion**: accion especifica.\n\n"
+        "2. **SIGUIENTE_HALLAZGO** (Filas 3, 7)\n"
+        "   Valor ejemplo: \"NA\"\n"
         "   -> **Recomendacion**: accion especifica.\n"
+        "---\n"
+        "Si no hay errores:\n"
+        "No hay hallazgos significativos.\n"
     )
 
     messages = [

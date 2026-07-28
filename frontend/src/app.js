@@ -805,8 +805,6 @@ function openDepurDrawer(columnName) {
     diagBox.innerHTML = extraSections + issuesHtml;
   }
 
-  recsBox.innerHTML = '<div class="nube-loading" style="padding:var(--space-3);"><div class="nube-spinner"></div><p style="font-size:0.8rem;">Cargando recomendaciónes...</p></div>';
-
   const history = depurChatHistory[columnName] || [];
   chatFeed.innerHTML = '';
   history.forEach(msg => {

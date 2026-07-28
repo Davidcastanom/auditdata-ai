@@ -5,7 +5,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/Tests-18%2F18%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-53%2F53%20passing-brightgreen.svg)](tests/)
 [![Deploy](https://img.shields.io/badge/Deploy-Render-blue.svg)](https://auditdata-ai-1.onrender.com)
 
 ---
@@ -34,11 +34,11 @@ La herramienta **no inventa datos**. Calcula hallazgos, documenta riesgos y perm
 
 1. **Comprender** — Define unidad de análisis, objetivo y carga el dataset
 2. **Perfilar** — Diagnóstico técnico automático por columna (tipos, distribución, frecuencias)
-3. **Reglas** — Documenta decisiones estructurales (categorización de columnas)
-4. **Diagnóstico** — Detección de 28 categorías de problemas de calidad por columna
-5. **Depurar** — Aplica acciones de limpieza con Copiloto IA y control del analista
+3. **Reglas** — Documenta decisiones estructurales (categorización de columnas, claves de duplicados)
+4. **Diagnóstico** — Detección de 28 categorías de problemas por columna + análisis profundo con IA
+5. **Depurar** — Aplica acciones de limpieza con Copiloto IA (chat interactivo), el analista decide
 6. **Validar** — Demuestra la calidad antes de declarar el dataset listo
-7. **Informe** — Compila Data Cleaning Report (PDF académico, Markdown, bitácora)
+7. **Informe** — Compila Data Cleaning Report (PDF académico, Markdown, bitácora, XLSX)
 
 ---
 
@@ -52,15 +52,15 @@ auditdata-ai/
 │   └── server.py            # Runner de Uvicorn
 ├── data_engine/
 │   ├── analyzer.py           # Motor de análisis + acciones de limpieza
-│   ├── diagnostic.py         # Diagnóstico de 28 categorías de calidad
-│   ├── ai_advisor.py         # Copiloto IA (Groq/Llama3.1)
+│   ├── diagnostic.py         # Diagnóstico de 28 categorías + FastTextProfiler v3.0
+│   ├── ai_advisor.py         # Copiloto IA (Groq/Llama3.1) — chat + análisis profundo
 │   ├── charts.py             # Generación de gráficos para PDF
 │   └── domain_rules.py       # 20 reglas de dominio por tipo de columna
 ├── frontend/
-│   ├── index.html            # UI principal (wizard 7 pasos)
+│   ├── index.html            # UI (wizard 7 pasos)
 │   └── src/
-│       ├── app.js            # Orquestación UI (modo local)
-│       ├── nube.js           # Orquestación UI (modo nube/Supabase)
+│       ├── app.js            # Orquestación UI principal
+│       ├── nube.js           # Diagnóstico interactivo (Paso 04)
 │       ├── auth.js           # Autenticación Google OAuth + Supabase
 │       ├── router.js         # Navegación por hash
 │       ├── state.js          # Estado con localStorage + undo
@@ -69,8 +69,8 @@ auditdata-ai/
 ├── tests/
 │   ├── test_api.py           # 16 tests de integración
 │   ├── test_analyzer.py      # 2 tests del motor
-│   └── frontend/             # 34 tests E2E con Playwright
-├── docs/                     # Documentación (no modificar)
+│   └── test_characterization.py  # 35 tests de caracterización
+├── docs/                     # Documentación
 ├── samples/                  # Datasets de ejemplo
 ├── render.yaml               # Configuración Render
 ├── requirements.txt          # Dependencias Python
@@ -107,14 +107,36 @@ El diagnóstico detecta automáticamente **28 categorías** de problemas agrupad
 - **CATEGORICA**: Top 3/5/10 valores ≥90%
 - **TEXTO_LIBRE**: Ninguna regla matchea
 
+### Detección de duplicados con Key Columns
+
+El sistema acepta `duplicate_key_columns` para definir qué columnas usar al detectar duplicados (normaliza acentos, mayúsculas y espacios). Por defecto compara filas completas.
+
 ---
 
 ## Copiloto IA (Groq/Llama3.1)
 
-- Recomendaciones de depuración por columna (max 80 caracteres por recomendación)
-- Chat interactivo para preguntas sobre el dataset
-- Funciona sin API key (recomendaciones fallback basadas en diagnóstico)
+Dos integraciones con Groq API usando API keys independientes:
+
+### 1. Chat interactivo por columna (Paso 05 Depurar)
+- Conversación en lenguaje natural sobre problemas y acciones de limpieza
+- Respuestas estructuradas como listas con viñetas, no párrafos
+- Primer mensaje: detallado; mensajes siguientes: ultraconcisos (ahorro de tokens)
+- El analista tiene el control final de cada decisión
+
+### 2. Análisis profundo por columna (Paso 04 Diagnóstico)
+- Botón disparador "Ejecutar análisis" (bajo demanda, no automático)
+- Analiza TODOS los valores reales de la columna como experto senior
+- Output: lista numerada con cada hallazgo + recomendación accionable
+- Cada hallazgo incluye **fila(s) exacta(s)** del archivo y el **valor de ejemplo**
+- Si no hay anomalías: "No hay hallazgos significativos."
+- Cache por columna para evitar re-consultas
+- Sección colapsable "Recomendación de Copiloto" en cada tarjeta de diagnóstico
+
+### Configuración
+- API key principal: `GROQ_API_KEY` — para chat y recomendaciones batch
+- API key secundaria: `Recomendaciones_de_copiloto` — para análisis profundo
 - Modelo: `llama-3.1-8b-instant` (gratis, ~200ms latencia)
+- Sin API key: funciona en modo fallback con recomendaciones basadas en diagnóstico
 
 ---
 
@@ -141,11 +163,11 @@ El diagnóstico detecta automáticamente **28 categorías** de problemas agrupad
 |--------|------|-------------|
 | `POST` | `/api/analyze` | Analizar dataset |
 | `POST` | `/api/diagnose` | Diagnóstico de 28 categorías |
-| `POST` | `/api/clean` | Aplicar acciones de limpieza |
-| `POST` | `/api/file/preview` | Detectar encoding/delimitador |
+| `POST` | `/api/clean` | Aplicar acciones de limpieza + XLSX |
+| `POST` | `/api/file/preview` | Detectar encoding/delimitador/header |
 | `POST` | `/api/ai/recommend` | Recomendaciones IA batch |
-| `POST` | `/api/ai/chat-column` | Chat IA por columna |
-| `POST` | `/api/ai/column-recommendations` | Recomendación IA por columna |
+| `POST` | `/api/ai/chat-column` | Chat interactivo por columna |
+| `POST` | `/api/ai/column-deep-analysis` | Análisis profundo por columna (experto senior) |
 | `POST` | `/api/report/markdown` | Generar informe Markdown |
 | `POST` | `/api/report/pdf` | Generar informe PDF |
 | `POST` | `/api/report/audit-log` | Generar bitácora de cambios |
@@ -162,7 +184,8 @@ El diagnóstico detecta automáticamente **28 categorías** de problemas agrupad
 | `SUPABASE_URL` | Sí (nube) | URL del proyecto Supabase |
 | `SUPABASE_ANON_KEY` | Sí (nube) | Key anon de Supabase |
 | `SUPABASE_SERVICE_KEY` | Sí (nube) | Key service_role de Supabase |
-| `GROQ_API_KEY` | No | API key de Groq para IA |
+| `GROQ_API_KEY` | No | API key de Groq (chat + recomendaciones) |
+| `Recomendaciones_de_copiloto` | No | API key de Groq (análisis profundo) |
 | `ALLOWED_ORIGINS` | No | Orígenes CORS (default: `127.0.0.1:8000`) |
 | `HOST` | No | Host del servidor (default: `127.0.0.1`) |
 | `PORT` | No | Puerto del servidor (default: `8000`) |
@@ -198,31 +221,27 @@ Abrir: **http://127.0.0.1:8000**
 
 ## Deploy
 
-### Docker
-
-```bash
-docker-compose up --build
-```
-
 ### Render (producción)
 
 - Repo: [Davidcastanom/auditdata-ai](https://github.com/Davidcastanom/auditdata-ai)
 - URL: [auditdata-ai-1.onrender.com](https://auditdata-ai-1.onrender.com)
-- Variables configuradas en `render.yaml`
+- Auto-deploy desde `main` en GitHub
+- Variables de entorno configuradas en `render.yaml` + dashboard
+
+El `render.yaml` declara `GROQ_API_KEY` y `Recomendaciones_de_copiloto` como `sync: false` (se configuran manualmente en el dashboard de Render).
 
 ---
 
 ## Testing
 
 ```bash
-# Tests Python (18/18)
+# Tests Python (53/53)
 python -m pytest tests/ -v
 
-# Tests E2E (34/34)
-npx playwright test
-
-# Todos
-python -m pytest tests/ -v && npx playwright test
+# Tests específicos
+python -m pytest tests/test_api.py -v          # 16 tests API
+python -m pytest tests/test_characterization.py -v  # 35 tests caracterización
+python -m pytest tests/test_analyzer.py -v     # 2 tests motor
 ```
 
 ---
@@ -232,11 +251,16 @@ python -m pytest tests/ -v && npx playwright test
 | Color | Hex | Uso |
 |-------|-----|-----|
 | Azul eléctrico | `#0066FF` | Botones, links, acentos principales |
+| Azul hover | `#0052CC` | Hover de botones |
 | Cian | `#00D4FF` | Acentos especiales, tags |
 | Negro | `#0A0A0F` | Fondo principal |
 | Gris oscuro | `#12121A` | Tarjetas, superficies |
+| Gris medio | `#181824` | Superficies secundarias |
 | Blanco suave | `#F0F0F5` | Texto principal |
 | Gris metálico | `#9090A0` | Texto secundario |
+| Verde | `#22C55E` | Éxito, cumplimiento |
+| Amarillo | `#F59E0B` | Advertencia |
+| Rojo | `#EF4444` | Error, peligro |
 
 ---
 
@@ -246,22 +270,32 @@ python -m pytest tests/ -v && npx playwright test
 - [x] Motor de análisis con 4 dimensiones (completitud, consistencia, exactitud, unicidad)
 - [x] Diagnóstico de 28 categorías de calidad
 - [x] 10 acciones de limpieza documentadas
-- [x] Copiloto IA con Groq/Llama3.1 (recomendaciones + chat)
+- [x] Copiloto IA con Groq/Llama3.1 — chat interactivo por columna
+- [x] Análisis profundo por columna con experto IA (hallazgos + recomendaciones)
 - [x] Reporte PDF con 10 secciones (formato académico, gráficos light theme)
-- [x] Reporte Markdown con mismas secciones
+- [x] Reporte Markdown
+- [x] Exportación XLSX del dataset limpio
 - [x] Bitácora de cambios a nivel de celda
 - [x] Autenticación Google OAuth + Supabase
 - [x] Guardar historial en la nube
-- [x] File preview modal (encoding, delimitador, header row)
+- [x] File preview modal (encoding, delimitador, header row dinámico)
 - [x] Detección automática de dominios de columna (20 reglas)
-- [x] FastTextProfiler v3.0 (clasificación por frecuencia)
-- [x] 18 tests Python + 34 tests E2E
+- [x] FastTextProfiler v3.0 (clasificación por frecuencia con guard clause)
+- [x] Duplicados configurables por columnas clave (key_columns)
+- [x] Timer de procesamiento en barra de estado
+- [x] Plantillas de dataset (Ventas, RRHH, Financiero, General)
+- [x] 53 tests Python
+- [x] Dead code removal y consolidación de modelos
+- [x] Respuestas de IA estructuradas como listas (no párrafos)
+- [x] Análisis profundo con fila exacta + valor ejemplo por hallazgo
 
 ### Próximo
+- [ ] Apply all safe recommendations in one click (H1c)
+- [ ] Rangos configurables por columna
+- [ ] Chat conectado a detección de duplicados
 - [ ] Exportar reporte como DOCX
-- [ ] Soporte para múltiples datasets en un mismo proyecto
 - [ ] Multi-idioma (español, inglés, portugués)
-- [ ] Descripción de cada columna con contexto del negocio
+- [ ] GitHub Actions CI pipeline
 
 ---
 
