@@ -187,28 +187,85 @@ class ColumnDeepAnalysisRequest(BaseModel):
     filename: str
     content_base64: str
     column: str
+    detected_type: str = "unknown"
+    inferred_domain: str = ""
 
 
 @app.post("/api/ai/column-deep-analysis")
 async def ai_column_deep_analysis(req: ColumnDeepAnalysisRequest):
     """
     Analiza una columna como experto senior: hallazgos + recomendaciones estructuradas.
+    Incluye contexto completo: indicadores, frecuencias, estadisticas y datos ordenados.
     """
     try:
         payload = _decode_payload(req.content_base64)
 
         from data_engine.analyzer import load_dataset
         from data_engine.ai_advisor import analyze_column_deep
+        from collections import Counter
+        import statistics
 
         headers, rows, header_row_index = load_dataset(req.filename, payload)
-        # file_row = header_row_index + 2 + i  (header_row_index es 0-based, fila 1 del archivo = header)
         file_row_start = header_row_index + 2
         column_data = [(file_row_start + i, row.get(req.column, "")) for i, row in enumerate(rows)]
+
+        # --- Compute indicators from actual data ---
+        values = [v for _, v in column_data]
+        present = [v for v in values if v and v.strip()]
+        missing_count = len(values) - len(present)
+        unique_count = len(set(present))
+
+        # Frequency table (top 30, no percentages to avoid false positives)
+        freq = Counter(present)
+        value_distribution = [
+            {"value": v, "count": c}
+            for v, c in freq.most_common(30)
+        ]
+
+        # Numeric stats
+        stats_summary = {}
+        if req.detected_type == "number":
+            numeric_vals = []
+            for v in present:
+                try:
+                    numeric_vals.append(float(v.replace(",", ".")))
+                except (ValueError, AttributeError):
+                    pass
+            if numeric_vals:
+                numeric_vals.sort()
+                n = len(numeric_vals)
+                q1 = numeric_vals[n // 4]
+                q3 = numeric_vals[3 * n // 4]
+                iqr = q3 - q1
+                lower_fence = q1 - 1.5 * iqr
+                upper_fence = q3 + 1.5 * iqr
+                outliers_low = sum(1 for v in numeric_vals if v < lower_fence)
+                outliers_high = sum(1 for v in numeric_vals if v > upper_fence)
+                stats_summary = {
+                    "min": numeric_vals[0],
+                    "max": numeric_vals[-1],
+                    "mean": round(statistics.mean(numeric_vals), 4),
+                    "median": round(statistics.median(numeric_vals), 4),
+                    "stdev": round(statistics.stdev(numeric_vals), 4) if n > 1 else 0,
+                    "q1": q1,
+                    "q3": q3,
+                    "iqr": iqr,
+                    "outliers_bajos": outliers_low,
+                    "outliers_altos": outliers_high,
+                }
 
         result = await analyze_column_deep(
             column_name=req.column,
             column_data=column_data,
             total_rows=len(rows),
+            total_columns=len(headers),
+            headers=headers,
+            detected_type=req.detected_type,
+            inferred_domain=req.inferred_domain,
+            unique_count=unique_count,
+            missing_count=missing_count,
+            value_distribution=value_distribution,
+            stats_summary=stats_summary,
         )
         return result
 

@@ -759,9 +759,18 @@ async def analyze_column_deep(
     column_name: str,
     column_data: list[tuple[int, str]],
     total_rows: int = 0,
+    total_columns: int = 0,
+    headers: list[str] | None = None,
+    detected_type: str = "unknown",
+    inferred_domain: str = "",
+    unique_count: int = 0,
+    missing_count: int = 0,
+    value_distribution: list[dict] | None = None,
+    stats_summary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Analiza una columna como experto senior y devuelve hallazgos + recomendaciones.
+    Recibe contexto completo: indicadores, frecuencias, estadisticas y headers.
     column_data: lista de (numero_fila_en_archivo, valor)
     """
     client = _get_deep_client()
@@ -772,11 +781,54 @@ async def analyze_column_deep(
         }
 
     n_total = total_rows or len(column_data)
-    n_missing = sum(1 for _, v in column_data if not v or v.strip() == "")
 
-    sample_rows = column_data[:50]
+    # --- Sort data for better pattern detection ---
+    if detected_type == "number":
+        def _num_sort_key(item):
+            try:
+                return (0, float(item[1].replace(",", ".")))
+            except (ValueError, AttributeError):
+                return (1, str(item[1]).lower())
+        sorted_data = sorted(column_data, key=_num_sort_key)
+    else:
+        sorted_data = sorted(column_data, key=lambda x: (str(x[1]).lower(), x[0]))
+
+    # Sample: take up to 200 rows from sorted data
+    sample_size = min(200, len(sorted_data))
+    sample_rows = sorted_data[:sample_size]
     sample_str = "; ".join([f"Fila {r}={v}" for r, v in sample_rows])
 
+    # --- Build dataset context ---
+    headers_str = ", ".join(headers) if headers else ""
+    dataset_context = f"Dataset: {n_total} filas x {total_columns} columnas\n"
+    if headers_str:
+        dataset_context += f"Columnas del dataset: {headers_str}\n"
+
+    # --- Build indicators section (NO percentages) ---
+    indicators = (
+        f"- **Unicos**: {unique_count}\n"
+        f"- **Vacios**: {missing_count}\n"
+    )
+
+    # --- Build frequency table (top 20, counts only) ---
+    freq_str = ""
+    if value_distribution:
+        freq_lines = [
+            f"  {i+1}. \"{d['value']}\": {d['count']} ocurrencias"
+            for i, d in enumerate(value_distribution[:20])
+        ]
+        freq_str = "**Tabla de Frecuencias (top 20):**\n" + "\n".join(freq_lines) + "\n"
+
+    # --- Build statistical summary (numeric only) ---
+    stats_str = ""
+    if stats_summary and detected_type == "number":
+        stats_lines = [
+            f"- **{k.replace('_', ' ').capitalize()}**: {v}"
+            for k, v in stats_summary.items()
+        ]
+        stats_str = "**Resumen Estadistico:**\n" + "\n".join(stats_lines) + "\n"
+
+    # --- Build prompts ---
     system_prompt = (
         "Eres un analista senior de calidad de datos con 15 anios de experiencia. "
         "Tu especialidad es detectar anomalias, patrones sucios e inconsistencias en columnas de datasets. "
@@ -785,9 +837,12 @@ async def analyze_column_deep(
     )
 
     user_prompt = (
-        f"COLUMNA: '{column_name}'\n"
-        f"Total filas: {n_total} | Vacios: {n_missing}\n"
-        f"Datos (fila=valor, primeras {len(sample_rows)}):\n{sample_str}\n\n"
+        f"COLUMNA: '{column_name}' (Tipo: {detected_type}, Dominio: {inferred_domain or 'general'})\n"
+        f"{dataset_context}\n"
+        f"INDICADORES:\n{indicators}\n"
+        f"{freq_str}\n"
+        f"{stats_str}\n"
+        f"Datos ordenados (fila=valor, primeros {len(sample_rows)} de {n_total}):\n{sample_str}\n\n"
         "INSTRUCCIONES:\n"
         "- Identifica SOLO anomalias reales (no describas datos normales)\n"
         "- Si NO hay anomalias responde exactamente: No hay hallazgos significativos.\n"

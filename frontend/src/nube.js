@@ -273,6 +273,11 @@ export class NubeValidación {
         btn.textContent = 'Analizando...';
         outputEl.innerHTML = '<div class="nube-loading" style="padding:var(--space-2);"><div class="nube-spinner"></div></div>';
 
+        // Look up column data for type and domain
+        const colData = this.diagnostic?.columns?.find(c => c.column === col);
+        const detectedType = colData?.profiler?.type || 'unknown';
+        const inferredDomain = colData?.inferred_domain || '';
+
         try {
           const response = await fetch('/api/ai/column-deep-analysis', {
             method: 'POST',
@@ -281,6 +286,8 @@ export class NubeValidación {
               filename: this.filename,
               content_base64: this.contentBase64,
               column: col,
+              detected_type: detectedType,
+              inferred_domain: inferredDomain,
             }),
           });
 
