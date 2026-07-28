@@ -825,24 +825,21 @@ Pregúntame cómo corregir cada uno o pídeme una recomendación específica. T�
   drawer.classList.add('is-active');
   backdrop.classList.add('is-active');
 
-  if (!drawer._eventsBound) {
-    const closeBtn = document.querySelector('#drawerCloseButton');
-    if (closeBtn) closeBtn.onclick = () => { drawer.classList.remove('is-active'); backdrop.classList.remove('is-active'); };
-    if (backdrop) backdrop.onclick = () => { drawer.classList.remove('is-active'); backdrop.classList.remove('is-active'); };
+  const closeBtn = document.querySelector('#drawerCloseButton');
+  if (closeBtn) closeBtn.onclick = () => { drawer.classList.remove('is-active'); backdrop.classList.remove('is-active'); };
+  if (backdrop) backdrop.onclick = () => { drawer.classList.remove('is-active'); backdrop.classList.remove('is-active'); };
 
-    const sendBtn = document.querySelector('#drawerChatSendButton');
-    const input = document.querySelector('#drawerChatInput');
-    if (sendBtn && input) {
-      const handleSend = () => {
-        const query = input.value.trim();
-        if (!query || !nube.currentDrawerColumn) return;
-        input.value = '';
-        sendDepurChatMessage(nube.currentDrawerColumn, query);
-      };
-      sendBtn.onclick = handleSend;
-      input.onkeydown = (e) => { if (e.key === 'Enter') handleSend(); };
-    }
-    drawer._eventsBound = true;
+  const sendBtn = document.querySelector('#drawerChatSendButton');
+  const input = document.querySelector('#drawerChatInput');
+  if (sendBtn && input) {
+    const handleSend = () => {
+      const query = input.value.trim();
+      if (!query || !nube.currentDrawerColumn) return;
+      input.value = '';
+      sendDepurChatMessage(nube.currentDrawerColumn, query);
+    };
+    sendBtn.onclick = handleSend;
+    input.onkeydown = (e) => { if (e.key === 'Enter') handleSend(); };
   }
 }
 
