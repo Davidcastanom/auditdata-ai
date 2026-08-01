@@ -19,10 +19,23 @@ function clearMsg(id) {
   $(id).classList.add("hidden");
 }
 
-async function apiCall(path, token) {
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+async function apiCall(path, token, options = {}) {
   const res = await fetch(path, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${token}` },
+    method: options.method || "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
   });
   if (!res.ok) {
     let detail = "Error " + res.status;
@@ -33,6 +46,22 @@ async function apiCall(path, token) {
     throw new Error(detail);
   }
   return res.json();
+}
+
+function describeError(e) {
+  const s = Number(e.status_code);
+  const path = e.endpoint || "";
+  if ((s === 401 || s === 403) && path.startsWith("/api/admin"))
+    return "Acceso al panel sin permisos de administrador";
+  if (s === 400 && path.includes("/api/clean"))
+    return "La limpieza rechazó el archivo (datos inválidos)";
+  if (s === 401) return "Sesión no autorizada / token inválido";
+  if (s === 403) return "Acceso denegado";
+  if (s === 404) return "Recurso no encontrado";
+  if (s === 422) return "Validación de datos fallida";
+  if (s >= 500) return "Error interno del servidor";
+  if (s === 400) return "Petición inválida (datos mal formados)";
+  return "Error HTTP " + s;
 }
 
 async function getTokenOrNull() {
@@ -84,21 +113,65 @@ function renderDaily(daily) {
 
 function renderErrors(errors) {
   const wrap = $("adminErrorsWrap");
+  const resolveBtn = $("adminResolveErrorsButton");
   if (!errors || errors.length === 0) {
-    wrap.innerHTML = `<p class="admin-note">Sin errores registrados.</p>`;
+    wrap.innerHTML = `<p class="admin-note">Sin errores pendientes.</p>`;
+    if (resolveBtn) resolveBtn.style.display = "none";
     return;
   }
-  const rows = errors
+  if (resolveBtn) resolveBtn.style.display = "";
+
+  const groups = new Map();
+  for (const e of errors) {
+    const key = `${e.endpoint}|${e.status_code}|${e.error_type}`;
+    if (!groups.has(key)) {
+      groups.set(key, { endpoint: e.endpoint, status_code: e.status_code, error_type: e.error_type, count: 0, last_seen: e.created_at || "" });
+    }
+    const g = groups.get(key);
+    g.count += 1;
+    if ((e.created_at || "") > (g.last_seen || "")) g.last_seen = e.created_at || "";
+  }
+
+  const rows = [...groups.values()]
     .map(
       (e) => `<tr>
-        <td><code>${e.endpoint || "-"}</code></td>
+        <td>${escapeHtml(describeError(e))}</td>
+        <td><code>${escapeHtml(e.endpoint || "-")}</code></td>
         <td><span class="badge-err">${e.status_code}</span></td>
-        <td>${e.error_type || "-"}</td>
-        <td>${(e.created_at || "-").slice(0, 19).replace("T", " ")}</td>
+        <td>${escapeHtml(e.error_type || "-")}</td>
+        <td>${e.count}${e.count > 1 ? " veces" : ""}</td>
+        <td>${(e.last_seen || "-").slice(0, 19).replace("T", " ")}</td>
       </tr>`
     )
     .join("");
   wrap.innerHTML = `<table class="admin-table">
+    <thead><tr><th>Descripción</th><th>Endpoint</th><th>Status</th><th>Tipo</th><th>Veces</th><th>Última vez</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+function renderHistory(resolved) {
+  const btn = $("adminToggleHistoryButton");
+  const wrap = $("adminHistoryWrap");
+  if (!resolved || resolved.length === 0) {
+    if (btn) btn.style.display = "none";
+    if (wrap) { wrap.classList.add("hidden"); wrap.innerHTML = ""; }
+    return;
+  }
+  if (btn) {
+    btn.style.display = "";
+    btn.textContent = wrap.classList.contains("hidden") ? `Ver historial (${resolved.length})` : "Ocultar historial";
+  }
+  const rows = resolved
+    .map(
+      (e) => `<tr>
+        <td><code>${escapeHtml(e.endpoint || "-")}</code></td>
+        <td><span class="badge-err">${e.status_code}</span></td>
+        <td>${escapeHtml(e.error_type || "-")}</td>
+        <td>${(e.created_at || "-").slice(0, 19).replace("T", " ")}</td>
+      </tr>`
+    )
+    .join("");
+  if (wrap) wrap.innerHTML = `<table class="admin-table">
     <thead><tr><th>Endpoint</th><th>Status</th><th>Tipo</th><th>Fecha</th></tr></thead>
     <tbody>${rows}</tbody></table>`;
 }
@@ -106,14 +179,16 @@ function renderErrors(errors) {
 async function loadDashboard(token) {
   clearMsg("adminDashMsg");
   try {
-    const [metricsRes, errorsRes] = await Promise.all([
+    const [metricsRes, errorsRes, resolvedRes] = await Promise.all([
       apiCall("/api/admin/metrics", token),
       apiCall("/api/admin/errors", token),
+      apiCall("/api/admin/errors?resolved=true&limit=100", token),
     ]);
     const daily = metricsRes.metrics?.daily || [];
     renderKpis(daily);
     renderDaily(daily);
     renderErrors(errorsRes.errors || []);
+    renderHistory(resolvedRes.errors || []);
   } catch (e) {
     setMsg("adminDashMsg", "No tienes permisos de administrador: " + e.message, false);
   }
@@ -228,6 +303,26 @@ function bindEvents() {
   $("adminRefreshButton").addEventListener("click", async () => {
     const token = await getTokenOrNull();
     if (token) await loadDashboard(token);
+  });
+
+  $("adminResolveErrorsButton").addEventListener("click", async () => {
+    const token = await getTokenOrNull();
+    if (!token) return;
+    setMsg("adminDashMsg", "Marcando errores como resueltos…", true);
+    try {
+      const data = await apiCall("/api/admin/errors/resolve", token, { method: "POST", body: {} });
+      setMsg("adminDashMsg", `${data.resolved} error(es) marcado(s) como resuelto(s).`, true);
+      await loadDashboard(token);
+    } catch (e) {
+      setMsg("adminDashMsg", e.message, false);
+    }
+  });
+
+  $("adminToggleHistoryButton").addEventListener("click", () => {
+    const wrap = $("adminHistoryWrap");
+    const wasHidden = wrap.classList.contains("hidden");
+    wrap.classList.toggle("hidden");
+    $("adminToggleHistoryButton").textContent = wasHidden ? "Ocultar historial" : "Ver historial";
   });
 
   $("adminSendErrorsButton").addEventListener("click", async () => {

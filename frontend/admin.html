@@ -131,6 +131,7 @@
         <div id="adminDashMsg" class="admin-msg hidden"></div>
         <div class="admin-actions" style="margin-bottom:1.25rem;">
           <button class="btn-primary" id="adminRefreshButton" type="button">Actualizar métricas</button>
+          <button class="button button--primary" id="adminResolveErrorsButton" type="button" style="border-color:var(--color-primary-dark);color:var(--color-primary-dark);background:transparent;display:none;">Marcar errores como resueltos</button>
           <button class="button button--primary" id="adminSendErrorsButton" type="button" style="border-color:var(--color-primary-dark);color:var(--color-primary-dark);background:transparent;">Enviar reporte de errores por email</button>
         </div>
 
@@ -141,9 +142,14 @@
           <div id="adminDailyWrap"><p class="admin-note">Sin datos aún. Las métricas se activan cuando el administrador configura Supabase y la app recibe tráfico.</p></div>
         </div>
 
-        <div class="admin-card">
-          <h2>Errores recientes</h2>
-          <div id="adminErrorsWrap"><p class="admin-note">Sin errores registrados.</p></div>
+        <div class="admin-card" id="adminErrorsCard">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <h2 style="margin:0;">Errores pendientes</h2>
+            <button class="admin-link" id="adminToggleHistoryButton" type="button" style="display:none;">Ver historial</button>
+          </div>
+          <div id="adminErrorsWrap" style="margin-top:0.9rem;"><p class="admin-note">Sin errores pendientes.</p></div>
+          <div id="adminHistoryWrap" class="hidden" style="margin-top:1rem;"></div>
+          <p class="admin-note" style="margin-top:1rem;">Los errores se agrupan por endpoint y tipo para reducir ruido. "Marcar como resueltos" los archiva en el historial. Los 403 de <code>/api/admin/*</code> suelen ser intentos de acceso sin permisos (por ejemplo, tu propio login antes de completarlo); los 400 de <code>/api/clean</code> eran el bug de XLSX ya corregido.</p>
         </div>
 
         <p class="admin-note">Política de privacidad: este panel muestra solo métricas anónimas de uso (hash de cliente, endpoints, tiempos y status). No muestra, almacena ni exporta datos clasificados de los usuarios.</p>

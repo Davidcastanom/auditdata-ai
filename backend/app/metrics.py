@@ -93,6 +93,30 @@ def record_usage_event(
     threading.Thread(target=_insert, args=("usage_events", payload), daemon=True).start()
 
 
+def classify_error(status_code: int, error_type: str = "") -> str:
+    """Traduce un status HTTP a un tipo de error legible.
+
+    El middleware captura el nombre de la excepción (error_type) solo para
+    fallos no controlados; para respuestas HTTP manejadas (400/403/422...)
+    este valor llega vacío y aquí se deriva una etiqueta comprensible.
+    """
+    if error_type:
+        return (error_type or "unknown")[:120]
+    if status_code == 401:
+        return "no_autorizado"
+    if status_code == 403:
+        return "prohibido"
+    if status_code == 404:
+        return "no_encontrado"
+    if status_code == 422:
+        return "validacion"
+    if status_code == 400:
+        return "peticion_invalida"
+    if status_code >= 500:
+        return "error_interno"
+    return f"http_{status_code}"
+
+
 def record_error(
     *,
     client_id: str,
@@ -107,7 +131,7 @@ def record_error(
         "client_hash": hash_client(client_id),
         "endpoint": endpoint,
         "status_code": int(status_code),
-        "error_type": (error_type or "unknown")[:120],
+        "error_type": classify_error(int(status_code), error_type),
     }
     threading.Thread(target=_insert, args=("error_logs", payload), daemon=True).start()
 
@@ -134,17 +158,20 @@ def get_admin_metrics() -> dict[str, Any]:
     }
 
 
-def get_admin_errors(limit: int = 50) -> list[dict]:
+def get_admin_errors(limit: int = 50, resolved: bool | None = None) -> list[dict]:
     if not metrics_enabled():
         return []
     try:
         from backend.app.auth import get_supabase_client
 
         client = get_supabase_client()
+        query = client.table("error_logs").select("*")
+        if resolved is True:
+            query = query.not_.is_("resolved_at", "null")
+        elif resolved is False:
+            query = query.is_("resolved_at", "null")
         res = (
-            client.table("error_logs")
-            .select("*")
-            .order("created_at", desc=True)
+            query.order("created_at", desc=True)
             .limit(int(limit))
             .execute()
         )
@@ -154,14 +181,49 @@ def get_admin_errors(limit: int = 50) -> list[dict]:
         return []
 
 
+def resolve_errors(ids: list[str] | None = None) -> int:
+    """Marca errores como resueltos (resolved_at = now()).
+
+    Si ids está vacío o es None, resuelve todos los pendientes.
+    Devuelve cuántos registros se actualizaron.
+    """
+    if not metrics_enabled():
+        return 0
+    try:
+        from datetime import datetime, timedelta, timezone
+
+        from backend.app.auth import get_supabase_client
+
+        client = get_supabase_client()
+        updates = {"resolved_at": datetime.now(timezone.utc).isoformat()}
+        if ids:
+            res = (
+                client.table("error_logs")
+                .update(updates)
+                .in_("id", list(ids))
+                .execute()
+            )
+        else:
+            res = (
+                client.table("error_logs")
+                .update(updates)
+                .is_("resolved_at", "null")
+                .execute()
+            )
+        return len(list(res.data or []))
+    except Exception as e:
+        logger.warning("Métricas: no se pudieron resolver errores: %s", e)
+        return 0
+
+
 def build_errors_report() -> dict:
-    """Arma el payload JSON que se envía al webhook de Make.com."""
+    """Arma el payload JSON que se envía al webhook de Make.com (errores pendientes)."""
     daily = get_admin_metrics().get("daily", [])
-    errors = get_admin_errors(limit=50)
+    errors = get_admin_errors(limit=50, resolved=False)
     return {
         "generated_at": _now_iso(),
         "summary": {
-            "total_errors": len(errors),
+            "total_pending_errors": len(errors),
             "active_users_today": sum(
                 int(d.get("active_users", 0)) for d in daily
             ),

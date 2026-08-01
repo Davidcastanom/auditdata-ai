@@ -72,12 +72,42 @@ class TestMetricsNoOp(unittest.TestCase):
     def test_get_admin_errors_returns_empty(self):
         self.assertEqual(metrics.get_admin_errors(), [])
 
+    def test_get_admin_errors_resolved_filters_are_noop(self):
+        self.assertEqual(metrics.get_admin_errors(resolved=False), [])
+        self.assertEqual(metrics.get_admin_errors(resolved=True), [])
+        self.assertEqual(metrics.get_admin_errors(resolved=None), [])
+
+    def test_resolve_errors_noop(self):
+        self.assertEqual(metrics.resolve_errors(), 0)
+        self.assertEqual(metrics.resolve_errors(["uuid-1", "uuid-2"]), 0)
+
     def test_build_errors_report_shape(self):
         report = metrics.build_errors_report()
         self.assertIn("generated_at", report)
         self.assertIn("summary", report)
         self.assertIn("errors", report)
         self.assertIn("recent_daily", report)
+
+
+class TestClassifyError(unittest.TestCase):
+    def test_preserves_exception_type(self):
+        self.assertEqual(metrics.classify_error(500, "ValueError"), "ValueError")
+
+    def test_truncates_long_types(self):
+        self.assertEqual(len(metrics.classify_error(500, "x" * 300)), 120)
+
+    def test_maps_http_statuses(self):
+        cases = {
+            401: "no_autorizado",
+            403: "prohibido",
+            404: "no_encontrado",
+            422: "validacion",
+            400: "peticion_invalida",
+            500: "error_interno",
+            418: "http_418",
+        }
+        for status, expected in cases.items():
+            self.assertEqual(metrics.classify_error(status), expected)
 
 
 class TestNotifyMakeWebhook(unittest.IsolatedAsyncioTestCase):
@@ -149,6 +179,40 @@ class TestAdminEndpointsAuth(unittest.TestCase):
             r = self._get("/api/admin/errors", token="admin-secret")
         self.assertEqual(r.status_code, 200)
         self.assertIn("errors", r.json())
+
+    def test_admin_errors_resolved_filter(self):
+        with patch.object(metrics, "ADMIN_TOKEN", "admin-secret"), \
+             patch.object(metrics, "get_admin_errors", return_value=[]) as mock_get:
+            r = self._get("/api/admin/errors?resolved=true", token="admin-secret")
+        self.assertEqual(r.status_code, 200)
+        mock_get.assert_called_once_with(limit=50, resolved=True)
+
+    def test_resolve_errors_requires_token(self):
+        r = client.post("/api/admin/errors/resolve")
+        self.assertEqual(r.status_code, 401)
+
+    def test_resolve_errors_with_token(self):
+        with patch.object(metrics, "ADMIN_TOKEN", "admin-secret"), \
+             patch.object(metrics, "resolve_errors", return_value=3) as mock_resolve:
+            r = client.post(
+                "/api/admin/errors/resolve",
+                headers={"Authorization": "Bearer admin-secret"},
+                json={"ids": ["uuid-1", "uuid-2", "uuid-3"]},
+            )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json(), {"resolved": 3})
+        mock_resolve.assert_called_once_with(["uuid-1", "uuid-2", "uuid-3"])
+
+    def test_resolve_errors_all_pending_without_ids(self):
+        with patch.object(metrics, "ADMIN_TOKEN", "admin-secret"), \
+             patch.object(metrics, "resolve_errors", return_value=7) as mock_resolve:
+            r = client.post(
+                "/api/admin/errors/resolve",
+                headers={"Authorization": "Bearer admin-secret"},
+                json={},
+            )
+        self.assertEqual(r.status_code, 200)
+        mock_resolve.assert_called_once_with(None)
 
     def test_supabase_jwt_admin_user(self):
         admin_user = {"role": "admin", "email": "admin@auditdata.ai", "user_metadata": {}, "app_metadata": {"role": "admin"}}

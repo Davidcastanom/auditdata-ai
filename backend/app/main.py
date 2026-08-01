@@ -430,12 +430,36 @@ def admin_metrics(authorization: str | None = Header(default=None)):
 def admin_errors(
     authorization: str | None = Header(default=None),
     limit: int = 50,
+    resolved: str = "false",
 ):
-    """Lista de errores recientes (solo tipo + endpoint, sin datos de usuario)."""
+    """Lista de errores recientes (solo tipo + endpoint, sin datos de usuario).
+
+    resolved: "false" (pendientes, por defecto) | "true" (resueltos) | "all".
+    """
     _require_admin(authorization)
     from backend.app.metrics import get_admin_errors
 
-    return {"errors": get_admin_errors(limit=limit)}
+    filter_map = {"false": False, "true": True, "all": None}
+    resolved_filter = filter_map.get((resolved or "false").lower(), False)
+    return {"errors": get_admin_errors(limit=limit, resolved=resolved_filter)}
+
+
+class ResolveErrorsRequest(BaseModel):
+    ids: list[str] | None = None
+
+
+@app.post("/api/admin/errors/resolve")
+def admin_errors_resolve(
+    req: ResolveErrorsRequest | None = None,
+    authorization: str | None = Header(default=None),
+):
+    """Marca errores como resueltos. ids vacío/ausente resuelve todos los pendientes."""
+    _require_admin(authorization)
+    from backend.app.metrics import resolve_errors
+
+    ids = list(req.ids) if req and req.ids else None
+    resolved = resolve_errors(ids)
+    return {"resolved": resolved}
 
 
 @app.post("/api/admin/errors/send")
