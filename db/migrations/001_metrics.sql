@@ -1,14 +1,13 @@
-"""Migración 001: tablas y vistas de métricas anónimas de uso.
-
-POLÍTICA DE SEGURIDAD:
-- Solo se guardan métricas anónimas (hash del cliente, endpoint, status, tiempo).
-- NUNCA contenido de CSVs, nombres de columnas, textos de chat ni emails.
-
-Cómo aplicar (una sola vez):
-1. Abre Supabase → SQL Editor
-2. Pega y ejecuta este script
-3. (Opcional) crea índices adicionales según tu volumen
-"""
+-- Migración 001: tablas y vistas de métricas anónimas de uso.
+--
+-- POLÍTICA DE SEGURIDAD:
+-- - Solo se guardan métricas anónimas (hash del cliente, endpoint, status, tiempo).
+-- - NUNCA contenido de CSVs, nombres de columnas, textos de chat ni emails.
+--
+-- Cómo aplicar (una sola vez):
+-- 1. Abre Supabase → SQL Editor
+-- 2. Pega y ejecuta este script
+-- 3. (Opcional) crea índices adicionales según tu volumen
 
 -- ============================================================
 -- EXTENSIONES

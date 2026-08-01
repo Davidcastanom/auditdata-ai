@@ -1,12 +1,11 @@
-"""Migración 002: tabla de consentimiento de tratamiento de datos.
-
-Guarda la aceptación del usuario (huella legal de que leyó y aceptó el
-disclaimer ANTES de que su historial se guarde en la nube).
-
-Cómo aplicar (una sola vez):
-1. Abre Supabase → SQL Editor
-2. Pega y ejecuta este script
-"""
+-- Migración 002: tabla de consentimiento de tratamiento de datos.
+--
+-- Guarda la aceptación del usuario (huella legal de que leyó y aceptó el
+-- disclaimer ANTES de que su historial se guarde en la nube).
+--
+-- Cómo aplicar (una sola vez):
+-- 1. Abre Supabase → SQL Editor
+-- 2. Pega y ejecuta este script
 
 -- ============================================================
 -- TABLA DE CONSENTIMIENTO
