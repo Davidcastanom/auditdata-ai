@@ -646,12 +646,97 @@ async def get_ai_recommendations_async(
         return get_ai_recommendations(diagnostic, sample_rows)
 
 
+def _build_chat_context_message(
+    column_name: str,
+    column_diagnostic: dict[str, Any] | None,
+    context: dict[str, Any] | None,
+    total_rows: int = 0,
+    total_columns: int = 0,
+    headers: list[str] | None = None,
+    detected_type: str = "unknown",
+    inferred_domain: str = "",
+    full: bool = True,
+) -> str:
+    """Construye el bloque de contexto del chat con indicadores, frecuencias,
+    estadisticas y datos ordenados. Nunca incluye porcentajes (evita falsos positivos)."""
+    parts = []
+
+    domain_str = f", Dominio: {inferred_domain}" if inferred_domain else ""
+    parts.append(
+        f"OBJETO/COLUMNA CONSULTADO: {column_name}"
+        f" (Tipo: {detected_type}{domain_str})"
+    )
+    if total_rows:
+        parts.append(
+            f"DATASET: {total_rows} filas x {total_columns} columnas"
+        )
+    if headers:
+        parts.append(f"COLUMNAS: {', '.join(headers)}")
+
+    if context:
+        parts.append(
+            "INDICADORES:\n"
+            f"- Valores unicos: {context.get('unique_count', 0)}\n"
+            f"- Valores vacios: {context.get('missing_count', 0)}"
+        )
+
+        dist = context.get("value_distribution") or []
+        if dist:
+            top_n = dist[:15]
+            lines = "\n".join(
+                f'- "{d.get("value", "")}": {d.get("count", 0)} ocurrencia(s)'
+                for d in top_n
+            )
+            parts.append(f"TABLA DE FRECUENCIAS (top {len(top_n)}):\n{lines}")
+
+        stats = context.get("stats_summary") or {}
+        if stats:
+            parts.append(
+                "RESUMEN ESTADISTICO (numero):\n"
+                f"- Min: {stats.get('min')}\n"
+                f"- Max: {stats.get('max')}\n"
+                f"- Media: {stats.get('mean')}\n"
+                f"- Mediana: {stats.get('median')}\n"
+                f"- Desv. est.: {stats.get('stdev')}\n"
+                f"- Q1: {stats.get('q1')}\n"
+                f"- Q3: {stats.get('q3')}\n"
+                f"- IQR: {stats.get('iqr')}\n"
+                f"- Outliers bajos: {stats.get('outliers_bajos', 0)}\n"
+                f"- Outliers altos: {stats.get('outliers_altos', 0)}"
+            )
+
+    issues_summary = ""
+    if column_diagnostic:
+        issues = column_diagnostic.get("issues", [])
+        issues_summary = (
+            f"Diagnóstico de '{column_name}': {len(issues)} problema(s) detectado(s). "
+            + ", ".join(
+                [f"{i.get('category_code', 'ERROR')} ({i.get('count', 0)} filas)" for i in issues]
+            )
+        )
+    parts.append(f"DIAGNOSTICO TECNICO: {issues_summary}")
+
+    if context and full:
+        sorted_data = context.get("sorted_data") or []
+        if sorted_data:
+            sample = sorted_data[:100]
+            sample_str = "; ".join([f"Fila {r}={v}" for r, v in sample])
+            parts.append(f"DATOS ORDENADOS (primeras {len(sample)} filas de {len(sorted_data)}):\n{sample_str}")
+
+    return "\n\n".join(parts)
+
+
 async def chat_with_column_advisor(
     column_name: str,
     user_query: str,
     column_diagnostic: dict[str, Any] | None = None,
-    sample_rows: list[dict[str, Any]] | None = None,
-    chat_history: list[dict[str, str]] | None = None
+    chat_history: list[dict[str, str]] | None = None,
+    context: dict[str, Any] | None = None,
+    total_rows: int = 0,
+    total_columns: int = 0,
+    headers: list[str] | None = None,
+    detected_type: str = "unknown",
+    inferred_domain: str = "",
 ) -> dict[str, Any]:
     """Procesa preguntas de lenguaje natural en el Side Drawer para una columna o dataset."""
     client = init_async_groq_client() or init_groq_client()
@@ -683,28 +768,28 @@ async def chat_with_column_advisor(
         "3. Usa **negritas** para conceptos clave y `código` para valores/filas.\n"
         "4. Sé soberano: el analista decide. No ordenes, sugiere.\n"
         "5. Duplicados: solo aplican a filas completas del dataset, no a celdas.\n"
-        f"6. {verbosity_rule}"
+        "6. Responder SIEMPRE con base en los datos del contexto. Si una métrica no está "
+        "en el contexto, dilo explícitamente en vez de inventarla.\n"
+        f"7. {verbosity_rule}"
     )
 
-    issues_summary = ""
-    if column_diagnostic:
-        issues = column_diagnostic.get("issues", [])
-        issues_summary = f"Diagnóstico de '{column_name}': {len(issues)} problema(s) detectado(s). " + \
-            ", ".join([f"{i.get('category_code', 'ERROR')} ({i.get('count', 0)} filas)" for i in issues])
-
-    samples = _get_sample_values(column_name, sample_rows) if column_name != "__dataset__" else []
-    samples_str = f" Ejemplos de celdas: {', '.join(samples[:6])}" if samples else ""
-
-    context_msg = (
-        f"OBJETO/COLUMNA CONSULTADO: {column_name}\n"
-        f"CONTEXTO TÉCNICO: {issues_summary}{samples_str}\n"
-        f"Por favor responde como Copiloto orientando la mejor decisión técnica de depuración."
+    context_msg = _build_chat_context_message(
+        column_name=column_name,
+        column_diagnostic=column_diagnostic,
+        context=context,
+        total_rows=total_rows,
+        total_columns=total_columns,
+        headers=headers,
+        detected_type=detected_type,
+        inferred_domain=inferred_domain,
+        full=is_first_message,
     )
+    context_msg += f"\n\nPREGUNTA DEL ANALISTA: {user_query}"
 
     messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
     if chat_history:
         messages.extend(chat_history[-10:])
-    messages.append({"role": "user", "content": f"{context_msg}\n\nPREGUNTA DEL ANALISTA: {user_query}"})
+    messages.append({"role": "user", "content": context_msg})
 
     try:
         if isinstance(client, AsyncGroq):
@@ -753,6 +838,82 @@ def _get_deep_client() -> Groq | AsyncGroq | None:
     except Exception as e:
         logger.error("Error al inicializar cliente deep: %s", e)
         return None
+
+
+def compute_column_context(
+    column_data: list[tuple[int, str]],
+    detected_type: str = "unknown",
+) -> dict[str, Any]:
+    """
+    Construye un paquete de contexto completo de una columna para la IA.
+
+    Incluye:
+    - unique_count: valores unicos (SIN porcentajes para evitar falsos positivos)
+    - missing_count: cantidad de vacios
+    - value_distribution: tabla de frecuencias (top 30, solo conteos)
+    - stats_summary: resumen estadistico numerico (min, max, mean, median, IQR)
+    - sorted_data: datos ordenados (alfabetico o numerico segun tipo)
+
+    column_data: lista de (numero_fila_en_archivo, valor)
+    """
+    import statistics
+    from collections import Counter
+
+    values = [v for _, v in column_data]
+    present = [v for v in values if v and v.strip()]
+    missing_count = len(values) - len(present)
+    unique_count = len(set(present))
+
+    freq = Counter(present)
+    value_distribution = [
+        {"value": v, "count": c}
+        for v, c in freq.most_common(30)
+    ]
+
+    stats_summary = {}
+    if detected_type == "number":
+        numeric_vals = []
+        for v in present:
+            try:
+                numeric_vals.append(float(v.replace(",", ".")))
+            except (ValueError, AttributeError):
+                pass
+        if numeric_vals:
+            numeric_vals.sort()
+            n = len(numeric_vals)
+            q1 = numeric_vals[n // 4]
+            q3 = numeric_vals[3 * n // 4]
+            iqr = q3 - q1
+            stats_summary = {
+                "min": numeric_vals[0],
+                "max": numeric_vals[-1],
+                "mean": round(statistics.mean(numeric_vals), 4),
+                "median": round(statistics.median(numeric_vals), 4),
+                "stdev": round(statistics.stdev(numeric_vals), 4) if n > 1 else 0,
+                "q1": q1,
+                "q3": q3,
+                "iqr": iqr,
+                "outliers_bajos": sum(1 for v in numeric_vals if v < q1 - 1.5 * iqr),
+                "outliers_altos": sum(1 for v in numeric_vals if v > q3 + 1.5 * iqr),
+            }
+
+    if detected_type == "number":
+        def _num_sort_key(item):
+            try:
+                return (0, float(item[1].replace(",", ".")))
+            except (ValueError, AttributeError):
+                return (1, str(item[1]).lower())
+        sorted_data = sorted(column_data, key=_num_sort_key)
+    else:
+        sorted_data = sorted(column_data, key=lambda x: (str(x[1]).lower(), x[0]))
+
+    return {
+        "unique_count": unique_count,
+        "missing_count": missing_count,
+        "value_distribution": value_distribution,
+        "stats_summary": stats_summary,
+        "sorted_data": sorted_data,
+    }
 
 
 async def analyze_column_deep(

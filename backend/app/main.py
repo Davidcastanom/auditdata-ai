@@ -115,6 +115,8 @@ class AIChatRequest(BaseModel):
     content_base64: str
     column: str
     user_query: str
+    detected_type: str = "unknown"
+    inferred_domain: str = ""
     chat_history: list[dict[str, str]] | None = None
 
 
@@ -156,9 +158,12 @@ async def ai_chat_column(req: AIChatRequest):
 
         from data_engine.diagnostic import diagnose_dataset
         from data_engine.analyzer import load_dataset
-        from data_engine.ai_advisor import chat_with_column_advisor
+        from data_engine.ai_advisor import chat_with_column_advisor, compute_column_context
 
         headers, rows, header_row_index = load_dataset(req.filename, payload)
+        file_row_start = header_row_index + 2
+        column_data = [(file_row_start + i, row.get(req.column, "")) for i, row in enumerate(rows)]
+
         diagnostic = diagnose_dataset(headers, rows, header_row_index)
         diag_dict = diagnostic.to_dict()
 
@@ -168,12 +173,19 @@ async def ai_chat_column(req: AIChatRequest):
                 col_diag = col
                 break
 
+        context = compute_column_context(column_data, req.detected_type)
+
         res = await chat_with_column_advisor(
             column_name=req.column,
             user_query=req.user_query,
             column_diagnostic=col_diag,
-            sample_rows=rows[:20],
-            chat_history=req.chat_history
+            chat_history=req.chat_history,
+            context=context,
+            total_rows=len(rows),
+            total_columns=len(headers),
+            headers=headers,
+            detected_type=req.detected_type,
+            inferred_domain=req.inferred_domain,
         )
         return res
 
@@ -200,72 +212,27 @@ async def ai_column_deep_analysis(req: ColumnDeepAnalysisRequest):
     try:
         payload = _decode_payload(req.content_base64)
 
+        from data_engine.ai_advisor import analyze_column_deep, compute_column_context
         from data_engine.analyzer import load_dataset
-        from data_engine.ai_advisor import analyze_column_deep
-        from collections import Counter
-        import statistics
 
         headers, rows, header_row_index = load_dataset(req.filename, payload)
         file_row_start = header_row_index + 2
         column_data = [(file_row_start + i, row.get(req.column, "")) for i, row in enumerate(rows)]
 
-        # --- Compute indicators from actual data ---
-        values = [v for _, v in column_data]
-        present = [v for v in values if v and v.strip()]
-        missing_count = len(values) - len(present)
-        unique_count = len(set(present))
-
-        # Frequency table (top 30, no percentages to avoid false positives)
-        freq = Counter(present)
-        value_distribution = [
-            {"value": v, "count": c}
-            for v, c in freq.most_common(30)
-        ]
-
-        # Numeric stats
-        stats_summary = {}
-        if req.detected_type == "number":
-            numeric_vals = []
-            for v in present:
-                try:
-                    numeric_vals.append(float(v.replace(",", ".")))
-                except (ValueError, AttributeError):
-                    pass
-            if numeric_vals:
-                numeric_vals.sort()
-                n = len(numeric_vals)
-                q1 = numeric_vals[n // 4]
-                q3 = numeric_vals[3 * n // 4]
-                iqr = q3 - q1
-                lower_fence = q1 - 1.5 * iqr
-                upper_fence = q3 + 1.5 * iqr
-                outliers_low = sum(1 for v in numeric_vals if v < lower_fence)
-                outliers_high = sum(1 for v in numeric_vals if v > upper_fence)
-                stats_summary = {
-                    "min": numeric_vals[0],
-                    "max": numeric_vals[-1],
-                    "mean": round(statistics.mean(numeric_vals), 4),
-                    "median": round(statistics.median(numeric_vals), 4),
-                    "stdev": round(statistics.stdev(numeric_vals), 4) if n > 1 else 0,
-                    "q1": q1,
-                    "q3": q3,
-                    "iqr": iqr,
-                    "outliers_bajos": outliers_low,
-                    "outliers_altos": outliers_high,
-                }
+        context = compute_column_context(column_data, req.detected_type)
 
         result = await analyze_column_deep(
             column_name=req.column,
-            column_data=column_data,
+            column_data=context["sorted_data"],
             total_rows=len(rows),
             total_columns=len(headers),
             headers=headers,
             detected_type=req.detected_type,
             inferred_domain=req.inferred_domain,
-            unique_count=unique_count,
-            missing_count=missing_count,
-            value_distribution=value_distribution,
-            stats_summary=stats_summary,
+            unique_count=context["unique_count"],
+            missing_count=context["missing_count"],
+            value_distribution=context["value_distribution"],
+            stats_summary=context["stats_summary"],
         )
         return result
 

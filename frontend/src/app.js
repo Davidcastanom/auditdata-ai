@@ -929,6 +929,8 @@ async function sendDepurChatMessage(columnName, query) {
         content_base64: store.state.fileBase64,
         column: columnName,
         user_query: query,
+        detected_type: nube.drawerColumnType || 'unknown',
+        inferred_domain: nube.drawerColumnDomain || '',
         chat_history: depurChatHistory[columnName].slice(-10)
       })
     });

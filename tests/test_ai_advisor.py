@@ -1,0 +1,549 @@
+"""Tests rigurosos para el advisor de IA.
+
+Cubren:
+- compute_column_context: indicadores, frecuencias, estadisticas y ordenamiento
+  (SIN porcentajes para evitar falsos positivos)
+- _build_chat_context_message: construccion del contexto del chat
+- chat_with_column_advisor: ensamblado de mensajes y manejo de errores
+- /api/ai/chat-column: integracion del contexto calculado en el endpoint
+"""
+
+import base64
+import unittest
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+
+from fastapi.testclient import TestClient
+
+from backend.app.main import app
+from data_engine.ai_advisor import (
+    _build_chat_context_message,
+    chat_with_column_advisor,
+    compute_column_context,
+)
+
+client = TestClient(app)
+
+SAMPLE_CSV = (
+    "id,nombre,ciudad,edad,horas_sueno,litros_agua,completo_reto\n"
+    "1,Ana,Bogota,28,7,2.1,si\n"
+    "2,Juan,bogota,31,6,1.8,no\n"
+    "1,Ana,Bogota,28,7,2.1,si\n"
+    "4,Maria,Medellin,,8,2.4,si\n"
+    "5,Luis,Medellin,450,2,,no\n"
+)
+
+
+def _encode(payload: str) -> str:
+    return base64.b64encode(payload.encode("utf-8")).decode("ascii")
+
+
+# ---------------------------------------------------------------------------
+# Fakes para Groq
+# ---------------------------------------------------------------------------
+
+class _FakeMessage:
+    def __init__(self, content: str):
+        self.content = content
+
+
+class _FakeResponse:
+    def __init__(self, content: str):
+        self.choices = [SimpleNamespace(message=_FakeMessage(content))]
+
+
+class _FakeCompletions:
+    def __init__(self, response_text: str = "respuesta de prueba"):
+        self._response_text = response_text
+        self.last_kwargs: dict | None = None
+
+    def create(self, *args, **kwargs):
+        self.last_kwargs = kwargs
+        return _FakeResponse(self._response_text)
+
+
+class _FakeAsyncCompletions(_FakeCompletions):
+    async def create(self, *args, **kwargs):
+        self.last_kwargs = kwargs
+        return _FakeResponse(self._response_text)
+
+
+class _FakeClient:
+    def __init__(self, response_text: str = "respuesta de prueba", async_mode: bool = False):
+        completions = (
+            _FakeAsyncCompletions(response_text)
+            if async_mode else _FakeCompletions(response_text)
+        )
+        self.chat = SimpleNamespace(completions=completions)
+
+
+class _FakeAsyncGroqClientClass:
+    pass
+
+
+# ---------------------------------------------------------------------------
+# compute_column_context
+# ---------------------------------------------------------------------------
+
+class TestComputeColumnContext(unittest.TestCase):
+    def test_numeric_indicators(self):
+        data = [(2, "28"), (3, "31"), (4, "28"), (5, ""), (6, "450")]
+        ctx = compute_column_context(data, "number")
+        self.assertEqual(ctx["unique_count"], 3)
+        self.assertEqual(ctx["missing_count"], 1)
+
+    def test_numeric_stats(self):
+        data = [(2, "28"), (3, "31"), (4, "28"), (5, ""), (6, "450")]
+        ctx = compute_column_context(data, "number")
+        stats = ctx["stats_summary"]
+        self.assertEqual(stats["min"], 28.0)
+        self.assertEqual(stats["max"], 450.0)
+        self.assertEqual(stats["mean"], 134.25)
+        self.assertEqual(stats["median"], 29.5)
+        self.assertIn("stdev", stats)
+        self.assertIn("q1", stats)
+        self.assertIn("q3", stats)
+        self.assertIn("iqr", stats)
+        self.assertIn("outliers_bajos", stats)
+        self.assertIn("outliers_altos", stats)
+
+    def test_numeric_sorted_ascending(self):
+        data = [(2, "450"), (3, "28"), (4, "31"), (5, "28")]
+        ctx = compute_column_context(data, "number")
+        values = [v for _, v in ctx["sorted_data"]]
+        self.assertEqual(values, ["28", "28", "31", "450"])
+
+    def test_numeric_row_numbers_preserved(self):
+        data = [(10, "28"), (20, "450"), (30, "31")]
+        ctx = compute_column_context(data, "number")
+        self.assertEqual(ctx["sorted_data"], [(10, "28"), (30, "31"), (20, "450")])
+
+    def test_comma_decimal_parsed_as_number(self):
+        data = [(2, "1,5"), (3, "2,5"), (4, "1,5")]
+        ctx = compute_column_context(data, "number")
+        self.assertEqual(ctx["stats_summary"]["min"], 1.5)
+        self.assertEqual(ctx["stats_summary"]["max"], 2.5)
+        self.assertEqual(ctx["stats_summary"]["median"], 1.5)
+
+    def test_text_sorted_case_insensitive(self):
+        data = [(2, "Bogota"), (3, "ana"), (4, "Ana"), (5, "bogota")]
+        ctx = compute_column_context(data, "text")
+        values = [v for _, v in ctx["sorted_data"]]
+        self.assertEqual(values, ["ana", "Ana", "Bogota", "bogota"])
+
+    def test_text_sort_tiebreak_by_row_number(self):
+        data = [(5, "ana"), (3, "ana"), (4, "Ana")]
+        ctx = compute_column_context(data, "text")
+        rows = [r for r, _ in ctx["sorted_data"]]
+        self.assertEqual(rows, [3, 4, 5])
+
+    def test_value_distribution_counts(self):
+        data = [(2, "si"), (3, "no"), (4, "si"), (5, "si")]
+        ctx = compute_column_context(data, "text")
+        dist = {d["value"]: d["count"] for d in ctx["value_distribution"]}
+        self.assertEqual(dist["si"], 3)
+        self.assertEqual(dist["no"], 1)
+
+    def test_value_distribution_capped_at_30(self):
+        data = [(i, f"v{i}") for i in range(100)]
+        ctx = compute_column_context(data, "text")
+        self.assertLessEqual(len(ctx["value_distribution"]), 30)
+
+    def test_missing_excluded_from_unique(self):
+        data = [(2, ""), (3, "x"), (4, ""), (5, "x"), (6, " ")]
+        ctx = compute_column_context(data, "text")
+        self.assertEqual(ctx["unique_count"], 1)
+        self.assertEqual(ctx["missing_count"], 3)
+
+    def test_empty_column(self):
+        data = [(2, ""), (3, ""), (4, "")]
+        ctx = compute_column_context(data, "number")
+        self.assertEqual(ctx["unique_count"], 0)
+        self.assertEqual(ctx["missing_count"], 3)
+        self.assertEqual(ctx["value_distribution"], [])
+        self.assertEqual(ctx["stats_summary"], {})
+
+    def test_no_percentages_anywhere(self):
+        data = [(2, "28"), (3, "31"), (4, "28"), (5, ""), (6, "450")]
+        ctx = compute_column_context(data, "number")
+        blob = str(ctx)
+        self.assertNotIn("%", blob, "No deben incluirse porcentajes (causan falsos positivos)")
+
+    def test_mixed_text_numeric_keeps_non_numeric_last(self):
+        data = [(2, "abc"), (3, "30"), (4, "10"), (5, "xyz")]
+        ctx = compute_column_context(data, "number")
+        values = [v for _, v in ctx["sorted_data"]]
+        self.assertEqual(values, ["10", "30", "abc", "xyz"])
+
+    def test_non_numeric_type_leaves_stats_empty(self):
+        data = [(2, "28"), (3, "31")]
+        ctx = compute_column_context(data, "text")
+        self.assertEqual(ctx["stats_summary"], {})
+
+
+# ---------------------------------------------------------------------------
+# _build_chat_context_message
+# ---------------------------------------------------------------------------
+
+class TestBuildChatContextMessage(unittest.TestCase):
+    def _context(self, **overrides):
+        ctx = {
+            "unique_count": 3,
+            "missing_count": 1,
+            "value_distribution": [
+                {"value": "28", "count": 2},
+                {"value": "31", "count": 1},
+                {"value": "450", "count": 1},
+            ],
+            "stats_summary": {
+                "min": 28.0,
+                "max": 450.0,
+                "mean": 134.25,
+                "median": 29.5,
+                "stdev": 243.5,
+                "q1": 28.0,
+                "q3": 450.0,
+                "iqr": 422.0,
+                "outliers_bajos": 0,
+                "outliers_altos": 0,
+            },
+            "sorted_data": [(2, "28"), (4, "28"), (3, "31"), (6, "450")],
+        }
+        ctx.update(overrides)
+        return ctx
+
+    def test_first_message_includes_sorted_data(self):
+        msg = _build_chat_context_message(
+            "edad", None, self._context(),
+            total_rows=5, total_columns=7,
+            headers=["id", "nombre", "edad"],
+            detected_type="number", inferred_domain="edad en anios",
+            full=True,
+        )
+        self.assertIn("DATOS ORDENADOS", msg)
+        self.assertIn("Fila 2=28", msg)
+
+    def test_followup_message_omits_sorted_data(self):
+        msg = _build_chat_context_message(
+            "edad", None, self._context(),
+            total_rows=5, total_columns=7,
+            detected_type="number", full=False,
+        )
+        self.assertNotIn("DATOS ORDENADOS", msg)
+        self.assertIn("INDICADORES", msg)
+
+    def test_includes_indicators(self):
+        msg = _build_chat_context_message(
+            "edad", None, self._context(),
+            total_rows=5, total_columns=7, detected_type="number",
+        )
+        self.assertIn("Valores unicos: 3", msg)
+        self.assertIn("Valores vacios: 1", msg)
+
+    def test_includes_dataset_context(self):
+        msg = _build_chat_context_message(
+            "edad", None, self._context(),
+            total_rows=5, total_columns=7,
+            headers=["id", "nombre", "edad"],
+            detected_type="number",
+        )
+        self.assertIn("5 filas x 7 columnas", msg)
+        self.assertIn("id, nombre, edad", msg)
+
+    def test_includes_frequencies_and_stats(self):
+        msg = _build_chat_context_message(
+            "edad", None, self._context(),
+            total_rows=5, total_columns=7, detected_type="number",
+        )
+        self.assertIn('"28": 2 ocurrencia(s)', msg)
+        self.assertIn("Media: 134.25", msg)
+        self.assertIn("Outliers bajos: 0", msg)
+
+    def test_no_percentages(self):
+        msg = _build_chat_context_message(
+            "edad", None, self._context(),
+            total_rows=5, total_columns=7, detected_type="number",
+        )
+        self.assertNotIn("%", msg)
+
+    def test_includes_diagnostic_issues(self):
+        diag = {
+            "issues": [
+                {"category_code": "MISSING_VALUES", "count": 1},
+                {"category_code": "OUTLIER", "count": 1},
+            ]
+        }
+        msg = _build_chat_context_message("edad", diag, None, detected_type="number")
+        self.assertIn("2 problema(s) detectado(s)", msg)
+        self.assertIn("MISSING_VALUES (1 filas)", msg)
+        self.assertIn("OUTLIER (1 filas)", msg)
+
+    def test_includes_type_and_domain(self):
+        msg = _build_chat_context_message(
+            "edad", None, None,
+            detected_type="number", inferred_domain="edad en anios",
+        )
+        self.assertIn("Tipo: number", msg)
+        self.assertIn("Dominio: edad en anios", msg)
+
+    def test_empty_context_is_graceful(self):
+        msg = _build_chat_context_message("edad", None, {}, detected_type="unknown")
+        self.assertIn("OBJETO/COLUMNA CONSULTADO: edad", msg)
+        self.assertIn("DIAGNOSTICO TECNICO:", msg)
+
+    def test_dataset_mode(self):
+        msg = _build_chat_context_message(
+            "__dataset__", None, None,
+            total_rows=5, total_columns=7,
+            detected_type="unknown",
+        )
+        self.assertIn("__dataset__", msg)
+        self.assertIn("5 filas x 7 columnas", msg)
+
+
+# ---------------------------------------------------------------------------
+# chat_with_column_advisor
+# ---------------------------------------------------------------------------
+
+class TestChatWithColumnAdvisor(unittest.IsolatedAsyncioTestCase):
+    async def test_no_api_key(self):
+        with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
+             patch("data_engine.ai_advisor.init_groq_client", return_value=None):
+            result = await chat_with_column_advisor("edad", "¿Cómo trato los vacíos?")
+        self.assertEqual(result["status"], "no_api_key")
+
+    async def test_success_sync_path(self):
+        fake = _FakeClient()
+        with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
+             patch("data_engine.ai_advisor.init_groq_client", return_value=fake):
+            result = await chat_with_column_advisor(
+                "edad", "¿Cómo trato los vacíos?",
+                context=compute_column_context([(2, "28")], "number"),
+            )
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["response"], "respuesta de prueba")
+
+    async def test_first_message_has_full_context(self):
+        fake = _FakeClient()
+        ctx = compute_column_context([(2, "28"), (3, "31"), (4, "28")], "number")
+        with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
+             patch("data_engine.ai_advisor.init_groq_client", return_value=fake):
+            await chat_with_column_advisor(
+                "edad", "¿Qué ves?", context=ctx,
+                total_rows=3, total_columns=7,
+                headers=["id", "edad"], detected_type="number",
+            )
+        messages = fake.chat.completions.last_kwargs["messages"]
+        user_msg = messages[-1]["content"]
+        self.assertIn("DATOS ORDENADOS", user_msg)
+        self.assertIn("INDICADORES", user_msg)
+        self.assertIn("PREGUNTA DEL ANALISTA: ¿Qué ves?", user_msg)
+
+    async def test_followup_message_compact(self):
+        fake = _FakeClient()
+        ctx = compute_column_context([(2, "28"), (3, "31"), (4, "28")], "number")
+        history = [
+            {"role": "user", "content": "¿Qué ves?"},
+            {"role": "assistant", "content": "Respuesta anterior"},
+        ]
+        with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
+             patch("data_engine.ai_advisor.init_groq_client", return_value=fake):
+            await chat_with_column_advisor(
+                "edad", "¿Y los nulos?", context=ctx,
+                total_rows=3, total_columns=7,
+                detected_type="number", chat_history=history,
+            )
+        messages = fake.chat.completions.last_kwargs["messages"]
+        self.assertEqual(len(messages), 4)  # system + 2 historial + 1 usuario
+        user_msg = messages[-1]["content"]
+        self.assertNotIn("DATOS ORDENADOS", user_msg)
+        self.assertIn("Valores unicos", user_msg)
+
+    async def test_async_path_used_when_async_client(self):
+        fake = _FakeClient(async_mode=True)
+        fake.__class__ = _FakeAsyncGroqClientClass
+        with patch("data_engine.ai_advisor.init_async_groq_client", return_value=fake), \
+             patch("data_engine.ai_advisor.AsyncGroq", _FakeAsyncGroqClientClass):
+            result = await chat_with_column_advisor(
+                "edad", "Hola", context={}, total_rows=0,
+            )
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(fake.chat.completions.last_kwargs["model"], "llama-3.1-8b-instant")
+
+    async def test_exception_returns_error(self):
+        class _ExplodingClient:
+            def __init__(self):
+                self.chat = SimpleNamespace(
+                    completions=SimpleNamespace(create=self._boom)
+                )
+
+            def _boom(self, *args, **kwargs):
+                raise RuntimeError("exploto")
+
+        with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
+             patch("data_engine.ai_advisor.init_groq_client", return_value=_ExplodingClient()):
+            result = await chat_with_column_advisor("edad", "Hola")
+        self.assertEqual(result["status"], "error")
+        self.assertIn("exploto", result["response"])
+
+    async def test_system_prompt_forbids_inventing_metrics(self):
+        fake = _FakeClient()
+        with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
+             patch("data_engine.ai_advisor.init_groq_client", return_value=fake):
+            await chat_with_column_advisor("edad", "Hola")
+        messages = fake.chat.completions.last_kwargs["messages"]
+        system_prompt = messages[0]["content"]
+        self.assertIn("base en los datos del contexto", system_prompt)
+
+
+# ---------------------------------------------------------------------------
+# /api/ai/chat-column (integracion)
+# ---------------------------------------------------------------------------
+
+class TestChatColumnEndpointContext(unittest.TestCase):
+    def test_endpoint_passes_computed_context(self):
+        mock_advisor = AsyncMock(return_value={"response": "ok", "status": "success"})
+        with patch("data_engine.ai_advisor.chat_with_column_advisor", mock_advisor):
+            response = client.post(
+                "/api/ai/chat-column",
+                json={
+                    "filename": "test.csv",
+                    "content_base64": _encode(SAMPLE_CSV),
+                    "column": "edad",
+                    "user_query": "¿Cómo trato los vacíos?",
+                    "detected_type": "number",
+                    "inferred_domain": "edad en anios",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"response": "ok", "status": "success"})
+
+        call_kwargs = mock_advisor.call_args.kwargs
+        ctx = call_kwargs["context"]
+        self.assertEqual(call_kwargs["column_name"], "edad")
+        self.assertEqual(call_kwargs["detected_type"], "number")
+        self.assertEqual(call_kwargs["inferred_domain"], "edad en anios")
+        self.assertEqual(call_kwargs["total_rows"], 5)
+        self.assertEqual(call_kwargs["total_columns"], 7)
+        self.assertIn("id", call_kwargs["headers"])
+
+        self.assertEqual(ctx["unique_count"], 3)
+        self.assertEqual(ctx["missing_count"], 1)
+        self.assertEqual(ctx["value_distribution"], [
+            {"value": "28", "count": 2},
+            {"value": "31", "count": 1},
+            {"value": "450", "count": 1},
+        ])
+        self.assertEqual(ctx["stats_summary"]["min"], 28.0)
+        self.assertEqual(ctx["stats_summary"]["max"], 450.0)
+        self.assertEqual(ctx["stats_summary"]["median"], 29.5)
+        self.assertEqual(ctx["sorted_data"], [(2, "28"), (4, "28"), (3, "31"), (6, "450"), (5, "")])
+
+    def test_endpoint_defaults_type_to_unknown(self):
+        mock_advisor = AsyncMock(return_value={"response": "ok", "status": "success"})
+        with patch("data_engine.ai_advisor.chat_with_column_advisor", mock_advisor):
+            response = client.post(
+                "/api/ai/chat-column",
+                json={
+                    "filename": "test.csv",
+                    "content_base64": _encode(SAMPLE_CSV),
+                    "column": "edad",
+                    "user_query": "¿Qué ves?",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        call_kwargs = mock_advisor.call_args.kwargs
+        self.assertEqual(call_kwargs["detected_type"], "unknown")
+        self.assertEqual(call_kwargs["context"]["stats_summary"], {})
+
+    def test_endpoint_unknown_column_still_works(self):
+        mock_advisor = AsyncMock(return_value={"response": "ok", "status": "success"})
+        with patch("data_engine.ai_advisor.chat_with_column_advisor", mock_advisor):
+            response = client.post(
+                "/api/ai/chat-column",
+                json={
+                    "filename": "test.csv",
+                    "content_base64": _encode(SAMPLE_CSV),
+                    "column": "no_existe",
+                    "user_query": "¿Qué ves?",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        ctx = mock_advisor.call_args.kwargs["context"]
+        self.assertEqual(ctx["missing_count"], 5)
+        self.assertEqual(ctx["unique_count"], 0)
+
+
+class TestChatColumnEndpointLive(unittest.TestCase):
+    def test_chat_column_valid_csv_no_api_key(self):
+        response = client.post(
+            "/api/ai/chat-column",
+            json={
+                "filename": "test.csv",
+                "content_base64": _encode(SAMPLE_CSV),
+                "column": "edad",
+                "user_query": "¿Cómo trato los vacíos?",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("response", data)
+        self.assertIn(data["status"], ("success", "no_api_key", "error"))
+
+
+# ---------------------------------------------------------------------------
+# /api/ai/column-deep-analysis (integracion tras refactor con helper compartido)
+# ---------------------------------------------------------------------------
+
+class TestColumnDeepAnalysisEndpointContext(unittest.TestCase):
+    def test_endpoint_passes_computed_context(self):
+        mock_advisor = AsyncMock(return_value={"analysis": "ok", "status": "success"})
+        with patch("data_engine.ai_advisor.analyze_column_deep", mock_advisor):
+            response = client.post(
+                "/api/ai/column-deep-analysis",
+                json={
+                    "filename": "test.csv",
+                    "content_base64": _encode(SAMPLE_CSV),
+                    "column": "edad",
+                    "detected_type": "number",
+                    "inferred_domain": "edad en anios",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+
+        call_kwargs = mock_advisor.call_args.kwargs
+        self.assertEqual(call_kwargs["column_name"], "edad")
+        self.assertEqual(call_kwargs["detected_type"], "number")
+        self.assertEqual(call_kwargs["inferred_domain"], "edad en anios")
+        self.assertEqual(call_kwargs["total_rows"], 5)
+        self.assertEqual(call_kwargs["total_columns"], 7)
+        self.assertIn("id", call_kwargs["headers"])
+        self.assertEqual(call_kwargs["unique_count"], 3)
+        self.assertEqual(call_kwargs["missing_count"], 1)
+        self.assertEqual(call_kwargs["value_distribution"][0], {"value": "28", "count": 2})
+        self.assertEqual(call_kwargs["stats_summary"]["min"], 28.0)
+        # Recibe datos YA ordenados desde el helper compartido
+        self.assertEqual(call_kwargs["column_data"], [(2, "28"), (4, "28"), (3, "31"), (6, "450"), (5, "")])
+
+    def test_endpoint_without_api_key_returns_graceful(self):
+        with patch("data_engine.ai_advisor._get_deep_client", return_value=None):
+            response = client.post(
+                "/api/ai/column-deep-analysis",
+                json={
+                    "filename": "test.csv",
+                    "content_base64": _encode(SAMPLE_CSV),
+                    "column": "edad",
+                    "detected_type": "number",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "no_api_key")
+        self.assertTrue(
+            "response" in data or "analysis" in data,
+            "Debe incluir un mensaje explicativo de IA deshabilitada",
+        )
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

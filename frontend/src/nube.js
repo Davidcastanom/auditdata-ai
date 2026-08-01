@@ -496,6 +496,9 @@ export class NubeValidación {
 
     this.initDrawerEvents();
 
+    this.drawerColumnType = 'unknown';
+    this.drawerColumnDomain = '';
+
     if (columnName === '__dataset__') {
       badge.textContent = 'Dataset Global';
       title.textContent = 'Filas Duplicadas en Dataset';
@@ -512,6 +515,8 @@ export class NubeValidación {
     }
     const issues = colDiag?.issues || [];
     const profiler = colDiag?.profiler || {};
+    this.drawerColumnType = profiler.type || 'unknown';
+    this.drawerColumnDomain = colDiag?.inferred_domain || '';
 
     let extraSections = '';
     if (['CATEGORICA', 'BOOLEANA', 'CONSTANTE', 'TEXTO_LIBRE'].includes(profiler.type)) {
@@ -618,6 +623,8 @@ export class NubeValidación {
           content_base64: this.contentBase64,
           column: columnName,
           user_query: query,
+          detected_type: this.drawerColumnType || 'unknown',
+          inferred_domain: this.drawerColumnDomain || '',
           chat_history: this.drawerChatHistory[columnName].slice(-10)
         })
       });
