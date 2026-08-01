@@ -1264,37 +1264,13 @@ function onNext() {
     return;
   }
   if (store.state.step === 4) {
-    if (store.state.actions.length === 0) {
-      store.setCleaning({
-        before: store.state.analysis,
-        after: store.state.analysis,
-        actions: [],
-        clean_csv: "",
-      });
-      renderValidation();
-      renderReportPreview();
-      enableStep(5);
-      enableStep(6);
-      router.navigate(5);
-      return;
-    }
     runCleaning().then(() => {
       enableStep(5);
       enableStep(6);
       router.navigate(5);
     }).catch((error) => {
-      els.systemStatus.textContent = `Error: ${error.message}. Intenta de nuevo.`;
-      store.setCleaning({
-        before: store.state.analysis,
-        after: store.state.analysis,
-        actions: store.state.actions,
-        clean_csv: "",
-      });
-      renderValidation();
-      renderReportPreview();
-      enableStep(5);
-      enableStep(6);
-      router.navigate(5);
+      els.systemStatus.textContent = `Error aplicando la limpieza: ${error.message}. Pulsa de nuevo "Siguiente etapa" para reintentar.`;
+      showToast(`Error aplicando la limpieza: ${error.message}`, "error");
     });
     return;
   }
@@ -1374,8 +1350,8 @@ async function downloadReport(type) {
 
 function downloadCleanCsv() {
   const cleaning = store.state.cleaning;
-  if (!cleaning) {
-    showToast("No hay dataset limpio disponible. Ejecuta la limpieza primero.", "error");
+  if (!cleaning || !cleaning.clean_csv) {
+    showToast("El dataset limpio está vacío. Aplica la limpieza en el paso 4 antes de descargar.", "error");
     return;
   }
   downloadBlob("dataset_limpio.csv", new Blob([cleaning.clean_csv], { type: "text/csv;charset=utf-8" }));
@@ -1385,10 +1361,16 @@ function downloadCleanCsv() {
 function downloadCleanXlsx() {
   const cleaning = store.state.cleaning;
   if (!cleaning || !cleaning.xlsx_base64) {
-    showToast("No hay dataset XLSX disponible. Ejecuta la limpieza primero.", "error");
+    showToast("El archivo XLSX no está disponible. Aplica la limpieza en el paso 4 antes de descargar.", "error");
     return;
   }
-  const bytes = Uint8Array.from(atob(cleaning.xlsx_base64), c => c.charCodeAt(0));
+  let bytes;
+  try {
+    bytes = Uint8Array.from(atob(cleaning.xlsx_base64), c => c.charCodeAt(0));
+  } catch (_) {
+    showToast("El archivo XLSX no se pudo generar correctamente. Vuelve al paso 4 y re-aplica la limpieza.", "error");
+    return;
+  }
   downloadBlob("dataset_limpio.xlsx", new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
   showToast("Dataset XLSX descargado.", "success");
 }
