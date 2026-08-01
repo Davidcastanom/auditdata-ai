@@ -38,6 +38,7 @@ def verify_token(token: str) -> dict[str, Any] | None:
                 "avatar_url": metadata.get("avatar_url", "")
                 or metadata.get("picture", ""),
                 "user_metadata": metadata,
+                "app_metadata": user.user.app_metadata or {},
             }
         return None
     except Exception as e:

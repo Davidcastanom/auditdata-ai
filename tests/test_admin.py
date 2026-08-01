@@ -151,10 +151,18 @@ class TestAdminEndpointsAuth(unittest.TestCase):
         self.assertIn("errors", r.json())
 
     def test_supabase_jwt_admin_user(self):
-        admin_user = {"role": "admin", "email": "admin@auditdata.ai", "user_metadata": {"role": "admin"}}
+        admin_user = {"role": "admin", "email": "admin@auditdata.ai", "user_metadata": {}, "app_metadata": {"role": "admin"}}
         with patch("backend.app.auth.verify_token", return_value=admin_user):
             r = self._get("/api/admin/metrics", token="jwt-valid-admin")
         self.assertEqual(r.status_code, 200)
+
+    def test_user_metadata_role_does_not_grant_admin(self):
+        # user_metadata es editable por el cliente: NO debe otorgar permisos admin.
+        user = {"role": "", "email": "user@x.com", "user_metadata": {"role": "admin"}, "app_metadata": {}}
+        with patch("backend.app.auth.verify_token", return_value=user), \
+             patch.dict("os.environ", {"ADMIN_EMAILS": "dev@auditdata.ai"}, clear=False):
+            r = self._get("/api/admin/metrics", token="jwt-user-metadata-admin")
+        self.assertEqual(r.status_code, 403)
 
     def test_supabase_jwt_allowlist_email(self):
         user = {"role": "", "email": "dev@auditdata.ai", "user_metadata": {}}

@@ -408,7 +408,9 @@ def _require_admin(authorization: str | None):
         raise HTTPException(status_code=401, detail="Token inválido o expirado")
 
     email = (user.get("email") or "").lower()
-    role = (user.get("user_metadata") or {}).get("role", "")
+    # Solo el server puede escribir app_metadata (los usuarios no pueden
+    # auto-promoverse modificando user_metadata, que es editable por el cliente).
+    role = (user.get("app_metadata") or {}).get("role", "")
     if role == "admin" or email in _admin_emails():
         return {"role": "admin", "email": email, "source": "supabase"}
 
