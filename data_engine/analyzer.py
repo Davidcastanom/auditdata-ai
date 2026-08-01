@@ -753,13 +753,6 @@ def csv_to_xlsx(csv_content: str, filename: str = "dataset.xlsx") -> bytes:
     return buf.getvalue()
 
 
-def _clean_filename(filename: str) -> str:
-    if "." in filename:
-        stem, ext = filename.rsplit(".", 1)
-        return f"{stem}_limpio.{ext}"
-    return f"{filename}_limpio.csv"
-
-
 def _find_header_row(raw_rows: list[tuple]) -> int:
     """Detect which row is the actual header row, skipping title/metadata rows.
 
@@ -1157,10 +1150,15 @@ def _standardize_text(value: str, mode: str) -> str:
 
 
 def _clean_filename(filename: str) -> str:
-    if "." in filename:
-        stem, ext = filename.rsplit(".", 1)
-        return f"{stem}_limpio.{ext}"
-    return f"{filename}_limpio.csv"
+    """Return the analysis filename for the cleaned CSV.
+
+    The cleaned content is always serialized as CSV, so the extension must
+    always be .csv regardless of the original file format. Reusing the
+    original extension (e.g. .xlsx) would make load_dataset try to read the
+    CSV bytes as an XLSX archive and fail.
+    """
+    stem = filename.rsplit(".", 1)[0] if "." in filename else filename
+    return f"{stem}_limpio.csv"
 
 
 def _conclusión(analysis: dict[str, Any]) -> str:

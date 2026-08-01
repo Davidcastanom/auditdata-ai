@@ -30,5 +30,34 @@ class TestDataEngine(unittest.TestCase):
         self.assertIn("after", result)
         self.assertEqual(result["after"]["duplicate_rows"], 0)
 
+    def test_cleaning_actions_with_xlsx_input(self):
+        try:
+            import openpyxl
+        except ImportError:
+            self.skipTest("openpyxl no instalado")
+
+        import io
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Datos"
+        ws.append(["id", "nombre", "ciudad", "edad", "completo_reto"])
+        ws.append([1, "Ana", "Bogota", 28, "si"])
+        ws.append([2, "Juan", "bogota", 31, "no"])
+        ws.append([1, "Ana", "Bogota", 28, "si"])
+        buf = io.BytesIO()
+        wb.save(buf)
+        xlsx_bytes = buf.getvalue()
+
+        actions = [
+            {"kind": "remove_duplicate_rows", "reason": "Eliminar duplicados"},
+            {"kind": "standardize_values", "column": "ciudad", "method": "capitalize", "reason": "Capitalizar"},
+        ]
+        result = apply_cleaning_actions("test_dataset.xlsx", xlsx_bytes, actions)
+        self.assertIn("before", result)
+        self.assertIn("after", result)
+        self.assertEqual(result["after"]["duplicate_rows"], 0)
+        self.assertGreater(len(result["clean_csv"]), 0)
+
 if __name__ == "__main__":
     unittest.main()
