@@ -65,8 +65,8 @@ function withTimeout(promise, ms) {
 export async function getCurrentUser() {
   if (!authAvailable) return null;
   try {
-    const { data: { session } } = await withTimeout(supabase.auth.getSession(), 3000);
-    return session?.user || null;
+    const { data: { user } } = await withTimeout(supabase.auth.getUser(), 3000);
+    return user || null;
   } catch {
     return null;
   }

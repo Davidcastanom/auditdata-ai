@@ -124,6 +124,12 @@ function isRecoveryLink() {
 }
 
 async function init() {
+  if (!authAvailable) {
+    const start = Date.now();
+    while (!authAvailable && Date.now() - start < 6000) {
+      await new Promise((r) => setTimeout(r, 120));
+    }
+  }
   const token = await getTokenOrNull();
   if (!supabase || !authAvailable) {
     setMsg("adminLoginMsg", "El servicio de autenticación no está disponible. Verifica tu conexión.", false);

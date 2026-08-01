@@ -20,12 +20,23 @@ const consentCloseButton = document.querySelector("#consentCloseButton");
 
 let currentUser = null;
 
+async function waitForAuth(timeoutMs = 6000) {
+  if (authAvailable) return true;
+  const start = Date.now();
+  while (!authAvailable) {
+    if (Date.now() - start > timeoutMs) return false;
+    await new Promise((r) => setTimeout(r, 120));
+  }
+  return true;
+}
+
 async function initAuth() {
   const isTest = new URLSearchParams(window.location.search).has("test");
   if (isTest) {
     showApp();
     return;
   }
+  await waitForAuth();
   try {
     const user = await getCurrentUser();
     if (user) {
