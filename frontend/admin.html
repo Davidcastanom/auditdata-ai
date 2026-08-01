@@ -17,32 +17,36 @@
       .admin-brand { display: flex; align-items: center; gap: 0.6rem; font-weight: 700; font-size: 1.05rem; color: var(--color-primary, #123a63); }
       .admin-brand .lh__logo { width: 34px; height: 34px; font-size: 1rem; }
       .admin-user { display: flex; align-items: center; gap: 0.6rem; color: #4a5568; font-size: 0.85rem; }
-      .admin-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--color-accent, #2b6cb0); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; }
+      .admin-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--color-primary-dark, #123a63); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; }
+      .button--ghost { color: #1a202c; border-color: #94a3b8; background: transparent; }
+      .button--danger { color: #b91c1c; border-color: #b91c1c; background: transparent; }
+      .button--danger:hover:not(:disabled) { background: rgba(185, 28, 28, 0.1); border-color: #b91c1c; }
       .admin-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
       .admin-card h2 { margin: 0 0 0.9rem; font-size: 1rem; color: var(--color-primary, #123a63); }
       .admin-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
       .kpi { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 1.1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
       .kpi__value { font-size: 1.7rem; font-weight: 800; color: var(--color-primary, #123a63); }
-      .kpi__label { font-size: 0.78rem; color: #718096; margin-top: 0.2rem; }
+      .kpi__label { font-size: 0.78rem; color: #475569; margin-top: 0.2rem; }
       .admin-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-      .admin-table th, .admin-table td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid #edf2f7; }
-      .admin-table th { color: #718096; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
+      .admin-table th, .admin-table td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid #e2e8f0; }
+      .admin-table th { color: #475569; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
       .badge-err { display: inline-block; background: #fed7d7; color: #9b2c2c; font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px; }
       .badge-ok { display: inline-block; background: #c6f6d5; color: #22543d; font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px; }
       .admin-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-      .admin-note { font-size: 0.78rem; color: #718096; margin-top: 1rem; }
+      .admin-note { font-size: 0.78rem; color: #475569; margin-top: 1rem; }
       .login-wrap { max-width: 400px; margin: 8vh auto 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 2rem; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
       .login-wrap h1 { font-size: 1.15rem; color: var(--color-primary, #123a63); margin: 0 0 0.25rem; }
-      .login-wrap p.sub { color: #718096; font-size: 0.85rem; margin: 0 0 1.4rem; }
+      .login-wrap p.sub { color: #475569; font-size: 0.85rem; margin: 0 0 1.4rem; }
       .field { margin-bottom: 0.9rem; }
       .field label { display: block; font-size: 0.78rem; color: #4a5568; margin-bottom: 0.3rem; font-weight: 600; }
-      .field input { width: 100%; box-sizing: border-box; padding: 0.6rem 0.75rem; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 0.9rem; }
-      .admin-link { font-size: 0.82rem; color: var(--color-accent, #2b6cb0); background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline; }
+      .field input { width: 100%; box-sizing: border-box; padding: 0.6rem 0.75rem; margin-top: 0.3rem; border: 1px solid #64748b; border-radius: 8px; font-size: 0.9rem; background: #fff; color: #1a202c; }
+      .field input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.15); }
+      .admin-link { font-size: 0.82rem; color: var(--color-primary-dark, #123a63); background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline; }
       .admin-msg { font-size: 0.85rem; padding: 0.6rem 0.8rem; border-radius: 8px; margin-bottom: 1rem; }
-      .admin-msg--ok { background: #c6f6d5; color: #22543d; }
-      .admin-msg--err { background: #fed7d7; color: #9b2c2c; }
+      .admin-msg--ok { background: #c6f6d5; color: #14532d; }
+      .admin-msg--err { background: #fed7d7; color: #7f1d1d; }
       .hidden { display: none !important; }
-      .divider { text-align: center; color: #a0aec0; font-size: 0.78rem; margin: 1rem 0; }
+      .divider { text-align: center; color: #64748b; font-size: 0.78rem; margin: 1rem 0; }
     </style>
   </head>
   <body>
@@ -127,7 +131,7 @@
         <div id="adminDashMsg" class="admin-msg hidden"></div>
         <div class="admin-actions" style="margin-bottom:1.25rem;">
           <button class="btn-primary" id="adminRefreshButton" type="button">Actualizar métricas</button>
-          <button class="button button--primary" id="adminSendErrorsButton" type="button" style="border-color:var(--color-accent);color:var(--color-accent);background:transparent;">Enviar reporte de errores por email</button>
+          <button class="button button--primary" id="adminSendErrorsButton" type="button" style="border-color:var(--color-primary-dark);color:var(--color-primary-dark);background:transparent;">Enviar reporte de errores por email</button>
         </div>
 
         <div class="admin-kpis" id="adminKpis"></div>
