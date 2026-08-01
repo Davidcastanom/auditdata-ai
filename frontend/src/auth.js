@@ -72,8 +72,54 @@ export async function getCurrentUser() {
   }
 }
 
+export const CONSENT_VERSION = "1.0";
+const CONSENT_STORAGE_KEY = "auditdata_consent";
+
+export function getConsent() {
+  try {
+    const raw = localStorage.getItem(CONSENT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && parsed.version === CONSENT_VERSION ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function hasConsent() {
+  return getConsent() !== null;
+}
+
+export function acceptConsent() {
+  const consent = { version: CONSENT_VERSION, acceptedAt: new Date().toISOString() };
+  localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(consent));
+  return consent;
+}
+
+export function clearConsent() {
+  localStorage.removeItem(CONSENT_STORAGE_KEY);
+}
+
+// Registra legalmente la aceptación en Supabase (best-effort, no-op si falla)
+export async function recordConsent(userId) {
+  if (!authAvailable || !supabase || !userId) return;
+  try {
+    await supabase.from("user_consents").upsert(
+      {
+        user_id: userId,
+        consent_version: CONSENT_VERSION,
+        accepted_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" }
+    );
+  } catch (e) {
+    console.warn("Failed to record consent:", e);
+  }
+}
+
 export async function saveToHistory(dataset, analysis, actions, before, after, reportPdfBase64) {
   if (!authAvailable || !supabase) return null;
+  if (!hasConsent()) return null;
   try {
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;

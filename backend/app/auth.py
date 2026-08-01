@@ -29,13 +29,15 @@ def verify_token(token: str) -> dict[str, Any] | None:
         client = get_supabase_client()
         user = client.auth.get_user(token)
         if user and user.user:
+            metadata = user.user.user_metadata or {}
             return {
                 "id": user.user.id,
                 "email": user.user.email,
-                "full_name": user.user.user_metadata.get("full_name", "")
-                or user.user.user_metadata.get("name", ""),
-                "avatar_url": user.user.user_metadata.get("avatar_url", "")
-                or user.user.user_metadata.get("picture", ""),
+                "full_name": metadata.get("full_name", "")
+                or metadata.get("name", ""),
+                "avatar_url": metadata.get("avatar_url", "")
+                or metadata.get("picture", ""),
+                "user_metadata": metadata,
             }
         return None
     except Exception as e:

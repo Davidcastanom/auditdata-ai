@@ -1,6 +1,6 @@
 import { Store } from "./state.js";
 import { Router } from "./router.js";
-import { signInWithGoogle, signOut, getCurrentUser, authAvailable, saveToHistory, getHistory, getHistorySession } from "./auth.js";
+import { signInWithGoogle, signOut, getCurrentUser, authAvailable, saveToHistory, getHistory, getHistorySession, hasConsent, acceptConsent, recordConsent } from "./auth.js";
 import { NubeValidación } from "./nube.js";
 
 const loginScreen = document.querySelector("#loginScreen");
@@ -11,6 +11,12 @@ const heroStartButton = document.querySelector("#heroStartButton");
 const heroSkipButton = document.querySelector("#heroSkipButton");
 const ctaStartButton = document.querySelector("#ctaStartButton");
 const ctaGoogleButton = document.querySelector("#ctaGoogleButton");
+const consentModal = document.querySelector("#consentModal");
+const consentBackdrop = document.querySelector("#consentBackdrop");
+const consentCheckbox = document.querySelector("#consentCheckbox");
+const consentAcceptButton = document.querySelector("#consentAcceptButton");
+const consentCancelButton = document.querySelector("#consentCancelButton");
+const consentCloseButton = document.querySelector("#consentCloseButton");
 
 let currentUser = null;
 
@@ -44,6 +50,9 @@ function showApp() {
   if (currentUser) {
     showUserBar();
     loadHistory();
+    if (hasConsent()) {
+      recordConsent(currentUser.id);
+    }
   }
   init();
 }
@@ -71,12 +80,56 @@ function showUserBar() {
   });
 }
 
-googleLoginButton.addEventListener("click", async () => {
-  try {
-    await signInWithGoogle();
-  } catch (e) {
-    console.error("Login failed:", e);
+let pendingLogin = null;
+
+function openConsentModal() {
+  consentCheckbox.checked = false;
+  consentAcceptButton.disabled = true;
+  consentModal.classList.add("is-active");
+  consentModal.setAttribute("aria-hidden", "false");
+  consentBackdrop.classList.add("is-active");
+}
+
+function closeConsentModal() {
+  consentModal.classList.remove("is-active");
+  consentModal.setAttribute("aria-hidden", "true");
+  consentBackdrop.classList.remove("is-active");
+  pendingLogin = null;
+}
+
+function requireConsentThen(loginFn) {
+  if (hasConsent()) {
+    loginFn().catch((e) => console.error("Login failed:", e));
+    return;
   }
+  pendingLogin = loginFn;
+  openConsentModal();
+}
+
+consentCheckbox.addEventListener("change", () => {
+  consentAcceptButton.disabled = !consentCheckbox.checked;
+});
+
+consentCancelButton.addEventListener("click", closeConsentModal);
+consentCloseButton.addEventListener("click", closeConsentModal);
+consentBackdrop.addEventListener("click", closeConsentModal);
+
+consentAcceptButton.addEventListener("click", async () => {
+  if (!consentCheckbox.checked) return;
+  acceptConsent();
+  const loginFn = pendingLogin;
+  closeConsentModal();
+  if (loginFn) {
+    try {
+      await loginFn();
+    } catch (e) {
+      console.error("Login failed:", e);
+    }
+  }
+});
+
+googleLoginButton.addEventListener("click", () => {
+  requireConsentThen(signInWithGoogle);
 });
 
 [skipLoginButton, heroStartButton, heroSkipButton, ctaStartButton].forEach((btn) => {
@@ -84,12 +137,8 @@ googleLoginButton.addEventListener("click", async () => {
 });
 
 if (ctaGoogleButton) {
-  ctaGoogleButton.addEventListener("click", async () => {
-    try {
-      await signInWithGoogle();
-    } catch (e) {
-      console.error("Login failed:", e);
-    }
+  ctaGoogleButton.addEventListener("click", () => {
+    requireConsentThen(signInWithGoogle);
   });
 }
 

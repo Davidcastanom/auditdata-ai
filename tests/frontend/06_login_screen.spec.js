@@ -15,6 +15,34 @@ test.describe("AuditData AI - Login con Google", () => {
     await expect(btn).toBeEnabled();
   });
 
+  test("al pulsar Iniciar sesion se exige aceptar el consentimiento", async ({ page }) => {
+    await page.goto("/");
+    const googleBtn = page.locator("#googleLoginButton");
+    await expect(googleBtn).toBeVisible({ timeout: 10000 });
+    await googleBtn.click();
+
+    const modal = page.locator("#consentModal");
+    await expect(modal).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("#consentModal__body, .consent-modal__body")).toBeVisible();
+
+    const acceptBtn = page.locator("#consentAcceptButton");
+    await expect(acceptBtn).toBeDisabled();
+
+    await page.locator("#consentCheckbox").check();
+    await expect(acceptBtn).toBeEnabled();
+
+    await page.locator("#consentCancelButton").click();
+    await expect(modal).toBeHidden();
+  });
+
+  test("sin consentimiento aceptado, la sesion no guarda historial", async ({ page }) => {
+    await page.goto("/?test");
+    const appContent = page.locator("#appContent");
+    await expect(appContent).toBeVisible({ timeout: 10000 });
+    const consent = await page.evaluate(() => localStorage.getItem("auditdata_consent"));
+    expect(consent).toBeNull();
+  });
+
   test("sin ?test, la app no se muestra sin autenticar", async ({ page }) => {
     await page.goto("/");
     await page.waitForTimeout(4000);

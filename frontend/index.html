@@ -43,7 +43,7 @@
               <button class="btn-primary" id="heroStartButton" type="button">Comenzar ahora</button>
               <button class="btn-ghost" id="heroSkipButton" type="button">Probar sin cuenta</button>
             </div>
-            <p class="hs__note">No requiere instalacion. Tu archivo se procesa de forma segura y no se almacena permanentemente.</p>
+            <p class="hs__note">No requiere instalacion. Tu archivo se procesa de forma segura. Solo guardas historial en la nube si inicias sesion y aceptas el consentimiento de tratamiento de datos.</p>
           </div>
           <div class="hs__visual">
             <div class="mock">
@@ -543,6 +543,38 @@
       <div class="file-preview-modal__footer">
         <button class="button button--ghost" id="filePreviewCancel" type="button">Cancelar</button>
         <button class="button button--primary" id="filePreviewConfirm" type="button">Confirmar y Analizar</button>
+      </div>
+    </div>
+
+    </div>
+
+    <!-- CONSENTIMIENTO DE TRATAMIENTO DE DATOS -->
+    <div class="consent-backdrop" id="consentBackdrop"></div>
+    <div class="consent-modal" id="consentModal" role="dialog" aria-modal="true" aria-labelledby="consentTitle" aria-hidden="true">
+      <div class="consent-modal__header">
+        <h3 id="consentTitle">Consentimiento de tratamiento de datos</h3>
+        <button class="button button--ghost button--sm" id="consentCloseButton" type="button" aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="consent-modal__body">
+        <p>Al iniciar sesión y usar AuditData AI, aceptas el siguiente tratamiento de tu información:</p>
+        <ul>
+          <li><strong>Procesamiento del archivo:</strong> tu CSV/XLSX se analiza en memoria para el diagnóstico y la limpieza. No se publica ni se comparte.</li>
+          <li><strong>Asistente con IA:</strong> las columnas y tus preguntas del chat se envían a un modelo de IA para generar recomendaciones. No se usan para entrenar modelos.</li>
+          <li><strong>Guardado en la nube (solo si tú lo pulsas):</strong> almacenamos el nombre del archivo, nº de filas/columnas, las acciones de limpieza y el reporte PDF generado.</li>
+          <li><strong>Telemetría anónima:</strong> medimos el uso de la app (peticiones, tiempos, errores) de forma anónima, sin identificar tu identidad.</li>
+          <li><strong>Tu control:</strong> puedes cerrar sesión y solicitar el borrado de tus datos en cualquier momento.</li>
+        </ul>
+        <p class="consent-modal__version">Versión de consentimiento: 1.0</p>
+      </div>
+      <div class="consent-modal__footer">
+        <label class="consent-modal__check">
+          <input type="checkbox" id="consentCheckbox" />
+          <span>He leído y acepto el tratamiento de datos descrito</span>
+        </label>
+        <div class="consent-modal__actions">
+          <button class="button button--ghost" id="consentCancelButton" type="button">Cancelar</button>
+          <button class="button button--primary" id="consentAcceptButton" type="button" disabled>Continuar con Google</button>
+        </div>
       </div>
     </div>
 

@@ -1,10 +1,11 @@
 import base64
 import os
+import time
 from typing import Any
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from backend.app.reporting import build_cleaning_pdf_report, build_pdf_report
@@ -30,6 +31,50 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def metrics_middleware(request, call_next):
+    """Mide duración y status de cada request /api/* para métricas anónimas.
+    NUNCA captura contenido del cuerpo: solo endpoint, status y tiempo."""
+    start = time.perf_counter()
+    status_code = 500
+    error_type = None
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    except Exception as e:
+        error_type = type(e).__name__
+        raise
+    finally:
+        if request.url.path.startswith("/api/"):
+            duration_ms = (time.perf_counter() - start) * 1000
+            client_id = request.headers.get("x-client-id", "anon")
+            session_id = request.headers.get("x-session-id", "")
+            try:
+                from backend.app.metrics import record_error, record_usage_event
+
+                record_usage_event(
+                    client_id=client_id,
+                    session_id=session_id,
+                    endpoint=request.url.path,
+                    method=request.method,
+                    status_code=status_code,
+                    duration_ms=duration_ms,
+                )
+                if status_code >= 400:
+                    record_error(
+                        client_id=client_id,
+                        endpoint=request.url.path,
+                        status_code=status_code,
+                        error_type=error_type,
+                    )
+            except Exception as e:
+                # Las métricas jamás deben romper la aplicación
+                import logging
+
+                logging.getLogger(__name__).warning("Métricas ignoradas: %s", e)
 
 class AnalyzeRequest(BaseModel):
     filename: str
@@ -324,10 +369,93 @@ def report_audit_log(req: CleanRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
+# ---------------------------------------------------------------------------
+# ADMIN: métricas anónimas de uso (ver backend/app/metrics.py)
+# ---------------------------------------------------------------------------
+
+def _admin_emails() -> list[str]:
+    return [
+        e.strip().lower()
+        for e in os.getenv("ADMIN_EMAILS", "").split(",")
+        if e.strip()
+    ]
+
+
+def _require_admin(authorization: str | None):
+    """Valida el acceso de administrador. Acepta:
+    1. JWT de Supabase (login con Google o email/password) cuyo usuario tenga
+       user_metadata.role == "admin" o esté en ADMIN_EMAILS.
+    2. ADMIN_TOKEN (fallback para scripts / make send-errors).
+    Nunca expone datos de usuarios: solo devuelve rol y email del admin."""
+    from backend.app.auth import verify_token
+    from backend.app.metrics import ADMIN_TOKEN as _token
+
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Token requerido")
+
+    token = authorization.strip()
+    if token.lower().startswith("bearer "):
+        token = token[7:].strip()
+
+    # 1) Token interno (make / scripts)
+    if _token and token == _token:
+        return {"role": "admin", "source": "token"}
+
+    # 2) JWT de Supabase
+    user = verify_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+
+    email = (user.get("email") or "").lower()
+    role = (user.get("user_metadata") or {}).get("role", "")
+    if role == "admin" or email in _admin_emails():
+        return {"role": "admin", "email": email, "source": "supabase"}
+
+    raise HTTPException(status_code=403, detail="No tienes permisos de administrador")
+
+
+@app.get("/api/admin/metrics")
+def admin_metrics(authorization: str | None = Header(default=None)):
+    """Métricas agregadas para el panel admin: actividad diaria y duración de sesiones."""
+    _require_admin(authorization)
+    from backend.app.metrics import get_admin_metrics
+
+    return {"metrics": get_admin_metrics()}
+
+
+@app.get("/api/admin/errors")
+def admin_errors(
+    authorization: str | None = Header(default=None),
+    limit: int = 50,
+):
+    """Lista de errores recientes (solo tipo + endpoint, sin datos de usuario)."""
+    _require_admin(authorization)
+    from backend.app.metrics import get_admin_errors
+
+    return {"errors": get_admin_errors(limit=limit)}
+
+
+@app.post("/api/admin/errors/send")
+async def admin_errors_send(authorization: str | None = Header(default=None)):
+    """Envía el resumen de errores al webhook de Make.com (email automatizado)."""
+    _require_admin(authorization)
+    from backend.app.metrics import build_errors_report, notify_make_webhook
+
+    payload = build_errors_report()
+    result = await notify_make_webhook(payload)
+    return {"result": result, "report": payload}
+
 frontend_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend")
 
 @app.get("/")
 def read_root():
     return FileResponse(os.path.join(frontend_path, "index.html"))
+
+
+@app.get("/admin")
+def read_admin():
+    """Ventana de administrador: métricas anónimas de uso."""
+    return FileResponse(os.path.join(frontend_path, "admin.html"))
 
 app.mount("/frontend", StaticFiles(directory=frontend_path), name="frontend")
