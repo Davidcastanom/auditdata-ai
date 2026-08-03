@@ -3,18 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AuditData AI | Mantenimiento Programado</title>
+    <title>AuditData AI | Volvemos pronto, más fuertes 🚀</title>
     <meta
       name="description"
-      content="AuditData AI se encuentra en mantenimiento programado. Volveremos pronto con mejoras para tu experiencia de limpieza de datos."
+      content="AuditData AI está en mantenimiento. Estamos trabajando para generar impacto. Volvemos pronto con mejoras para tu experiencia de calidad de datos."
     />
     <meta name="robots" content="noindex, nofollow" />
     <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <style>
-      /* ── Design tokens (mirrored from design-system.css) ─────────── */
+      /* ── Design tokens (from AuditData AI design-system.css) ───── */
       :root {
         --color-primary: #0066ff;
         --color-primary-dark: #0052cc;
@@ -40,6 +40,10 @@
         padding: 0;
       }
 
+      html, body {
+        height: 100%;
+      }
+
       body {
         min-height: 100vh;
         display: flex;
@@ -48,20 +52,25 @@
         justify-content: center;
         background:
           radial-gradient(
-            ellipse at 20% 0%,
-            rgba(0, 102, 255, 0.18),
-            transparent 50%
+            ellipse at 30% 0%,
+            rgba(0, 102, 255, 0.20),
+            transparent 55%
           ),
           radial-gradient(
-            ellipse at 80% 100%,
-            rgba(0, 212, 255, 0.08),
-            transparent 50%
+            ellipse at 70% 100%,
+            rgba(0, 212, 255, 0.10),
+            transparent 55%
+          ),
+          radial-gradient(
+            circle at 50% 50%,
+            rgba(0, 102, 255, 0.03),
+            transparent 70%
           ),
           var(--color-black);
         color: var(--color-text);
         font-family: var(--font-sans);
         -webkit-font-smoothing: antialiased;
-        overflow: hidden;
+        overflow-x: hidden;
       }
 
       /* ── Floating particles ──────────────────────────────────────── */
@@ -75,121 +84,156 @@
         position: absolute;
         border-radius: 50%;
         background: var(--color-primary);
-        opacity: 0.08;
+        opacity: 0;
         animation: float linear infinite;
       }
-      .particles span:nth-child(1) {
-        width: 6px; height: 6px; left: 10%; animation-duration: 18s; animation-delay: 0s;
-      }
-      .particles span:nth-child(2) {
-        width: 4px; height: 4px; left: 25%; animation-duration: 22s; animation-delay: 2s;
-        background: var(--color-accent);
-      }
-      .particles span:nth-child(3) {
-        width: 8px; height: 8px; left: 45%; animation-duration: 15s; animation-delay: 4s;
-      }
-      .particles span:nth-child(4) {
-        width: 3px; height: 3px; left: 60%; animation-duration: 20s; animation-delay: 1s;
-        background: var(--color-accent);
-      }
-      .particles span:nth-child(5) {
-        width: 5px; height: 5px; left: 75%; animation-duration: 25s; animation-delay: 3s;
-      }
-      .particles span:nth-child(6) {
-        width: 7px; height: 7px; left: 90%; animation-duration: 17s; animation-delay: 5s;
-        background: var(--color-accent);
-      }
+      .particles span:nth-child(1) { width: 4px; height: 4px; left: 8%;  animation-duration: 20s; animation-delay: 0s; }
+      .particles span:nth-child(2) { width: 3px; height: 3px; left: 18%; animation-duration: 24s; animation-delay: 3s; background: var(--color-accent); }
+      .particles span:nth-child(3) { width: 6px; height: 6px; left: 35%; animation-duration: 16s; animation-delay: 1s; }
+      .particles span:nth-child(4) { width: 3px; height: 3px; left: 52%; animation-duration: 22s; animation-delay: 5s; background: var(--color-accent); }
+      .particles span:nth-child(5) { width: 5px; height: 5px; left: 68%; animation-duration: 18s; animation-delay: 2s; }
+      .particles span:nth-child(6) { width: 4px; height: 4px; left: 82%; animation-duration: 26s; animation-delay: 4s; background: var(--color-accent); }
+      .particles span:nth-child(7) { width: 3px; height: 3px; left: 92%; animation-duration: 19s; animation-delay: 6s; }
+      .particles span:nth-child(8) { width: 5px; height: 5px; left: 45%; animation-duration: 21s; animation-delay: 7s; background: var(--color-accent); }
 
       @keyframes float {
-        0%   { transform: translateY(100vh) scale(0); opacity: 0; }
-        10%  { opacity: 0.08; }
-        90%  { opacity: 0.08; }
-        100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+        0%   { transform: translateY(100vh) scale(0.5); opacity: 0; }
+        8%   { opacity: 0.12; }
+        92%  { opacity: 0.12; }
+        100% { transform: translateY(-10vh) scale(1.2); opacity: 0; }
+      }
+
+      /* ── Glowing orb behind card ─────────────────────────────────── */
+      .glow-orb {
+        position: fixed;
+        width: 400px;
+        height: 400px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(0, 102, 255, 0.12), transparent 70%);
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: 0;
+        animation: orbPulse 6s ease-in-out infinite;
+      }
+
+      @keyframes orbPulse {
+        0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+        50%      { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
       }
 
       /* ── Main card ───────────────────────────────────────────────── */
       .maintenance-card {
         position: relative;
         z-index: 1;
-        max-width: 560px;
+        max-width: 620px;
         width: calc(100% - 32px);
-        padding: 3rem 2.5rem;
-        background: rgba(18, 18, 26, 0.7);
-        backdrop-filter: blur(24px);
-        -webkit-backdrop-filter: blur(24px);
-        border: 1px solid var(--color-border);
-        border-radius: 20px;
+        padding: 3rem 2.5rem 2.5rem;
+        background: rgba(18, 18, 26, 0.65);
+        backdrop-filter: blur(28px) saturate(1.3);
+        -webkit-backdrop-filter: blur(28px) saturate(1.3);
+        border: 1px solid rgba(36, 36, 54, 0.6);
+        border-radius: 24px;
         text-align: center;
         box-shadow:
-          0 0 80px rgba(0, 102, 255, 0.06),
-          0 24px 48px rgba(0, 0, 0, 0.4);
-        animation: cardIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          0 0 100px rgba(0, 102, 255, 0.05),
+          0 32px 64px rgba(0, 0, 0, 0.45),
+          inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        animation: cardIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         opacity: 0;
-        transform: translateY(30px);
+        transform: translateY(40px);
       }
 
       @keyframes cardIn {
         to { opacity: 1; transform: translateY(0); }
       }
 
-      /* ── Animated gear icon ──────────────────────────────────────── */
-      .gear-container {
+      /* ── Rocket icon ─────────────────────────────────────────────── */
+      .icon-container {
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-bottom: 2rem;
-        gap: 0;
+        margin-bottom: 1.75rem;
       }
 
-      .gear {
+      .rocket-wrapper {
+        position: relative;
+        width: 80px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .rocket-wrapper::before {
+        content: '';
+        position: absolute;
+        inset: -8px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+        opacity: 0.1;
+        animation: ringPulse 3s ease-in-out infinite;
+      }
+
+      .rocket-wrapper::after {
+        content: '';
+        position: absolute;
+        inset: -16px;
+        border-radius: 50%;
+        border: 1px solid rgba(0, 102, 255, 0.1);
+        animation: ringPulse 3s ease-in-out infinite reverse;
+      }
+
+      @keyframes ringPulse {
+        0%, 100% { transform: scale(1); opacity: 0.1; }
+        50%      { transform: scale(1.1); opacity: 0.2; }
+      }
+
+      .rocket-icon {
+        width: 48px;
+        height: 48px;
         fill: none;
-        stroke: var(--color-primary);
         stroke-width: 1.5;
         stroke-linecap: round;
         stroke-linejoin: round;
-        filter: drop-shadow(0 0 8px rgba(0, 102, 255, 0.3));
-      }
-      .gear--large {
-        width: 72px;
-        height: 72px;
-        animation: spinGear 8s linear infinite;
-      }
-      .gear--small {
-        width: 44px;
-        height: 44px;
-        margin-left: -10px;
-        margin-top: 18px;
-        animation: spinGearReverse 6s linear infinite;
-        stroke: var(--color-accent);
-        filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.3));
+        animation: rocketFloat 4s ease-in-out infinite;
       }
 
-      @keyframes spinGear {
-        to { transform: rotate(360deg); }
-      }
-      @keyframes spinGearReverse {
-        to { transform: rotate(-360deg); }
+      .rocket-icon .rocket-body { stroke: var(--color-primary); }
+      .rocket-icon .rocket-flame { stroke: var(--color-accent); }
+      .rocket-icon .rocket-stars { stroke: var(--color-muted); opacity: 0.5; }
+
+      @keyframes rocketFloat {
+        0%, 100% { transform: translateY(0) rotate(-2deg); }
+        50%      { transform: translateY(-6px) rotate(2deg); }
       }
 
-      /* ── Eyebrow ─────────────────────────────────────────────────── */
+      /* ── Eyebrow badge ───────────────────────────────────────────── */
       .eyebrow {
         display: inline-flex;
         align-items: center;
         gap: 0.5rem;
-        margin-bottom: 0.75rem;
+        margin-bottom: 1rem;
+        padding: 0.35rem 1rem;
+        background: rgba(245, 158, 11, 0.08);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        border-radius: 999px;
         color: var(--color-warning);
         font-family: var(--font-mono);
-        font-size: 0.75rem;
-        letter-spacing: 0.12em;
+        font-size: 0.72rem;
+        letter-spacing: 0.1em;
         text-transform: uppercase;
         font-weight: 600;
       }
+
       .status-dot {
-        width: 8px;
-        height: 8px;
+        width: 7px;
+        height: 7px;
         border-radius: 50%;
         background: var(--color-warning);
         animation: pulse 2s ease-in-out infinite;
+        flex-shrink: 0;
       }
 
       @keyframes pulse {
@@ -199,12 +243,12 @@
 
       /* ── Typography ──────────────────────────────────────────────── */
       h1 {
-        font-size: clamp(1.6rem, 4vw, 2.2rem);
-        font-weight: 700;
+        font-size: clamp(1.7rem, 4.5vw, 2.5rem);
+        font-weight: 800;
         line-height: 1.15;
-        letter-spacing: -0.02em;
-        margin-bottom: 1rem;
-        background: linear-gradient(to right, #ffffff, #66b3ff, #0066ff);
+        letter-spacing: -0.03em;
+        margin-bottom: 1.25rem;
+        background: linear-gradient(135deg, #ffffff 0%, #99ccff 50%, #0066ff 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -212,54 +256,181 @@
 
       .description {
         color: var(--color-muted);
-        font-size: 1rem;
-        line-height: 1.65;
-        margin-bottom: 2rem;
-        max-width: 440px;
+        font-size: 1.05rem;
+        line-height: 1.7;
+        margin-bottom: 1.75rem;
+        max-width: 480px;
         margin-left: auto;
         margin-right: auto;
       }
 
+      .description strong {
+        color: var(--color-text);
+        font-weight: 600;
+      }
+
+      /* ── Inspirational quote ─────────────────────────────────────── */
+      .quote-block {
+        position: relative;
+        margin: 0 auto 2rem;
+        max-width: 440px;
+        padding: 1.25rem 1.5rem;
+        background: linear-gradient(135deg, rgba(0, 102, 255, 0.06), rgba(0, 212, 255, 0.04));
+        border: 1px solid rgba(0, 102, 255, 0.12);
+        border-radius: var(--radius-md);
+        text-align: left;
+      }
+
+      .quote-block::before {
+        content: '"';
+        position: absolute;
+        top: -4px;
+        left: 12px;
+        font-size: 3rem;
+        font-weight: 800;
+        line-height: 1;
+        background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        opacity: 0.4;
+      }
+
+      .quote-text {
+        color: var(--color-text);
+        font-size: 0.95rem;
+        font-style: italic;
+        line-height: 1.6;
+        font-weight: 300;
+        padding-left: 0.5rem;
+      }
+
+      .quote-author {
+        display: block;
+        margin-top: 0.5rem;
+        padding-left: 0.5rem;
+        color: var(--color-primary);
+        font-size: 0.75rem;
+        font-style: normal;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+      }
+
+      /* ── What we're doing list ───────────────────────────────────── */
+      .improvements {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        margin-bottom: 2rem;
+        text-align: left;
+        max-width: 400px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .improvement-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 0.75rem;
+        background: rgba(18, 18, 26, 0.5);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        font-size: 0.88rem;
+        color: var(--color-muted);
+        transition: border-color 0.3s, background 0.3s;
+      }
+
+      .improvement-item:hover {
+        border-color: rgba(0, 102, 255, 0.3);
+        background: rgba(0, 102, 255, 0.04);
+      }
+
+      .improvement-icon {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 0.7rem;
+      }
+
+      .improvement-icon--speed {
+        background: rgba(0, 102, 255, 0.15);
+        color: var(--color-primary);
+      }
+      .improvement-icon--shield {
+        background: rgba(34, 197, 94, 0.15);
+        color: var(--color-success);
+      }
+      .improvement-icon--brain {
+        background: rgba(0, 212, 255, 0.15);
+        color: var(--color-accent);
+      }
+
       /* ── Countdown ───────────────────────────────────────────────── */
       .countdown-wrapper {
-        margin-bottom: 2rem;
+        margin-bottom: 1.75rem;
       }
+
       .countdown-label {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         color: var(--color-muted);
         text-transform: uppercase;
-        letter-spacing: 0.1em;
+        letter-spacing: 0.12em;
         font-family: var(--font-mono);
         margin-bottom: 0.75rem;
       }
+
       .countdown {
         display: flex;
         justify-content: center;
-        gap: 1rem;
+        gap: 0.75rem;
       }
+
       .countdown__unit {
         display: flex;
         flex-direction: column;
         align-items: center;
       }
+
       .countdown__value {
-        font-size: 2rem;
+        font-size: 1.8rem;
         font-weight: 700;
         font-family: var(--font-mono);
         color: var(--color-text);
         background: var(--color-surface-2);
         border: 1px solid var(--color-border);
         border-radius: var(--radius-sm);
-        min-width: 64px;
-        padding: 0.5rem 0.75rem;
+        min-width: 60px;
+        padding: 0.45rem 0.65rem;
         line-height: 1;
-        transition: color 0.3s;
+        transition: color 0.3s, border-color 0.3s;
       }
+
       .countdown__value--done {
         color: var(--color-success);
+        border-color: rgba(34, 197, 94, 0.3);
       }
+
+      .countdown__sep {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--color-muted);
+        align-self: center;
+        margin-bottom: 1.2rem;
+        animation: blink 1s ease-in-out infinite;
+      }
+
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50%      { opacity: 0.3; }
+      }
+
       .countdown__label {
-        font-size: 0.65rem;
+        font-size: 0.6rem;
         color: var(--color-muted);
         text-transform: uppercase;
         letter-spacing: 0.08em;
@@ -269,38 +440,42 @@
       /* ── Progress bar ────────────────────────────────────────────── */
       .progress-track {
         width: 100%;
-        height: 4px;
+        height: 3px;
         background: var(--color-surface-2);
         border-radius: 2px;
-        margin-bottom: 2rem;
+        margin-bottom: 1.75rem;
         overflow: hidden;
       }
+
       .progress-bar {
         height: 100%;
         border-radius: 2px;
         background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
         width: 0%;
         transition: width 1s ease;
+        box-shadow: 0 0 12px rgba(0, 102, 255, 0.4);
       }
 
-      /* ── Info items ──────────────────────────────────────────────── */
+      /* ── Info badges ─────────────────────────────────────────────── */
       .info-items {
         display: flex;
         justify-content: center;
-        gap: 2rem;
-        margin-bottom: 2rem;
+        gap: 1.5rem;
+        margin-bottom: 1.75rem;
         flex-wrap: wrap;
       }
+
       .info-item {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.4rem;
         color: var(--color-muted);
-        font-size: 0.85rem;
+        font-size: 0.8rem;
       }
+
       .info-item svg {
-        width: 16px;
-        height: 16px;
+        width: 14px;
+        height: 14px;
         stroke: var(--color-primary);
         fill: none;
         stroke-width: 2;
@@ -318,10 +493,12 @@
         text-decoration: none;
         transition: color 0.2s, gap 0.2s;
       }
+
       .footer-link:hover {
         color: var(--color-accent);
         gap: 0.6rem;
       }
+
       .footer-link svg {
         width: 14px;
         height: 14px;
@@ -333,43 +510,55 @@
       /* ── Brand footer ────────────────────────────────────────────── */
       .brand-footer {
         position: fixed;
-        bottom: 1.5rem;
+        bottom: 1.25rem;
         left: 50%;
         transform: translateX(-50%);
         display: flex;
         align-items: center;
         gap: 0.5rem;
         color: var(--color-muted);
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         z-index: 1;
-        opacity: 0.6;
+        opacity: 0.5;
+        white-space: nowrap;
       }
+
       .brand-footer .logo-mini {
-        width: 20px;
-        height: 20px;
-        border-radius: 5px;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
         background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
         display: flex;
         align-items: center;
         justify-content: center;
         font-weight: 700;
-        font-size: 0.6rem;
+        font-size: 0.55rem;
         color: #fff;
       }
 
       /* ── Responsive ──────────────────────────────────────────────── */
-      @media (max-width: 480px) {
+      @media (max-width: 520px) {
         .maintenance-card {
-          padding: 2rem 1.5rem;
+          padding: 2rem 1.25rem 1.75rem;
+          border-radius: 18px;
         }
         .countdown__value {
-          font-size: 1.5rem;
-          min-width: 52px;
+          font-size: 1.4rem;
+          min-width: 48px;
         }
         .info-items {
           flex-direction: column;
           align-items: center;
-          gap: 0.75rem;
+          gap: 0.5rem;
+        }
+        .improvements {
+          max-width: 100%;
+        }
+        .quote-block {
+          padding: 1rem 1.25rem;
+        }
+        h1 {
+          font-size: 1.5rem;
         }
       }
     </style>
@@ -377,55 +566,88 @@
   <body>
     <!-- Floating particles -->
     <div class="particles">
-      <span></span><span></span><span></span>
-      <span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
     </div>
+
+    <!-- Glowing orb -->
+    <div class="glow-orb"></div>
 
     <!-- Main card -->
     <div class="maintenance-card" id="maintenanceCard">
-      <!-- Animated gears -->
-      <div class="gear-container">
-        <svg class="gear gear--large" viewBox="0 0 24 24">
-          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
-        </svg>
-        <svg class="gear gear--small" viewBox="0 0 24 24">
-          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
-        </svg>
+      <!-- Rocket icon -->
+      <div class="icon-container">
+        <div class="rocket-wrapper">
+          <svg class="rocket-icon" viewBox="0 0 24 24">
+            <path class="rocket-body" d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09Z"/>
+            <path class="rocket-body" d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2Z"/>
+            <path class="rocket-body" d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
+            <path class="rocket-body" d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+            <line class="rocket-flame" x1="2" y1="22" x2="7" y2="17" opacity="0.6"/>
+            <circle class="rocket-stars" cx="18" cy="5" r="0.7"/>
+            <circle class="rocket-stars" cx="20" cy="8" r="0.5"/>
+          </svg>
+        </div>
       </div>
 
       <!-- Status badge -->
       <div class="eyebrow">
         <span class="status-dot"></span>
-        Mantenimiento programado
+        Mantenimiento en curso
       </div>
 
       <!-- Heading -->
-      <h1>Estamos mejorando AuditData AI</h1>
+      <h1>Estamos trabajando para generar impacto</h1>
 
       <!-- Description -->
       <p class="description">
-        Nuestro equipo está realizando actualizaciones para ofrecerte una
-        experiencia más rápida y confiable. Tus datos y reportes están
-        seguros. Volveremos pronto.
+        Nos tomamos un momento para <strong>mejorar lo que ya funciona</strong>
+        y preparar cosas nuevas que van a facilitar tu trabajo con datos.
+        <strong>Tu información está segura</strong> y la plataforma se
+        reactivará automáticamente en poco tiempo.
       </p>
+
+      <!-- Inspirational quote -->
+      <div class="quote-block">
+        <p class="quote-text" id="quoteText">
+          La calidad de los datos no es un destino, es un camino que construimos juntos, paso a paso.
+        </p>
+        <span class="quote-author">— Equipo AuditData AI</span>
+      </div>
+
+      <!-- What we're doing -->
+      <div class="improvements">
+        <div class="improvement-item">
+          <div class="improvement-icon improvement-icon--speed">⚡</div>
+          Optimizando la velocidad del motor de diagnóstico
+        </div>
+        <div class="improvement-item">
+          <div class="improvement-icon improvement-icon--shield">🛡️</div>
+          Fortaleciendo la seguridad de tus datasets
+        </div>
+        <div class="improvement-item">
+          <div class="improvement-icon improvement-icon--brain">🧠</div>
+          Mejorando las recomendaciones del Copiloto IA
+        </div>
+      </div>
 
       <!-- Countdown -->
       <div class="countdown-wrapper">
-        <div class="countdown-label">Tiempo estimado de regreso</div>
+        <div class="countdown-label">Regresamos en</div>
         <div class="countdown" id="countdown">
           <div class="countdown__unit">
             <span class="countdown__value" id="cdHours">--</span>
             <span class="countdown__label">Horas</span>
           </div>
+          <span class="countdown__sep">:</span>
           <div class="countdown__unit">
             <span class="countdown__value" id="cdMinutes">--</span>
-            <span class="countdown__label">Minutos</span>
+            <span class="countdown__label">Min</span>
           </div>
+          <span class="countdown__sep">:</span>
           <div class="countdown__unit">
             <span class="countdown__value" id="cdSeconds">--</span>
-            <span class="countdown__label">Segundos</span>
+            <span class="countdown__label">Seg</span>
           </div>
         </div>
       </div>
@@ -435,7 +657,7 @@
         <div class="progress-bar" id="progressBar"></div>
       </div>
 
-      <!-- Info items -->
+      <!-- Info badges -->
       <div class="info-items">
         <div class="info-item">
           <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
@@ -459,7 +681,7 @@
         class="footer-link"
         id="contactLink"
       >
-        Reportar un problema
+        ¿Tienes dudas? Escríbenos
         <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </a>
     </div>
@@ -472,21 +694,62 @@
 
     <script>
       /**
-       * ── Maintenance Countdown Timer ──────────────────────────────
+       * ── Maintenance Page – AuditData AI ──────────────────────────
        *
-       * Configure MAINTENANCE_END to the expected UTC end time.
-       * When the countdown reaches zero the page auto-refreshes,
-       * sending users back to the real app if maintenance is over.
+       * Countdown timer + rotating inspirational quotes.
+       * Configure MAINTENANCE_END for your real maintenance window.
        */
 
-      // ⚙️  SET YOUR MAINTENANCE END TIME HERE (UTC ISO 8601)
+      // ⚙️  CONFIGURAR: fecha/hora de fin del mantenimiento (UTC ISO 8601)
       const MAINTENANCE_END = new Date(
-        Date.now() + 2 * 60 * 60 * 1000   // default: 2 hours from now
+        Date.now() + 2 * 60 * 60 * 1000   // default: 2 horas desde ahora
       );
+      const TOTAL_DURATION_MS = 2 * 60 * 60 * 1000;
 
-      // Total duration for progress bar calculation
-      const TOTAL_DURATION_MS = 2 * 60 * 60 * 1000; // must match the window above
+      // ── Rotating quotes ──────────────────────────────────────────
+      const quotes = [
+        {
+          text: "La calidad de los datos no es un destino, es un camino que construimos juntos, paso a paso.",
+          author: "Equipo AuditData AI"
+        },
+        {
+          text: "Cada dato limpio es una mejor decisión. Cada decisión, un paso más cerca del impacto real.",
+          author: "Equipo AuditData AI"
+        },
+        {
+          text: "No solo limpiamos datos, construimos confianza en la información que mueve tu negocio.",
+          author: "Equipo AuditData AI"
+        },
+        {
+          text: "La excelencia no es un acto, sino un hábito. Estamos perfeccionando cada detalle para ti.",
+          author: "Aristóteles, adaptado por AuditData AI"
+        },
+        {
+          text: "Detrás de cada gran análisis hay datos que alguien se tomó el tiempo de preparar bien.",
+          author: "Equipo AuditData AI"
+        },
+      ];
 
+      const $quoteText = document.getElementById("quoteText");
+      const $quoteAuthor = $quoteText?.parentElement?.querySelector(".quote-author");
+      let quoteIndex = 0;
+
+      function rotateQuote() {
+        quoteIndex = (quoteIndex + 1) % quotes.length;
+        if ($quoteText) {
+          $quoteText.style.opacity = "0";
+          $quoteText.style.transition = "opacity 0.4s";
+          setTimeout(() => {
+            $quoteText.textContent = quotes[quoteIndex].text;
+            if ($quoteAuthor) $quoteAuthor.textContent = "— " + quotes[quoteIndex].author;
+            $quoteText.style.opacity = "1";
+          }, 400);
+        }
+      }
+
+      setInterval(rotateQuote, 8000);
+
+      // ── Countdown ────────────────────────────────────────────────
       const $h = document.getElementById("cdHours");
       const $m = document.getElementById("cdMinutes");
       const $s = document.getElementById("cdSeconds");
@@ -504,30 +767,19 @@
           $h.textContent = "00";
           $m.textContent = "00";
           $s.textContent = "00";
-          $h.classList.add("countdown__value--done");
-          $m.classList.add("countdown__value--done");
-          $s.classList.add("countdown__value--done");
+          [$h, $m, $s].forEach(el => el.classList.add("countdown__value--done"));
           $bar.style.width = "100%";
-          // Auto-redirect to homepage after a brief pause
-          setTimeout(() => {
-            window.location.href = "/";
-          }, 3000);
+          setTimeout(() => { window.location.href = "/"; }, 3000);
           return;
         }
 
         const totalSec = Math.floor(diff / 1000);
-        const hrs = Math.floor(totalSec / 3600);
-        const mins = Math.floor((totalSec % 3600) / 60);
-        const secs = totalSec % 60;
+        $h.textContent = pad(Math.floor(totalSec / 3600));
+        $m.textContent = pad(Math.floor((totalSec % 3600) / 60));
+        $s.textContent = pad(totalSec % 60);
 
-        $h.textContent = pad(hrs);
-        $m.textContent = pad(mins);
-        $s.textContent = pad(secs);
-
-        // Progress bar: elapsed / total
         const elapsed = TOTAL_DURATION_MS - diff;
-        const pct = Math.min(100, (elapsed / TOTAL_DURATION_MS) * 100);
-        $bar.style.width = pct.toFixed(2) + "%";
+        $bar.style.width = Math.min(100, (elapsed / TOTAL_DURATION_MS) * 100).toFixed(2) + "%";
       }
 
       tick();
