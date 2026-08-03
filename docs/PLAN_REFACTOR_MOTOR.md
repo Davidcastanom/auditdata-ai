@@ -35,7 +35,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 | FE-03 | Detección de header inconsistente entre preview y análisis | Algo. F3 | F1 | HECHO | 2026-08-10 |
 | FE-04 | Encodings distintos entre preview y análisis | Algo. F4 | F1 | HECHO | 2026-08-10 |
 | FE-05 | XLSX `data_only=True` → celdas calculadas vacías | Algo. F5 | F1 | PENDIENTE | 2026-08-10 |
-| AP-01 | `_to_float` confunde miles con decimales (45,000 → 45.0) | Algo. P1 | F2 | PENDIENTE | 2026-08-13 |
+| AP-01 | `_to_float` confunde miles con decimales (45,000 → 45.0) | Algo. P1 | F2 | HECHO | 2026-08-13 |
 | AP-02 | `_detect_type`: number antes que date (20240101) | Algo. P2 | F2 | PENDIENTE | 2026-08-13 |
 | AP-03 | Umbral 75% rígido + `invalid_type_count` sin uso | Algo. P3/S1 | F2 | PENDIENTE | 2026-08-14 |
 | AP-04 | Unificar tablas de missing (analyzer vs domain_rules) | Algo. P4 / X1 | F3 | PENDIENTE | 2026-08-17 |

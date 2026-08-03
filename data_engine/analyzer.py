@@ -11,6 +11,7 @@ import csv
 import io
 import logging
 import os
+import re
 import statistics
 import unicodedata
 import zipfile
@@ -379,10 +380,11 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
         elif kind == "change_type" and column in headers:
             target_type = action.get("value", "text")
             changed = 0
+            comma_is = _classify_numeric_separators([str(row.get(column, "")) for row in rows])
             for row in rows:
                 val = row.get(column, "")
                 if target_type == "number":
-                    casted = _to_float(val)
+                    casted = _to_float(val, separator_mode=comma_is)
                     if casted is not None:
                         row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
                         changelog.append({
@@ -1004,7 +1006,7 @@ def _profile_column(header: str, rows: list[dict[str, Any]]) -> ColumnProfile:
     profile.distribution_pct = distribution_pct
 
     if detected_type == "number":
-        numeric_values = [_to_float(value) for value in present]
+        numeric_values = _to_float_column(present)
         invalid_type_count = len(present) - len([v for v in numeric_values if v is not None])
         profile.invalid_type_count = invalid_type_count
         numeric_values = [value for value in numeric_values if value is not None]
@@ -1024,7 +1026,7 @@ def _normalize_missing(value: Any) -> str:
 def _detect_type(values: list[str]) -> str:
     if not values:
         return "text"
-    numbers = sum(_to_float(value) is not None for value in values)
+    numbers = sum(1 for value in _to_float_column(values) if value is not None)
     booleans = sum(str(value).strip().lower() in {"si", "sí", "no", "true", "false", "0", "1"} for value in values)
     dates = sum(_looks_like_date(str(value)) for value in values)
 
@@ -1038,11 +1040,78 @@ def _detect_type(values: list[str]) -> str:
     return "text"
 
 
-def _to_float(value: Any) -> float | None:
+def _classify_numeric_separators(values: list[str]) -> str | None:
+    """Decide by majority how separators are used across a column (AP-01).
+
+    Returns:
+      - "miles": comma groups thousands (45,000 / 1,234,567) per spec.
+      - "decimal": comma is the decimal separator (3,5 / 12,34).
+      - "dot_miles": dots group thousands (1.234.567); only strong evidence
+        (>=2 groups) counts so decimals like 0.500 stay safe.
+      - None: ambiguous, fall back to the single-value heuristic.
+
+    The mode that appears strictly more often than the others wins.
+    """
+    comma_miles = 0
+    comma_decimal = 0
+    dot_miles = 0
+    for value in values:
+        s = str(value).strip()
+        if re.fullmatch(r"-?\d{1,3}(,\d{3})+(\.\d+)?", s):
+            comma_miles += 1
+        elif re.fullmatch(r"-?\d+,\d{1,2}", s):
+            comma_decimal += 1
+        elif re.fullmatch(r"-?\d{1,3}(\.\d{3}){2,}", s):
+            dot_miles += 1
+    scores = {"miles": comma_miles, "decimal": comma_decimal, "dot_miles": dot_miles}
+    top = max(scores, key=scores.get)
+    if scores[top] == 0:
+        return None
+    ordered = sorted(scores.values(), reverse=True)
+    if ordered[0] > ordered[1]:
+        return top
+    return None
+
+
+def _to_float(value: Any, separator_mode: str | None = None) -> float | None:
+    """Parse a value into a float.
+
+    `separator_mode` resolves ambiguous separator usage using the column
+    context (AP-01):
+      - "miles": comma is a thousands separator (45,000 -> 45000)
+      - "decimal": comma is the decimal separator (3,5 -> 3.5)
+      - "dot_miles": dots are a thousands separator (1.234.567 -> 1234567)
+      - None: the last separator wins (locale heuristic); comma-only values
+        keep the comma as decimal separator for backward compatibility.
+    """
+    s = str(value).strip().replace("\u00a0", "")
+    if not s:
+        return None
     try:
-        return float(str(value).replace(",", ".").strip())
+        if separator_mode == "miles":
+            s = s.replace(",", "")
+        elif separator_mode == "decimal":
+            s = s.replace(".", "").replace(",", ".")
+        elif separator_mode == "dot_miles":
+            s = s.replace(".", "")
+            if "," in s:
+                s = s.replace(",", ".")
+        elif "," in s and "." in s:
+            if s.rfind(".") > s.rfind(","):
+                s = s.replace(",", "")
+            else:
+                s = s.replace(".", "").replace(",", ".")
+        elif "," in s:
+            s = s.replace(",", ".")
+        return float(s)
     except ValueError:
         return None
+
+
+def _to_float_column(values: list[str]) -> list[float | None]:
+    """Parse all values of a column, resolving separator ambiguity by majority."""
+    separator_mode = _classify_numeric_separators(values)
+    return [_to_float(value, separator_mode=separator_mode) for value in values]
 
 
 def _looks_like_date(value: str) -> bool:
@@ -1211,7 +1280,7 @@ def _imputation_value(rows: list[dict[str, Any]], column: str, method: str, cust
         return "" if custom_value is None else custom_value
     if not present:
         return ""
-    numeric = [_to_float(value) for value in present]
+    numeric = _to_float_column(present)
     numeric = [value for value in numeric if value is not None]
     if method == "mean" and numeric:
         return round(statistics.fmean(numeric), 4)

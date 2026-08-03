@@ -12,6 +12,7 @@ import pytest
 
 from data_engine.analyzer import (
     _profile_column,
+    _to_float,
     analyze_dataset,
     apply_cleaning_actions,
     load_dataset,
@@ -45,13 +46,39 @@ def test_delimitador_respeta_campos_entre_comillas():
 
 
 # ── Caso 2: miles no se confunden con decimales ───────────────────────────────
-@pytest.mark.xfail(reason="AP-01: _to_float reemplaza ',' por '.' (45,000 -> 45.0)", strict=True)
 def test_miles_no_se_confunden_con_decimales():
     """AP-01: 45,000 / 1,234 / 3,000 son miles. Media = 16411.3333."""
     rows = [{"salario": "45,000"}, {"salario": "1,234"}, {"salario": "3,000"}]
     profile = _profile_column("salario", rows)
     expected = round((45000 + 1234 + 3000) / 3, 4)
     assert profile.mean == expected
+
+
+def test_decimales_con_coma_espanol():
+    """AP-01: '3,5' / '12,25' usan la coma como decimal."""
+    rows = [{"precio": "3,5"}, {"precio": "12,25"}, {"precio": "1,75"}]
+    profile = _profile_column("precio", rows)
+    assert profile.mean == round((3.5 + 12.25 + 1.75) / 3, 4)
+
+
+def test_ambos_separadores_ultimo_es_decimal():
+    """AP-01: '1,234.56' y '1.234,56' usan el último separador como decimal."""
+    assert _to_float("1,234.56") == 1234.56
+    assert _to_float("1.234,56") == 1234.56
+
+
+def test_puntos_como_separador_de_miles():
+    """AP-01: '1.234.567' son miles (no un número decimal)."""
+    rows = [{"total": "1.234.567"}, {"total": "2.345"}]
+    profile = _profile_column("total", rows)
+    assert profile.mean == round((1234567 + 2345) / 2, 4)
+
+
+def test_decimales_punto_de_3_digitos_siguen_siendo_decimales():
+    """AP-01: '0.500' / '0.750' son decimales, no miles (riesgo de sesgo)."""
+    rows = [{"prob": "0.500"}, {"prob": "0.750"}, {"prob": "0.250"}]
+    profile = _profile_column("prob", rows)
+    assert profile.mean == 0.5
 
 
 # ── Caso 3: encabezado en fila 3 → target_rows apuntan a la fila correcta ────
