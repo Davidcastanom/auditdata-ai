@@ -26,11 +26,18 @@ def codes(diag) -> set[str]:
 
 
 # ── Caso 1: "estado" con "pendiente"/"activo" ─────────────────────────────────
-@pytest.mark.xfail(reason="DM-03: 'pendiente' se trata como missing via is_hidden_missing", strict=True)
 def test_estado_pendiente_activo_sin_hidden_missing():
     """DM-03: 'pendiente' es un valor legítimo de estado, no un placeholder."""
     diag = diagnose_column("estado", ["pendiente", "activo", "activo", "pendiente", "activo"], 5)
     assert "HIDDEN_MISSING" not in codes(diag)
+
+
+def test_sentinelas_9999_y_menos_uno_no_son_missing():
+    """DM-03: '9999' y '-1' son valores legítimos, no placeholders de missing."""
+    from data_engine.domain_rules import is_hidden_missing
+
+    assert not is_hidden_missing("9999")
+    assert not is_hidden_missing("-1")
 
 
 # ── Caso 2: "nivel_estudios" ──────────────────────────────────────────────────

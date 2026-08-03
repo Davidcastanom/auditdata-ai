@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .missing import EXTENDED_MISSING_TOKENS, MISSING_TOKENS
+
 DOMAIN_PATTERNS: list[dict[str, Any]] = [
     {
         "domain": "age",
@@ -217,13 +219,9 @@ DATE_FORMATS: list[str] = [
     "%d de %B de %Y", "%d de %b de %Y",
 ]
 
-MISSING_TOKENS_EXTENDED: set[str] = {
-    "", "na", "n/a", "null", "none", "nan", "-", "n/d", "nd",
-    "sin dato", "sin datos", "no aplica", "no disponible",
-    "desconocido", "pendiente", "no reportado", "missing",
-    "?", "9999", "-1", "--", "s/d", "s/dato", "n/r",
-    " ", "  ", "\t", "\n",
-}
+# Alias para compatibilidad con el nombre histórico (AP-04): la definición
+# única vive en `data_engine.missing`.
+MISSING_TOKENS_EXTENDED: set[str] = MISSING_TOKENS | EXTENDED_MISSING_TOKENS
 
 
 def match_column_name(header: str) -> dict[str, Any] | None:
@@ -258,7 +256,11 @@ def is_boolean_synonym(value: str) -> bool | None:
 
 
 def is_hidden_missing(value: str) -> bool:
-    """Check if a value is a placeholder that hides a missing value."""
+    """Check if a value is a placeholder that hides a missing value.
+
+    Uses the unified MISSING_TOKENS table (AP-04) so the diagnostic counts
+    missing exactly like the profiler.
+    """
     if value is None:
         return True
     normalized = str(value).strip().lower()

@@ -38,7 +38,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 | AP-01 | `_to_float` confunde miles con decimales (45,000 → 45.0) | Algo. P1 | F2 | HECHO | 2026-08-13 |
 | AP-02 | `_detect_type`: number antes que date (20240101) | Algo. P2 | F2 | HECHO | 2026-08-13 |
 | AP-03 | Umbral 75% rígido + `invalid_type_count` sin uso | Algo. P3/S1 | F2 | HECHO | 2026-08-14 |
-| AP-04 | Unificar tablas de missing (analyzer vs domain_rules) | Algo. P4 / X1 | F3 | PENDIENTE | 2026-08-17 |
+| AP-04 | Unificar tablas de missing (analyzer vs domain_rules) | Algo. P4 / X1 | F3 | HECHO | 2026-08-17 |
 | AP-05 | Outliers con IQR=0 se omiten sin aviso | Algo. P5 | F2 | HECHO | 2026-08-14 |
 | AP-06 | `format_groups`/`format_issues` sin semántica de filas | Algo. P6 | F2 | HECHO | 2026-08-14 |
 | AP-07 | Scores: accuracy=outliers, overall no ponderado, columnas vacías | Algo. S1-S4 | F2 | HECHO | 2026-08-14 |
@@ -54,7 +54,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 | CL-08 | `after` se re-parsea desde CSV → re-perfilar en memoria | Algo. C8 | F3 | PENDIENTE | 2026-08-19 |
 | DM-01 | `match_column_name` substring → tokens + confirmación por valores | Motor A1/A2/B9 | F4 | PENDIENTE | 2026-08-24 |
 | DM-02 | Fechas: asumir formato detectado (dd/mm vs mm/dd) | Motor A3 | F4 | PENDIENTE | 2026-08-24 |
-| DM-03 | `MISSING_TOKENS_EXTENDED` depurado ("9999","-1","pendiente"," ") | Motor A4 | F4 | PENDIENTE | 2026-08-24 |
+| DM-03 | `MISSING_TOKENS_EXTENDED` depurado ("9999","-1","pendiente"," ") | Motor A4 | F4 | HECHO | 2026-08-24 |
 | DG-01 | `_is_id_column` solo por nombre → requiere nombre+cardinalidad | Motor B1/B3 | F5 | PENDIENTE | 2026-08-27 |
 | DG-02 | Fechas únicas clasificadas IDENTIFICADOR → tipo DATE/NUMERIC | Motor B2 | F5 | PENDIENTE | 2026-08-27 |
 | DG-03 | Rama muerta `_check_categorical_suspicious` (elif inalcanzable) | Motor B4 | F5 | PENDIENTE | 2026-08-27 |

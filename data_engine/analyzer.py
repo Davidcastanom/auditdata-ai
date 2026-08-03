@@ -33,7 +33,7 @@ except ImportError:
     genai = None
 
 
-MISSING_TOKENS = {"", "na", "n/a", "null", "none", "nan", "-"}
+from .missing import is_missing
 
 TYPE_THRESHOLD = 0.70
 
@@ -1030,8 +1030,10 @@ def _profile_column(header: str, rows: list[dict[str, Any]]) -> ColumnProfile:
 
 
 def _normalize_missing(value: Any) -> str:
-    text = str(value).strip() if value is not None else ""
-    return "" if text.lower() in MISSING_TOKENS else text
+    """Return "" when a value is a missing token, otherwise its stripped text."""
+    if is_missing(value):
+        return ""
+    return str(value).strip()
 
 
 def _detect_type(values: list[str]) -> str:
