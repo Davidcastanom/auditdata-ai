@@ -30,7 +30,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 
 | ID | Hallazgo | Origen | Fase | Estado | Fecha obj. |
 |---|---|---|---|---|---|
-| FE-01 | Delimitador detectado nunca se usa en analyze/clean (CSV `;`→1 columna) | Algo. F1 | F1 | PENDIENTE | 2026-08-07 |
+| FE-01 | Delimitador detectado nunca se usa en analyze/clean (CSV `;`→1 columna) | Algo. F1 | F1 | HECHO | 2026-08-07 |
 | FE-02 | Detección de delimitador sin respetar comillas | Algo. F2 | F1 | PENDIENTE | 2026-08-07 |
 | FE-03 | Detección de header inconsistente entre preview y análisis | Algo. F3 | F1 | PENDIENTE | 2026-08-10 |
 | FE-04 | Encodings distintos entre preview y análisis | Algo. F4 | F1 | PENDIENTE | 2026-08-10 |

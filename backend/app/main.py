@@ -80,6 +80,18 @@ class AnalyzeRequest(BaseModel):
     filename: str
     content_base64: str
     duplicate_key_columns: list[str] | None = None
+    delimiter: str | None = None
+    encoding: str | None = None
+    header_row: int | None = None
+
+
+def _dataset_settings(req: BaseModel) -> dict[str, Any]:
+    """Extract the CSV parse settings detected in the file preview (if any)."""
+    return {
+        "delimiter": getattr(req, "delimiter", None),
+        "encoding": getattr(req, "encoding", None),
+        "header_row": getattr(req, "header_row", None),
+    }
 
 class ActionItem(BaseModel):
     kind: str
@@ -95,6 +107,9 @@ class CleanRequest(BaseModel):
     content_base64: str
     actions: list[ActionItem]
     duplicate_key_columns: list[str] | None = None
+    delimiter: str | None = None
+    encoding: str | None = None
+    header_row: int | None = None
 
 class ReportRequest(BaseModel):
     cleaning: dict[str, Any] | None = None
@@ -120,7 +135,7 @@ def health():
 def analyze(req: AnalyzeRequest):
     try:
         payload = _decode_payload(req.content_base64)
-        analysis = analyze_dataset(req.filename, payload, duplicate_key_columns=req.duplicate_key_columns)
+        analysis = analyze_dataset(req.filename, payload, duplicate_key_columns=req.duplicate_key_columns, **_dataset_settings(req))
         return {"analysis": analysis}
     except HTTPException:
         raise
@@ -133,7 +148,7 @@ def diagnose(req: AnalyzeRequest):
         payload = _decode_payload(req.content_base64)
         from data_engine.diagnostic import diagnose_dataset
         from data_engine.analyzer import load_dataset
-        headers, rows, header_row_index = load_dataset(req.filename, payload)
+        headers, rows, header_row_index = load_dataset(req.filename, payload, **_dataset_settings(req))
         diagnostic = diagnose_dataset(headers, rows, header_row_index)
         return {"diagnostic": diagnostic.to_dict()}
     except HTTPException:
@@ -177,7 +192,7 @@ async def ai_recommend(req: AnalyzeRequest):
         from data_engine.analyzer import load_dataset
         from data_engine.ai_advisor import get_ai_recommendations_async
 
-        headers, rows, header_row_index = load_dataset(req.filename, payload)
+        headers, rows, header_row_index = load_dataset(req.filename, payload, **_dataset_settings(req))
         diagnostic = diagnose_dataset(headers, rows, header_row_index)
 
         recommendations = await get_ai_recommendations_async(
@@ -205,7 +220,7 @@ async def ai_chat_column(req: AIChatRequest):
         from data_engine.analyzer import load_dataset
         from data_engine.ai_advisor import chat_with_column_advisor, compute_column_context
 
-        headers, rows, header_row_index = load_dataset(req.filename, payload)
+        headers, rows, header_row_index = load_dataset(req.filename, payload, **_dataset_settings(req))
         file_row_start = header_row_index + 2
         column_data = [(file_row_start + i, row.get(req.column, "")) for i, row in enumerate(rows)]
 
@@ -260,7 +275,7 @@ async def ai_column_deep_analysis(req: ColumnDeepAnalysisRequest):
         from data_engine.ai_advisor import analyze_column_deep, compute_column_context
         from data_engine.analyzer import load_dataset
 
-        headers, rows, header_row_index = load_dataset(req.filename, payload)
+        headers, rows, header_row_index = load_dataset(req.filename, payload, **_dataset_settings(req))
         file_row_start = header_row_index + 2
         column_data = [(file_row_start + i, row.get(req.column, "")) for i, row in enumerate(rows)]
 
@@ -292,7 +307,7 @@ def clean(req: CleanRequest):
     try:
         payload = _decode_payload(req.content_base64)
         actions_dict = [action.model_dump() for action in req.actions]
-        cleaning = apply_cleaning_actions(req.filename, payload, actions_dict, duplicate_key_columns=req.duplicate_key_columns)
+        cleaning = apply_cleaning_actions(req.filename, payload, actions_dict, duplicate_key_columns=req.duplicate_key_columns, **_dataset_settings(req))
         clean_csv = cleaning.get("clean_csv", "")
         xlsx_b64 = ""
         if clean_csv:

@@ -34,6 +34,9 @@ except ImportError:
 
 MISSING_TOKENS = {"", "na", "n/a", "null", "none", "nan", "-"}
 
+DELIMITER_NAMES: dict[str, str] = {"comma": ",", "semicolon": ";", "tab": "\t", "pipe": "|"}
+ENCODINGS_TO_TRY: list[str] = ["utf-8-sig", "utf-8", "latin-1", "cp1252", "iso-8859-1"]
+
 
 def generate_ai_justification(column: str, action: str, current_reason: str) -> str:
     """Generate a professional justification for a cleaning action using Gemini API."""
@@ -91,26 +94,29 @@ class ColumnProfile:
     outlier_analysis_skipped: bool = False
 
 
-def load_dataset(filename: str, payload: bytes) -> tuple[list[str], list[dict[str, Any]], int]:
+def load_dataset(filename: str, payload: bytes, delimiter: str | None = None, encoding: str | None = None, header_row: int | None = None) -> tuple[list[str], list[dict[str, Any]], int]:
     """Load CSV or XLSX bytes into headers and row dictionaries.
 
     Returns (headers, rows, header_row_index) where header_row_index is the
     0-based position of the header row in the original file (used to compute
     the correct Excel row offset for diagnostics).
+
+    delimiter/encoding/header_row only apply to CSV files; they come from the
+    file preview settings so the analysis uses the same parsing as the preview.
     """
 
     lowered = filename.lower()
     if lowered.endswith(".csv"):
-        return _load_csv(payload)
+        return _load_csv(payload, delimiter=delimiter, encoding=encoding, header_row=header_row)
     if lowered.endswith((".xlsx", ".xlsm")):
         return _load_xlsx(payload)
     raise ValueError("Formato no soportado. Usa CSV o XLSX.")
 
 
-def analyze_dataset(filename: str, payload: bytes, duplicate_key_columns: list[str] | None = None) -> dict[str, Any]:
+def analyze_dataset(filename: str, payload: bytes, duplicate_key_columns: list[str] | None = None, delimiter: str | None = None, encoding: str | None = None, header_row: int | None = None) -> dict[str, Any]:
     """Run the complete reusable quality diagnosis for a dataset."""
 
-    headers, rows, _header_idx = load_dataset(filename, payload)
+    headers, rows, _header_idx = load_dataset(filename, payload, delimiter=delimiter, encoding=encoding, header_row=header_row)
     duplicate_rows = _count_duplicate_rows(headers, rows, key_columns=duplicate_key_columns)
     columns = [_profile_column(header, rows) for header in headers]
     scores = _quality_scores(columns, duplicate_rows, len(rows), max(len(headers), 1))
@@ -129,7 +135,7 @@ def analyze_dataset(filename: str, payload: bytes, duplicate_key_columns: list[s
     }
 
 
-def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str, Any]], duplicate_key_columns: list[str] | None = None) -> dict[str, Any]:
+def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str, Any]], duplicate_key_columns: list[str] | None = None, delimiter: str | None = None, encoding: str | None = None, header_row: int | None = None) -> dict[str, Any]:
     """Apply documented cleaning actions and return before/after evidence.
 
     Every action creates a log entry. This follows the professional rule from
@@ -137,8 +143,8 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
     Now also tracks cell-level changes for the audit log.
     """
 
-    headers, rows, _header_idx = load_dataset(filename, payload)
-    before = analyze_dataset(filename, payload, duplicate_key_columns=duplicate_key_columns)
+    headers, rows, _header_idx = load_dataset(filename, payload, delimiter=delimiter, encoding=encoding, header_row=header_row)
+    before = analyze_dataset(filename, payload, duplicate_key_columns=duplicate_key_columns, delimiter=delimiter, encoding=encoding, header_row=header_row)
     log: list[dict[str, str]] = []
     changelog: list[dict[str, Any]] = []
 
@@ -768,25 +774,78 @@ def _find_header_row(raw_rows: list[tuple]) -> int:
     return 0
 
 
-def _load_csv(payload: bytes) -> tuple[list[str], list[dict[str, Any]], int]:
-    try:
-        text = payload.decode("utf-8-sig")
-    except ÚnicodeDecodeError:
-        text = payload.decode("latin-1")
+def _decode_text(payload: bytes, encoding: str | None = None) -> str:
+    """Decode CSV bytes trying the requested encoding first, then known ones."""
+    candidates = [encoding] if encoding else []
+    candidates.extend(ENCODINGS_TO_TRY)
+    for enc in candidates:
+        if not enc:
+            continue
+        try:
+            return payload.decode(enc)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    # latin-1 nunca falla: último recurso sin romper el análisis
+    return payload.decode("latin-1", errors="replace")
 
+
+def _resolve_delimiter(prefer: str | None) -> str | None:
+    """Map a delimiter name (comma/semicolon/tab/pipe) or char to its character."""
+    if not prefer:
+        return None
+    if prefer in DELIMITER_NAMES:
+        return DELIMITER_NAMES[prefer]
+    if prefer in DELIMITER_NAMES.values():
+        return prefer
+    return None
+
+
+def _detect_delimiter(lines: list[str], prefer: str | None = None) -> str:
+    """Auto-detect the CSV delimiter by counting candidates in the first lines.
+
+    A `prefer` (name or char) wins over heuristics when provided.
+    """
+    resolved = _resolve_delimiter(prefer)
+    if resolved is not None:
+        return resolved
+
+    sample = lines[:20]
+    counts: dict[str, int] = {}
+    for name, ch in DELIMITER_NAMES.items():
+        total = sum(line.count(ch) for line in sample)
+        if total > 0:
+            counts[name] = total
+    if not counts:
+        return ","
+    return DELIMITER_NAMES[max(counts, key=counts.get)]
+
+
+def _load_csv(payload: bytes, delimiter: str | None = None, encoding: str | None = None, header_row: int | None = None) -> tuple[list[str], list[dict[str, Any]], int]:
+    """Load CSV bytes into headers and row dictionaries.
+
+    delimiter: name ("comma"/"semicolon"/"tab"/"pipe") or delimiter character.
+    encoding: name to try first.
+    header_row: 0-based row index of the header; None auto-detects.
+    """
+    text = _decode_text(payload, encoding=encoding)
     lines = text.splitlines()
     if not lines:
         return [], [], 0
 
-    header_idx = 0
-    for i, line in enumerate(lines[:5]):
-        fields = [f.strip() for f in line.split(",") if f.strip()]
-        if len(fields) >= 3:
-            header_idx = i
-            break
+    delim = _detect_delimiter(lines, prefer=delimiter)
+
+    if header_row is None:
+        header_idx = 0
+        for i, line in enumerate(lines[:5]):
+            fields = [f.strip() for f in line.split(delim) if f.strip()]
+            if len(fields) >= 3:
+                header_idx = i
+                break
+    else:
+        header_idx = header_row
 
     trimmed = "\n".join(lines[header_idx:])
-    reader = csv.DictReader(io.StringIO(trimmed))
+    reader = csv.DictReader(io.StringIO(trimmed), delimiter=delim)
     headers = reader.fieldnames or []
     rows = [{header: row.get(header, "") for header in headers} for row in reader]
     return headers, rows, header_idx
@@ -857,7 +916,7 @@ def detect_file_settings(filename: str, payload: bytes) -> dict[str, Any]:
             text = payload.decode(enc)
             detected_encoding = enc.replace("-sig", "")
             break
-        except (ÚnicodeDecodeError, LookupError):
+        except (UnicodeDecodeError, LookupError):
             continue
 
     lines = text.splitlines()

@@ -24,7 +24,6 @@ def _clean_values(result: dict, column: str) -> list:
 
 
 # ── Caso 1: CSV con delimitador ';' ───────────────────────────────────────────
-@pytest.mark.xfail(reason="FE-01: _load_csv ignora el delimitador detectado", strict=True)
 def test_csv_punto_y_coma_se_analiza_correctamente():
     """FE-01: un CSV con ';' no debe terminar como 1 sola columna."""
     payload = b"id;nombre;edad\n1;Ana;25\n2;Luis;30\n3;Carlos;35\n"

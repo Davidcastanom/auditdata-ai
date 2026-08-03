@@ -332,6 +332,7 @@ async function loadSample() {
   
   const base64 = btoa(sample);
   store.setFile("moveup_sample.csv", base64);
+  _previewSettings = {};
   els.analyzeButton.disabled = false;
   await analyzeSelectedFile();
 }
@@ -349,6 +350,7 @@ async function analyzeSelectedFile() {
       filename: store.state.filename,
       content_base64: store.state.fileBase64,
       duplicate_key_columns: store.state.duplicateKeyColumns,
+      ..._previewSettings,
     });
     store.setAnalysis(response.analysis);
     renderProfile();
@@ -389,7 +391,7 @@ async function showFilePreview(filename, base64) {
       return;
     }
 
-    _previewSettings = { encoding: data.encoding, delimiter: data.delimiter, headerRow: data.detected_header_row };
+    _previewSettings = { encoding: data.encoding, delimiter: data.delimiter, header_row: data.detected_header_row };
 
     els.filePreviewMeta.innerHTML = `
       <span><strong>Archivo:</strong> ${escapeHtml(filename)}</span>
@@ -432,6 +434,11 @@ if (els.filePreviewBackdrop) els.filePreviewBackdrop.addEventListener("click", h
 
 if (els.filePreviewConfirm) {
   els.filePreviewConfirm.addEventListener("click", () => {
+    _previewSettings = {
+      ..._previewSettings,
+      delimiter: els.previewDelimiter ? els.previewDelimiter.value : _previewSettings.delimiter,
+      header_row: els.previewHeaderRow && els.previewHeaderRow.value !== "" ? Number(els.previewHeaderRow.value) : _previewSettings.header_row,
+    };
     hideFilePreview();
     analyzeSelectedFile();
   });
@@ -1151,6 +1158,7 @@ async function runCleaning() {
       content_base64: store.state.fileBase64,
       actions: store.state.actions,
       duplicate_key_columns: store.state.duplicateKeyColumns,
+      ..._previewSettings,
     });
     store.setCleaning(response.cleaning);
     renderValidation();

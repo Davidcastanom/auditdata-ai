@@ -58,6 +58,37 @@ class TestAnalyzeEndpoint(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_analyze_respects_semicolon_delimiter(self):
+        """FE-01: el backend acepta el delimitador detectado en el preview."""
+        csv_semi = "id;nombre;edad\n1;Ana;25\n2;Luis;30\n3;Carlos;35\n"
+        response = client.post(
+            "/api/analyze",
+            json={
+                "filename": "test.csv",
+                "content_base64": _encode(csv_semi),
+                "delimiter": "semicolon",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        analysis = response.json()["analysis"]
+        self.assertEqual(analysis["column_count"], 3)
+        self.assertEqual(analysis["headers"], ["id", "nombre", "edad"])
+
+    def test_clean_respects_semicolon_delimiter(self):
+        """FE-01: /api/clean usa el delimitador del preview."""
+        csv_semi = "id;nombre\n1;Ana\n2;Luis\n"
+        response = client.post(
+            "/api/clean",
+            json={
+                "filename": "test.csv",
+                "content_base64": _encode(csv_semi),
+                "delimiter": "semicolon",
+                "actions": [{"kind": "delete_column", "column": "nombre", "reason": "Prueba"}],
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["cleaning"]["after"]["headers"], ["id"])
+
     def test_analyze_invalid_base64(self):
         response = client.post(
             "/api/analyze",
