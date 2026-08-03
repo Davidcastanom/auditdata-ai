@@ -32,6 +32,18 @@ def test_csv_punto_y_coma_se_analiza_correctamente():
     assert analysis["headers"] == ["id", "nombre", "edad"]
 
 
+# ── Caso 1b: delimitador respetando comillas (FE-02) ─────────────────────────
+def test_delimitador_respeta_campos_entre_comillas():
+    """FE-02: ';' dentro de un campo entre comillas no debe elegirse como
+    delimitador, y el valor debe conservarse completo."""
+    payload = 'id,nombre,nota\n1,Ana,"a;b;c;d;e"\n2,Luis,media\n'.encode("utf-8")
+    analysis = analyze_dataset("q.csv", payload)
+    assert analysis["column_count"] == 3
+    assert analysis["headers"] == ["id", "nombre", "nota"]
+    nota = next(c for c in analysis["columns"] if c["name"] == "nota")
+    assert nota["examples"] == ["a;b;c;d;e", "media"]
+
+
 # ── Caso 2: miles no se confunden con decimales ───────────────────────────────
 @pytest.mark.xfail(reason="AP-01: _to_float reemplaza ',' por '.' (45,000 -> 45.0)", strict=True)
 def test_miles_no_se_confunden_con_decimales():

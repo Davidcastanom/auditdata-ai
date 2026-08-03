@@ -800,8 +800,35 @@ def _resolve_delimiter(prefer: str | None) -> str | None:
     return None
 
 
+def _count_outside_quotes(line: str, ch: str) -> int:
+    """Count occurrences of `ch` outside of double-quoted sections."""
+    count = 0
+    in_quotes = False
+    i = 0
+    while i < len(line):
+        c = line[i]
+        if c == '"':
+            if in_quotes and i + 1 < len(line) and line[i + 1] == '"':
+                i += 2
+                continue
+            in_quotes = not in_quotes
+        elif c == ch and not in_quotes:
+            count += 1
+        i += 1
+    return count
+
+
+def _split_csv_line(line: str, delim: str) -> list[str]:
+    """Split a CSV line respecting quoted fields."""
+    try:
+        reader = csv.reader([line], delimiter=delim)
+        return next(reader)
+    except (csv.Error, StopIteration):
+        return line.split(delim)
+
+
 def _detect_delimiter(lines: list[str], prefer: str | None = None) -> str:
-    """Auto-detect the CSV delimiter by counting candidates in the first lines.
+    """Auto-detect the CSV delimiter counting candidates OUTSIDE quotes.
 
     A `prefer` (name or char) wins over heuristics when provided.
     """
@@ -812,7 +839,7 @@ def _detect_delimiter(lines: list[str], prefer: str | None = None) -> str:
     sample = lines[:20]
     counts: dict[str, int] = {}
     for name, ch in DELIMITER_NAMES.items():
-        total = sum(line.count(ch) for line in sample)
+        total = sum(_count_outside_quotes(line, ch) for line in sample)
         if total > 0:
             counts[name] = total
     if not counts:
@@ -837,7 +864,7 @@ def _load_csv(payload: bytes, delimiter: str | None = None, encoding: str | None
     if header_row is None:
         header_idx = 0
         for i, line in enumerate(lines[:5]):
-            fields = [f.strip() for f in line.split(delim) if f.strip()]
+            fields = [f.strip() for f in _split_csv_line(line, delim) if f.strip()]
             if len(fields) >= 3:
                 header_idx = i
                 break
@@ -923,20 +950,11 @@ def detect_file_settings(filename: str, payload: bytes) -> dict[str, Any]:
     if not lines:
         return {"error": "Archivo vacío"}
 
-    delimiter_counts: dict[str, int] = {}
-    for delim_name, delim_char in [("comma", ","), ("semicolon", ";"), ("tab", "\t"), ("pipe", "|")]:
-        if lines[0].count(delim_char) >= 2:
-            delimiter_counts[delim_name] = sum(line.count(delim_char) for line in lines[:20])
-    detected_delimiter = "comma"
-    if delimiter_counts:
-        detected_delimiter = max(delimiter_counts, key=delimiter_counts.get)
-
-    delim_map = {"comma": ",", "semicolon": ";", "tab": "\t", "pipe": "|"}
-    delim_char = delim_map[detected_delimiter]
+    delim_char = _detect_delimiter(lines)
 
     header_idx = 0
     for i, line in enumerate(lines[:5]):
-        fields = [f.strip() for f in line.split(delim_char) if f.strip()]
+        fields = [f.strip() for f in _split_csv_line(line, delim_char) if f.strip()]
         if len(fields) >= 3:
             header_idx = i
             break
@@ -950,9 +968,11 @@ def detect_file_settings(filename: str, payload: bytes) -> dict[str, Any]:
             break
         preview.append({h: row.get(h, "") for h in headers})
 
+    delim_name = next((name for name, ch in DELIMITER_NAMES.items() if ch == delim_char), "comma")
+
     return {
         "encoding": detected_encoding,
-        "delimiter": detected_delimiter,
+        "delimiter": delim_name,
         "detected_header_row": header_idx,
         "total_rows": len(lines) - header_idx - 1,
         "headers": headers,
