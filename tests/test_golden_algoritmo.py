@@ -81,6 +81,21 @@ def test_decimales_punto_de_3_digitos_siguen_siendo_decimales():
     assert profile.mean == 0.5
 
 
+# ── Caso 2b: fecha compacta no se pierde como número (AP-02) ─────────────────
+def test_fecha_compacta_no_es_numero():
+    """AP-02: 20240101 es fecha (YYYYMMDD), no número."""
+    rows = [{"fecha": "20240101"}, {"fecha": "20240102"}, {"fecha": "20240103"}, {"fecha": "20240104"}]
+    profile = _profile_column("fecha", rows)
+    assert profile.detected_type == "date"
+
+
+def test_anios_siguen_siendo_numeros():
+    """AP-02: una columna de años (2024) no debe clasificarse como fecha."""
+    rows = [{"anio": "2024"}, {"anio": "2025"}, {"anio": "2023"}]
+    profile = _profile_column("anio", rows)
+    assert profile.detected_type == "number"
+
+
 # ── Caso 3: encabezado en fila 3 → target_rows apuntan a la fila correcta ────
 @pytest.mark.xfail(reason="CL-05: target_rows-2 hardcodeado ignora header_row_index", strict=True)
 def test_target_rows_con_encabezado_en_fila_3():

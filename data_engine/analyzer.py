@@ -1026,15 +1026,16 @@ def _normalize_missing(value: Any) -> str:
 def _detect_type(values: list[str]) -> str:
     if not values:
         return "text"
+    dates = sum(_looks_like_date(str(value)) for value in values)
     numbers = sum(1 for value in _to_float_column(values) if value is not None)
     booleans = sum(str(value).strip().lower() in {"si", "sí", "no", "true", "false", "0", "1"} for value in values)
-    dates = sum(_looks_like_date(str(value)) for value in values)
 
     total = len(values)
-    if numbers / total >= 0.75:
-        return "number"
+    # AP-02: fecha antes que número, para que "20240101" no se pierda como número.
     if dates / total >= 0.75:
         return "date"
+    if numbers / total >= 0.75:
+        return "number"
     if booleans / total >= 0.75:
         return "boolean"
     return "text"
@@ -1114,8 +1115,11 @@ def _to_float_column(values: list[str]) -> list[float | None]:
     return [_to_float(value, separator_mode=separator_mode) for value in values]
 
 
+_DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y%m%d", "%d%m%Y", "%m%d%Y")
+
+
 def _looks_like_date(value: str) -> bool:
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
+    for fmt in _DATE_FORMATS:
         try:
             datetime.strptime(value.strip(), fmt)
             return True
