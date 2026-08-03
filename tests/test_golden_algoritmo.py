@@ -114,6 +114,32 @@ def test_exactitud_incluye_errores_de_tipo():
     assert accuracy == round(expected, 2)
 
 
+# ── Caso 2d: outliers, format_issues y overall (AP-05/06/07) ─────────────────
+def test_iqr_cero_es_explicito():
+    """AP-05: valores idénticos (IQR=0) marcan outlier_analysis_skipped."""
+    rows = [{"nota": "5"}, {"nota": "5"}, {"nota": "5"}, {"nota": "5"}]
+    profile = _profile_column("nota", rows)
+    assert profile.outlier_analysis_skipped
+    assert profile.outliers == 0
+
+
+def test_format_issues_cuenta_filas_afectadas():
+    """AP-06: 2 'bogota' + 1 'Bogota' -> 1 fila afectada, no 2 variantes."""
+    payload = b"ciudad\nbogota\nBogota\nbogota\nMedellin\n"
+    analysis = analyze_dataset("t.csv", payload)
+    ciudad = next(c for c in analysis["columns"] if c["name"] == "ciudad")
+    assert ciudad["format_issues"] == 1
+
+
+def test_overall_es_ponderado():
+    """AP-07: completitud (75) pesa menos que en la media simple (92.5)."""
+    payload = b"edad\n25\n30\nNA\n31\n"
+    analysis = analyze_dataset("t.csv", payload)
+    s = analysis["scores"]
+    assert s["overall"] == 92.5
+    assert s["overall"] != round((s["completeness"] + s["consistency"] + s["accuracy"] + s["uniqueness"]) / 4, 2)
+
+
 # ── Caso 3: encabezado en fila 3 → target_rows apuntan a la fila correcta ────
 @pytest.mark.xfail(reason="CL-05: target_rows-2 hardcodeado ignora header_row_index", strict=True)
 def test_target_rows_con_encabezado_en_fila_3():

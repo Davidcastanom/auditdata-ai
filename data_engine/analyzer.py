@@ -37,6 +37,15 @@ MISSING_TOKENS = {"", "na", "n/a", "null", "none", "nan", "-"}
 
 TYPE_THRESHOLD = 0.70
 
+# AP-07: pesos configurables del overall. La exactitud estructural pesa más
+# porque incluye errores de tipo; la completitud deja de eclipsar el resto.
+QUALITY_WEIGHTS: dict[str, float] = {
+    "completeness": 0.30,
+    "consistency": 0.20,
+    "accuracy": 0.35,
+    "uniqueness": 0.15,
+}
+
 DELIMITER_NAMES: dict[str, str] = {"comma": ",", "semicolon": ";", "tab": "\t", "pipe": "|"}
 ENCODINGS_TO_TRY: list[str] = ["utf-8-sig", "utf-8", "latin-1", "cp1252", "iso-8859-1"]
 
@@ -727,7 +736,7 @@ def build_cleaning_markdown_report(cleaning: dict[str, Any], analyst: str = "-",
     lines.append("**Consistencia:** 100% - (inconsistencias de formato / total de celdas) * 100.")
     lines.append("**Exactitud estructural:** 100% - ((errores de tipo + valores atipicos) / total de celdas) * 100. Atipicos calculados con IQR.")
     lines.append("**Unicidad:** 100% - (filas duplicadas / total de filas) * 100.")
-    lines.append("**Calidad general:** Promedio aritmetico de las cuatro dimensiones.")
+    lines.append("**Calidad general:** Promedio ponderado (completitud 30%, consistencia 20%, exactitud estructural 35%, unicidad 15%).")
 
     lines.extend(["", "## 10. Conclusión Final"])
     lines.append(_conclusión(after))
@@ -1158,6 +1167,8 @@ def _add_numeric_stats(profile: ColumnProfile, values: list[float]) -> None:
     q3 = statistics.median(sorted_values[(len(sorted_values) + 1) // 2 :])
     iqr = q3 - q1
     if iqr == 0:
+        # AP-05: sin dispersión no hay outliers calculables; se hace explícito.
+        profile.outlier_analysis_skipped = True
         return
     low = q1 - 1.5 * iqr
     high = q3 + 1.5 * iqr
@@ -1167,16 +1178,21 @@ def _add_numeric_stats(profile: ColumnProfile, values: list[float]) -> None:
 
 
 def _add_format_groups(profile: ColumnProfile, values: list[str]) -> None:
-    groups: dict[str, set[str]] = {}
+    groups: dict[str, dict[str, int]] = {}
     for value in values:
         key = " ".join(str(value).strip().lower().split())
-        groups.setdefault(key, set()).add(str(value))
+        variant = str(value)
+        groups.setdefault(key, {}).setdefault(variant, 0)
+        groups[key][variant] += 1
 
     for variants in groups.values():
         if len(variants) > 1:
+            canonical = max(variants, key=variants.get)
             sorted_variants = sorted(variants)
-            profile.format_groups.append({"canonical": sorted_variants[0], "variants": sorted_variants})
-            profile.format_issues += len(variants)
+            profile.format_groups.append({"canonical": canonical, "variants": sorted_variants})
+            # AP-06: format_issues cuenta FILAS afectadas (las que se desvían de
+            # la forma más frecuente), no variantes distintas.
+            profile.format_issues += sum(variants.values()) - variants[canonical]
 
 
 def _count_duplicate_rows(headers: list[str], rows: list[dict[str, Any]], key_columns: list[str] | None = None) -> int:
@@ -1220,15 +1236,15 @@ def _quality_scores(columns: list[ColumnProfile], duplicate_rows: int, row_count
     # AP-03: exactitud estructural = 1 - (errores de tipo + outliers) / celdas.
     accuracy = _score_from_ratio(outliers + type_errors, total_cells)
     uniqueness = _score_from_ratio(duplicate_rows, max(row_count, 1))
-    overall = round(statistics.fmean([completeness, consistency, accuracy, uniqueness]), 2)
-
-    return {
+    # AP-07: overall ponderado (los pesos suman 1.0).
+    scores = {
         "completeness": completeness,
         "consistency": consistency,
         "accuracy": accuracy,
         "uniqueness": uniqueness,
-        "overall": overall,
     }
+    scores["overall"] = round(sum(scores[key] * QUALITY_WEIGHTS[key] for key in QUALITY_WEIGHTS), 2)
+    return scores
 
 
 def _score_from_ratio(problem_count: int, total: int) -> float:

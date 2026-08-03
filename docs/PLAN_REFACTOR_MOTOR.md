@@ -39,9 +39,9 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 | AP-02 | `_detect_type`: number antes que date (20240101) | Algo. P2 | F2 | HECHO | 2026-08-13 |
 | AP-03 | Umbral 75% rígido + `invalid_type_count` sin uso | Algo. P3/S1 | F2 | HECHO | 2026-08-14 |
 | AP-04 | Unificar tablas de missing (analyzer vs domain_rules) | Algo. P4 / X1 | F3 | PENDIENTE | 2026-08-17 |
-| AP-05 | Outliers con IQR=0 se omiten sin aviso | Algo. P5 | F2 | PENDIENTE | 2026-08-14 |
-| AP-06 | `format_groups`/`format_issues` sin semántica de filas | Algo. P6 | F2 | PENDIENTE | 2026-08-14 |
-| AP-07 | Scores: accuracy=outliers, overall no ponderado, columnas vacías | Algo. S1-S4 | F2 | PENDIENTE | 2026-08-14 |
+| AP-05 | Outliers con IQR=0 se omiten sin aviso | Algo. P5 | F2 | HECHO | 2026-08-14 |
+| AP-06 | `format_groups`/`format_issues` sin semántica de filas | Algo. P6 | F2 | HECHO | 2026-08-14 |
+| AP-07 | Scores: accuracy=outliers, overall no ponderado, columnas vacías | Algo. S1-S4 | F2 | HECHO | 2026-08-14 |
 | DU-01 | Duplicados: definición distinta entre analyzer y diagnostic | Algo. X2/D1 | F3 | PENDIENTE | 2026-08-17 |
 | DU-02 | `remove_duplicate_rows` ignora `duplicate_key_columns` + NFKD | Algo. D2/D3 | F3 | PENDIENTE | 2026-08-18 |
 | CL-01 | `change_type` boolean no usa sinónimos ("activo"→"no") | Algo. C1 | F3 | PENDIENTE | 2026-08-18 |
