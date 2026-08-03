@@ -1196,6 +1196,37 @@ th {
   color: var(--color-muted);
   margin-top: 4px;
 }
+.history-item__top {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.history-item__delete {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+  margin-top: -2px;
+}
+.history-item__delete:hover {
+  color: #f87171;
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+.history-item__delete:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 .history-item--clickable {
   cursor: pointer;
 }

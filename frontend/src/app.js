@@ -1,6 +1,6 @@
 import { Store } from "./state.js";
 import { Router } from "./router.js";
-import { signInWithGoogle, signOut, getCurrentUser, authAvailable, saveToHistory, getHistory, getHistorySession, hasConsent, acceptConsent, recordConsent } from "./auth.js";
+import { signInWithGoogle, signOut, getCurrentUser, authAvailable, saveToHistory, getHistory, getHistorySession, deleteHistorySession, hasConsent, acceptConsent, recordConsent } from "./auth.js";
 import { NubeValidación } from "./nube.js";
 
 const loginScreen = document.querySelector("#loginScreen");
@@ -1754,9 +1754,14 @@ async function loadHistory() {
       const hasData = item.before_json && item.after_json;
       const hasPdf = item.report_pdf_base64 && item.report_pdf_base64.length > 10;
       return `<div class="history-item${hasData ? " history-item--clickable" : ""}" data-session-id="${item.id}"${hasData ? ' role="button" tabindex="0"' : ""}>
-        <div class="history-item__name">${escapeHtml(ds.filename || "dataset")}</div>
-        <div class="history-item__meta">${ds.row_count || 0} filas | ${ds.column_count || 0} columnas | ${actions.length} acciones</div>
-        <div class="history-item__date">${formatDate(item.created_at)}</div>
+        <div class="history-item__top">
+          <div style="flex:1;min-width:0;">
+            <div class="history-item__name">${escapeHtml(ds.filename || "dataset")}</div>
+            <div class="history-item__meta">${ds.row_count || 0} filas | ${ds.column_count || 0} columnas | ${actions.length} acciones</div>
+            <div class="history-item__date">${formatDate(item.created_at)}</div>
+          </div>
+          <button class="history-item__delete" data-session-id="${item.id}" type="button" title="Eliminar de la nube" aria-label="Eliminar de la nube">×</button>
+        </div>
         <div class="history-item__actions">
           ${hasData ? '<span class="history-item__action">Restaurar</span>' : ""}
           ${hasPdf ? `<button class="history-item__download" data-pdf="${escapeAttr(item.report_pdf_base64)}" data-filename="${escapeAttr(ds.filename || "dataset")}" type="button">Descargar PDF</button>` : ""}
@@ -1765,7 +1770,7 @@ async function loadHistory() {
     }).join("");
     els.historyList.querySelectorAll(".history-item--clickable").forEach(el => {
       el.addEventListener("click", (e) => {
-        if (e.target.closest(".history-item__download")) return;
+        if (e.target.closest(".history-item__download") || e.target.closest(".history-item__delete")) return;
         restoreSession(el.dataset.sessionId);
       });
     });
@@ -1775,6 +1780,24 @@ async function loadHistory() {
         const pdfB64 = btn.dataset.pdf;
         const fname = btn.dataset.filename;
         if (pdfB64) downloadBlob(`data_cleaning_report_${fname}.pdf`, base64ToBlob(pdfB64, "application/pdf"));
+      });
+    });
+    els.historyList.querySelectorAll(".history-item__delete").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const sessionId = btn.dataset.sessionId;
+        if (!window.confirm("¿Eliminar este análisis de la nube? No se puede deshacer.")) return;
+        btn.disabled = true;
+        btn.textContent = "…";
+        const ok = await deleteHistorySession(sessionId);
+        if (ok) {
+          showToast("Análisis eliminado de la nube", "success");
+          await loadHistory();
+        } else {
+          showToast("No se pudo eliminar. Revisa los permisos de la base de datos.", "error");
+          btn.disabled = false;
+          btn.textContent = "×";
+        }
       });
     });
   } catch (e) {

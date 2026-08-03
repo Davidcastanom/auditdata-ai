@@ -213,3 +213,44 @@ export async function getHistorySession(sessionId) {
     return null;
   }
 }
+
+export async function deleteHistorySession(sessionId) {
+  if (!authAvailable || !supabase) return false;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (!user) return false;
+
+    const { data: cs, error: csErr } = await supabase
+      .from("cleaning_sessions")
+      .select("dataset_id")
+      .eq("id", sessionId)
+      .eq("user_id", user.id)
+      .single();
+    if (csErr) throw csErr;
+
+    if (cs?.dataset_id) {
+      await supabase
+        .from("analyses")
+        .delete()
+        .eq("dataset_id", cs.dataset_id)
+        .eq("user_id", user.id);
+      await supabase
+        .from("datasets")
+        .delete()
+        .eq("id", cs.dataset_id)
+        .eq("user_id", user.id);
+    }
+
+    const { error: delErr } = await supabase
+      .from("cleaning_sessions")
+      .delete()
+      .eq("id", sessionId)
+      .eq("user_id", user.id);
+    if (delErr) throw delErr;
+    return true;
+  } catch (e) {
+    console.warn("Failed to delete history session:", e);
+    return false;
+  }
+}
