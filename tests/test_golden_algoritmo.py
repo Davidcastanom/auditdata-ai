@@ -96,6 +96,24 @@ def test_anios_siguen_siendo_numeros():
     assert profile.detected_type == "number"
 
 
+# ── Caso 2c: umbral configurable y exactitud estructural (AP-03) ─────────────
+def test_columna_70_por_ciento_numerica_es_number():
+    """AP-03: 3 de 4 valores numéricos (75%) y 1 texto -> number con umbral 70%."""
+    rows = [{"valor": "34"}, {"valor": "29"}, {"valor": "45"}, {"valor": "treinta"}]
+    profile = _profile_column("valor", rows)
+    assert profile.detected_type == "number"
+    assert profile.invalid_type_count == 1
+
+
+def test_exactitud_incluye_errores_de_tipo():
+    """AP-03: errores de tipo reducen la exactitud estructural, no solo outliers."""
+    result = analyze_dataset("v.csv", b"valor\n34\n29\n45\ntreinta\n")
+    column = next(c for c in result["columns"] if c["name"] == "valor")
+    accuracy = result["scores"]["accuracy"]
+    expected = 100 - ((column["outliers"] + column["invalid_type_count"]) / 4 * 100)
+    assert accuracy == round(expected, 2)
+
+
 # ── Caso 3: encabezado en fila 3 → target_rows apuntan a la fila correcta ────
 @pytest.mark.xfail(reason="CL-05: target_rows-2 hardcodeado ignora header_row_index", strict=True)
 def test_target_rows_con_encabezado_en_fila_3():

@@ -353,7 +353,7 @@ def _add_resumen_ejecutivo_cleaning(story, styles, before, after, actions):
     if before["scores"]["consistency"] != after["scores"]["consistency"]:
         improvements.append(f"consistencia ({before['scores']['consistency']}% -> {after['scores']['consistency']}%)")
     if before["scores"]["accuracy"] != after["scores"]["accuracy"]:
-        improvements.append(f"exactitud ({before['scores']['accuracy']}% -> {after['scores']['accuracy']}%)")
+        improvements.append(f"exactitud estructural ({before['scores']['accuracy']}% -> {after['scores']['accuracy']}%)")
     if before["scores"]["uniqueness"] != after["scores"]["uniqueness"]:
         improvements.append(f"unicidad ({before['scores']['uniqueness']}% -> {after['scores']['uniqueness']}%)")
 
@@ -378,7 +378,7 @@ def _add_indicadores_clave(story, styles, analysis):
         ["Indicador", "Resultado"],
         ["Completitud", f"{scores['completeness']}%"],
         ["Consistencia", f"{scores['consistency']}%"],
-        ["Exactitud estadística", f"{scores['accuracy']}%"],
+        ["Exactitud estructural", f"{scores['accuracy']}%"],
         ["Unicidad", f"{scores['uniqueness']}%"],
         ["Calidad general", f"{scores['overall']}%"],
         ["Filas totales", str(analysis["row_count"])],
@@ -400,7 +400,7 @@ def _add_indicadores_clave_cleaning(story, styles, before, after):
         ["Filas duplicadas", str(before["duplicate_rows"]), str(after["duplicate_rows"])],
         ["Completitud", f"{before['scores']['completeness']}%", f"{after['scores']['completeness']}%"],
         ["Consistencia", f"{before['scores']['consistency']}%", f"{after['scores']['consistency']}%"],
-        ["Exactitud", f"{before['scores']['accuracy']}%", f"{after['scores']['accuracy']}%"],
+        ["Exactitud estructural", f"{before['scores']['accuracy']}%", f"{after['scores']['accuracy']}%"],
         ["Unicidad", f"{before['scores']['uniqueness']}%", f"{after['scores']['uniqueness']}%"],
         ["Calidad general", f"{before['scores']['overall']}%", f"{after['scores']['overall']}%"],
     ], header=True))
@@ -788,7 +788,7 @@ def _add_checklist(story, styles, after, actions):
     checks = [
         ("Completitud >= 95%", after["scores"]["completeness"] >= 95),
         ("Consistencia >= 95%", after["scores"]["consistency"] >= 95),
-        ("Exactitud >= 95%", after["scores"]["accuracy"] >= 95),
+        ("Exactitud estructural >= 95%", after["scores"]["accuracy"] >= 95),
         ("Sin duplicados pendientes", after["duplicate_rows"] == 0),
         ("Acciones documentadas", len(actions) > 0),
         ("Calidad general >= 90%", after["scores"]["overall"] >= 90),
@@ -856,7 +856,7 @@ def _add_metodología(story, styles):
         styles["Body"],
     ))
     story.append(Paragraph(
-        "<b>Exactitud:</b> Se calcula como 100% - (valores atipicos / total de celdas) * 100. "
+        "<b>Exactitud estructural:</b> Se calcula como 100% - ((errores de tipo + valores atipicos) / total de celdas) * 100. "
         "Los valores atipicos se detectan con el rango intercuartilico (IQR): "
         "valores fuera de [Q1 - 1.5*IQR, Q3 + 1.5*IQR].",
         styles["Body"],

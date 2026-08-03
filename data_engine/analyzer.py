@@ -35,6 +35,8 @@ except ImportError:
 
 MISSING_TOKENS = {"", "na", "n/a", "null", "none", "nan", "-"}
 
+TYPE_THRESHOLD = 0.70
+
 DELIMITER_NAMES: dict[str, str] = {"comma": ",", "semicolon": ";", "tab": "\t", "pipe": "|"}
 ENCODINGS_TO_TRY: list[str] = ["utf-8-sig", "utf-8", "latin-1", "cp1252", "iso-8859-1"]
 
@@ -465,7 +467,7 @@ def build_markdown_report(analysis: dict[str, Any], analyst: str = "-", version:
         "|---|---:|",
         f"| Completitud | {scores['completeness']}% |",
         f"| Consistencia | {scores['consistency']}% |",
-        f"| Exactitud estadística | {scores['accuracy']}% |",
+        f"| Exactitud estructural | {scores['accuracy']}% |",
         f"| Unicidad | {scores['uniqueness']}% |",
         f"| Calidad general | {scores['overall']}% |",
         f"| Filas duplicadas | {analysis['duplicate_rows']} |",
@@ -598,7 +600,7 @@ def build_cleaning_markdown_report(cleaning: dict[str, Any], analyst: str = "-",
         f"| Filas duplicadas | {before['duplicate_rows']} | {after['duplicate_rows']} |",
         f"| Completitud | {before['scores']['completeness']}% | {after['scores']['completeness']}% |",
         f"| Consistencia | {before['scores']['consistency']}% | {after['scores']['consistency']}% |",
-        f"| Exactitud | {before['scores']['accuracy']}% | {after['scores']['accuracy']}% |",
+        f"| Exactitud estructural | {before['scores']['accuracy']}% | {after['scores']['accuracy']}% |",
         f"| Unicidad | {before['scores']['uniqueness']}% | {after['scores']['uniqueness']}% |",
         f"| Calidad general | {before['scores']['overall']}% | {after['scores']['overall']}% |",
         "",
@@ -690,7 +692,7 @@ def build_cleaning_markdown_report(cleaning: dict[str, Any], analyst: str = "-",
         lines.append("No se aplicaron acciones de limpieza.")
 
     lines.extend(["", "## 6. Evaluación de Calidad - Antes vs Después"])
-    dims = [("Completitud", "completeness"), ("Consistencia", "consistency"), ("Exactitud", "accuracy"), ("Unicidad", "uniqueness")]
+    dims = [("Completitud", "completeness"), ("Consistencia", "consistency"), ("Exactitud estructural", "accuracy"), ("Unicidad", "uniqueness")]
     lines.append("| Dimension | Antes | Después | Cambio |")
     lines.append("|---|---|---|---|")
     for label, key in dims:
@@ -705,7 +707,7 @@ def build_cleaning_markdown_report(cleaning: dict[str, Any], analyst: str = "-",
     checks = [
         ("Completitud >= 95%", after["scores"]["completeness"] >= 95),
         ("Consistencia >= 95%", after["scores"]["consistency"] >= 95),
-        ("Exactitud >= 95%", after["scores"]["accuracy"] >= 95),
+        ("Exactitud estructural >= 95%", after["scores"]["accuracy"] >= 95),
         ("Sin duplicados pendientes", after["duplicate_rows"] == 0),
         ("Acciones documentadas", len(actions) > 0),
         ("Calidad general >= 90%", after["scores"]["overall"] >= 90),
@@ -723,7 +725,7 @@ def build_cleaning_markdown_report(cleaning: dict[str, Any], analyst: str = "-",
     lines.extend(["", "## 9. Metodología de Calculo"])
     lines.append("**Completitud:** 100% - (celdas vacias / total de celdas) * 100.")
     lines.append("**Consistencia:** 100% - (inconsistencias de formato / total de celdas) * 100.")
-    lines.append("**Exactitud:** 100% - (valores atipicos / total de celdas) * 100. Calculados con IQR.")
+    lines.append("**Exactitud estructural:** 100% - ((errores de tipo + valores atipicos) / total de celdas) * 100. Atipicos calculados con IQR.")
     lines.append("**Unicidad:** 100% - (filas duplicadas / total de filas) * 100.")
     lines.append("**Calidad general:** Promedio aritmetico de las cuatro dimensiones.")
 
@@ -1032,11 +1034,11 @@ def _detect_type(values: list[str]) -> str:
 
     total = len(values)
     # AP-02: fecha antes que número, para que "20240101" no se pierda como número.
-    if dates / total >= 0.75:
+    if dates / total >= TYPE_THRESHOLD:
         return "date"
-    if numbers / total >= 0.75:
+    if numbers / total >= TYPE_THRESHOLD:
         return "number"
-    if booleans / total >= 0.75:
+    if booleans / total >= TYPE_THRESHOLD:
         return "boolean"
     return "text"
 
@@ -1211,10 +1213,12 @@ def _quality_scores(columns: list[ColumnProfile], duplicate_rows: int, row_count
     missing = sum(column.missing for column in columns)
     format_issues = sum(column.format_issues for column in columns)
     outliers = sum(column.outliers for column in columns)
+    type_errors = sum(column.invalid_type_count for column in columns)
 
     completeness = _score_from_ratio(missing, total_cells)
     consistency = _score_from_ratio(format_issues, total_cells)
-    accuracy = _score_from_ratio(outliers, total_cells)
+    # AP-03: exactitud estructural = 1 - (errores de tipo + outliers) / celdas.
+    accuracy = _score_from_ratio(outliers + type_errors, total_cells)
     uniqueness = _score_from_ratio(duplicate_rows, max(row_count, 1))
     overall = round(statistics.fmean([completeness, consistency, accuracy, uniqueness]), 2)
 
@@ -1329,7 +1333,7 @@ def _executive_summary(analysis: dict[str, Any]) -> str:
     return (
         f"Se analizo el dataset '{analysis['filename']}' con {analysis['row_count']} filas y "
         f"{analysis['column_count']} columnas. La calidad general calculada fue de "
-        f"{scores['overall']}%, considerando completitud, consistencia, exactitud estadística "
+        f"{scores['overall']}%, considerando completitud, consistencia, exactitud estructural "
         "y unicidad. Los hallazgos deben interpretarse como diagnóstico técnico inicial y "
         "validarse con reglas de negocio antes de ejecutar cambios definitivos."
     )
@@ -1338,7 +1342,7 @@ def _executive_summary(analysis: dict[str, Any]) -> str:
 def _cleaning_resumen(before: dict[str, Any], after: dict[str, Any], actions: list[dict[str, Any]]) -> str:
     total_actions = len(actions)
     improvements = []
-    dims = [("completitud", "completeness"), ("consistencia", "consistency"), ("exactitud", "accuracy"), ("unicidad", "uniqueness")]
+    dims = [("completitud", "completeness"), ("consistencia", "consistency"), ("exactitud estructural", "accuracy"), ("unicidad", "uniqueness")]
     for label, key in dims:
         b = before["scores"][key]
         a = after["scores"][key]
