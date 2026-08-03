@@ -117,6 +117,40 @@ def test_fecha_us_no_date_invalid():
     assert "DATE_INVALID" not in codes(diag)
 
 
+# ── DG-01: ID requiere nombre match AND (cardinalidad o patrón) ───────────────
+def test_codigo_postal_repetido_no_duplicate():
+    """DG-01 (B1): 'codigo_postal' matchea ID por nombre pero los códigos
+    postales se repiten legítimamente → NO debe reportarse DUPLICATE."""
+    diag = diagnose_column(
+        "codigo_postal",
+        ["110111", "110111", "050001", "050001", "110111", "080001", "080001", "110111", "050001", "110111"],
+        10,
+    )
+    assert "DUPLICATE" not in codes(diag)
+
+
+def test_nombre_casi_unico_no_duplicate():
+    """DG-01 (B3): columna 'nombre' con alta cardinalidad NO es ID → las
+    repeticiones de 'Ana' no son DUPLICATE."""
+    diag = diagnose_column(
+        "nombre",
+        ["Ana", "Juan", "Maria", "Carlos", "Luis", "Pedro", "Sofia", "Diego", "Laura",
+         "Jorge", "Andres", "Paula", "Hugo", "Ivan", "Rosa", "Marta", "Nora", "Cesar",
+         "Pablo", "Ana"],
+        20,
+    )
+    assert "DUPLICATE" not in codes(diag)
+
+
+def test_id_real_repetido_sigue_duplicate():
+    """Regresión DG-01: una columna 'id' con cardinalidad ≥95% y un repetido
+    SÍ es identificador → DUPLICATE."""
+    ids = [f"{1000 + i}" for i in range(1, 21)]
+    ids[19] = "1001"
+    diag = diagnose_column("id", ids, 20)
+    assert "DUPLICATE" in codes(diag)
+
+
 # ── Caso 5: "activo" solo "activo"/"inactivo" ─────────────────────────────────
 @pytest.mark.xfail(reason="DG-04: BOOL_INCONSISTENCY marca booleanos bien formados", strict=True)
 def test_activo_bien_formado_sin_bool_inconsistency():

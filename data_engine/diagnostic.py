@@ -37,19 +37,41 @@ ID_NAME_PATTERNS = re.compile(
 
 ID_CARDINALITY_THRESHOLD = 0.95
 
+# DG-01 (B1/B3): patron de valor que delata un identificador (UUID, codigos
+# con prefijo/sufijo alfanumerico, hashes hex). Los numeros planos (ej. codigos
+# postales "110111") NO cuentan como patron de ID.
+ID_VALUE_PATTERN = re.compile(
+    r"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"
+    r"|([A-Za-z]{1,6}-?\d{3,})"
+    r"|(\d{3,}-[A-Za-z]{1,6})"
+    r"|([0-9a-fA-F]{32,64})",
+)
+
+# Dominios que nunca son identificadores, aunque el nombre matchee patrones ID.
+NON_ID_DOMAINS = {"city", "gender", "country"}
+
 
 def _is_id_column(header: str, values: list[str]) -> bool:
-    """Detect if a column is an ID/unique identifier based on name + cardinality."""
-    name_match = bool(ID_NAME_PATTERNS.search(header.strip()))
+    """Detect if a column is an ID/unique identifier based on name + cardinality.
+
+    DG-01 (B1/B3): nunca por nombre solo. Requiere nombre match AND
+    (cardinalidad >= 95% O patron de valor de ID). Excluye dominios conocidos
+    (ciudad, genero, pais) de ser "ID".
+    """
     non_empty = [v.strip() for v in values if v.strip() and not is_hidden_missing(v.strip())]
     if not non_empty:
-        return name_match
+        return False
+    domain = match_column_name(header)
+    if domain and domain["domain"] in NON_ID_DOMAINS:
+        return False
+    name_match = bool(ID_NAME_PATTERNS.search(header.strip()))
+    if not name_match:
+        return False
     unique_ratio = len(set(non_empty)) / len(non_empty)
-    if name_match:
-        return True
     if unique_ratio >= ID_CARDINALITY_THRESHOLD and len(non_empty) >= 10:
         return True
-    return False
+    pattern_matches = sum(1 for v in non_empty if ID_VALUE_PATTERN.fullmatch(v))
+    return pattern_matches / len(non_empty) >= 0.9
 
 
 @dataclass
