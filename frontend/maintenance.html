@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AuditData AI | Mantenimiento Programado</title>
+    <meta
+      name="description"
+      content="AuditData AI se encuentra en mantenimiento programado. Volveremos pronto con mejoras para tu experiencia de limpieza de datos."
+    />
+    <meta name="robots" content="noindex, nofollow" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ── Design tokens (mirrored from design-system.css) ─────────── */
+      :root {
+        --color-primary: #0066ff;
+        --color-primary-dark: #0052cc;
+        --color-accent: #00d4ff;
+        --color-black: #0a0a0f;
+        --color-surface: #12121a;
+        --color-surface-2: #181824;
+        --color-border: #242436;
+        --color-text: #f0f0f5;
+        --color-muted: #9090a0;
+        --color-success: #22c55e;
+        --color-warning: #f59e0b;
+        --color-danger: #ef4444;
+        --radius-sm: 8px;
+        --radius-md: 12px;
+        --font-sans: "Outfit", "Plus Jakarta Sans", Inter, system-ui, sans-serif;
+        --font-mono: "Fira Code", "SF Mono", Consolas, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background:
+          radial-gradient(
+            ellipse at 20% 0%,
+            rgba(0, 102, 255, 0.18),
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 80% 100%,
+            rgba(0, 212, 255, 0.08),
+            transparent 50%
+          ),
+          var(--color-black);
+        color: var(--color-text);
+        font-family: var(--font-sans);
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;
+      }
+
+      /* ── Floating particles ──────────────────────────────────────── */
+      .particles {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+      }
+      .particles span {
+        position: absolute;
+        border-radius: 50%;
+        background: var(--color-primary);
+        opacity: 0.08;
+        animation: float linear infinite;
+      }
+      .particles span:nth-child(1) {
+        width: 6px; height: 6px; left: 10%; animation-duration: 18s; animation-delay: 0s;
+      }
+      .particles span:nth-child(2) {
+        width: 4px; height: 4px; left: 25%; animation-duration: 22s; animation-delay: 2s;
+        background: var(--color-accent);
+      }
+      .particles span:nth-child(3) {
+        width: 8px; height: 8px; left: 45%; animation-duration: 15s; animation-delay: 4s;
+      }
+      .particles span:nth-child(4) {
+        width: 3px; height: 3px; left: 60%; animation-duration: 20s; animation-delay: 1s;
+        background: var(--color-accent);
+      }
+      .particles span:nth-child(5) {
+        width: 5px; height: 5px; left: 75%; animation-duration: 25s; animation-delay: 3s;
+      }
+      .particles span:nth-child(6) {
+        width: 7px; height: 7px; left: 90%; animation-duration: 17s; animation-delay: 5s;
+        background: var(--color-accent);
+      }
+
+      @keyframes float {
+        0%   { transform: translateY(100vh) scale(0); opacity: 0; }
+        10%  { opacity: 0.08; }
+        90%  { opacity: 0.08; }
+        100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+      }
+
+      /* ── Main card ───────────────────────────────────────────────── */
+      .maintenance-card {
+        position: relative;
+        z-index: 1;
+        max-width: 560px;
+        width: calc(100% - 32px);
+        padding: 3rem 2.5rem;
+        background: rgba(18, 18, 26, 0.7);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid var(--color-border);
+        border-radius: 20px;
+        text-align: center;
+        box-shadow:
+          0 0 80px rgba(0, 102, 255, 0.06),
+          0 24px 48px rgba(0, 0, 0, 0.4);
+        animation: cardIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        opacity: 0;
+        transform: translateY(30px);
+      }
+
+      @keyframes cardIn {
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* ── Animated gear icon ──────────────────────────────────────── */
+      .gear-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 2rem;
+        gap: 0;
+      }
+
+      .gear {
+        fill: none;
+        stroke: var(--color-primary);
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        filter: drop-shadow(0 0 8px rgba(0, 102, 255, 0.3));
+      }
+      .gear--large {
+        width: 72px;
+        height: 72px;
+        animation: spinGear 8s linear infinite;
+      }
+      .gear--small {
+        width: 44px;
+        height: 44px;
+        margin-left: -10px;
+        margin-top: 18px;
+        animation: spinGearReverse 6s linear infinite;
+        stroke: var(--color-accent);
+        filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.3));
+      }
+
+      @keyframes spinGear {
+        to { transform: rotate(360deg); }
+      }
+      @keyframes spinGearReverse {
+        to { transform: rotate(-360deg); }
+      }
+
+      /* ── Eyebrow ─────────────────────────────────────────────────── */
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+        color: var(--color-warning);
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--color-warning);
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
+        50%      { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+      }
+
+      /* ── Typography ──────────────────────────────────────────────── */
+      h1 {
+        font-size: clamp(1.6rem, 4vw, 2.2rem);
+        font-weight: 700;
+        line-height: 1.15;
+        letter-spacing: -0.02em;
+        margin-bottom: 1rem;
+        background: linear-gradient(to right, #ffffff, #66b3ff, #0066ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .description {
+        color: var(--color-muted);
+        font-size: 1rem;
+        line-height: 1.65;
+        margin-bottom: 2rem;
+        max-width: 440px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      /* ── Countdown ───────────────────────────────────────────────── */
+      .countdown-wrapper {
+        margin-bottom: 2rem;
+      }
+      .countdown-label {
+        font-size: 0.75rem;
+        color: var(--color-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-family: var(--font-mono);
+        margin-bottom: 0.75rem;
+      }
+      .countdown {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+      }
+      .countdown__unit {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .countdown__value {
+        font-size: 2rem;
+        font-weight: 700;
+        font-family: var(--font-mono);
+        color: var(--color-text);
+        background: var(--color-surface-2);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        min-width: 64px;
+        padding: 0.5rem 0.75rem;
+        line-height: 1;
+        transition: color 0.3s;
+      }
+      .countdown__value--done {
+        color: var(--color-success);
+      }
+      .countdown__label {
+        font-size: 0.65rem;
+        color: var(--color-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-top: 0.35rem;
+      }
+
+      /* ── Progress bar ────────────────────────────────────────────── */
+      .progress-track {
+        width: 100%;
+        height: 4px;
+        background: var(--color-surface-2);
+        border-radius: 2px;
+        margin-bottom: 2rem;
+        overflow: hidden;
+      }
+      .progress-bar {
+        height: 100%;
+        border-radius: 2px;
+        background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+        width: 0%;
+        transition: width 1s ease;
+      }
+
+      /* ── Info items ──────────────────────────────────────────────── */
+      .info-items {
+        display: flex;
+        justify-content: center;
+        gap: 2rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+      }
+      .info-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--color-muted);
+        font-size: 0.85rem;
+      }
+      .info-item svg {
+        width: 16px;
+        height: 16px;
+        stroke: var(--color-primary);
+        fill: none;
+        stroke-width: 2;
+        flex-shrink: 0;
+      }
+
+      /* ── Footer link ─────────────────────────────────────────────── */
+      .footer-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        color: var(--color-primary);
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: color 0.2s, gap 0.2s;
+      }
+      .footer-link:hover {
+        color: var(--color-accent);
+        gap: 0.6rem;
+      }
+      .footer-link svg {
+        width: 14px;
+        height: 14px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2;
+      }
+
+      /* ── Brand footer ────────────────────────────────────────────── */
+      .brand-footer {
+        position: fixed;
+        bottom: 1.5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--color-muted);
+        font-size: 0.75rem;
+        z-index: 1;
+        opacity: 0.6;
+      }
+      .brand-footer .logo-mini {
+        width: 20px;
+        height: 20px;
+        border-radius: 5px;
+        background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.6rem;
+        color: #fff;
+      }
+
+      /* ── Responsive ──────────────────────────────────────────────── */
+      @media (max-width: 480px) {
+        .maintenance-card {
+          padding: 2rem 1.5rem;
+        }
+        .countdown__value {
+          font-size: 1.5rem;
+          min-width: 52px;
+        }
+        .info-items {
+          flex-direction: column;
+          align-items: center;
+          gap: 0.75rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Floating particles -->
+    <div class="particles">
+      <span></span><span></span><span></span>
+      <span></span><span></span><span></span>
+    </div>
+
+    <!-- Main card -->
+    <div class="maintenance-card" id="maintenanceCard">
+      <!-- Animated gears -->
+      <div class="gear-container">
+        <svg class="gear gear--large" viewBox="0 0 24 24">
+          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+        </svg>
+        <svg class="gear gear--small" viewBox="0 0 24 24">
+          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+        </svg>
+      </div>
+
+      <!-- Status badge -->
+      <div class="eyebrow">
+        <span class="status-dot"></span>
+        Mantenimiento programado
+      </div>
+
+      <!-- Heading -->
+      <h1>Estamos mejorando AuditData AI</h1>
+
+      <!-- Description -->
+      <p class="description">
+        Nuestro equipo está realizando actualizaciones para ofrecerte una
+        experiencia más rápida y confiable. Tus datos y reportes están
+        seguros. Volveremos pronto.
+      </p>
+
+      <!-- Countdown -->
+      <div class="countdown-wrapper">
+        <div class="countdown-label">Tiempo estimado de regreso</div>
+        <div class="countdown" id="countdown">
+          <div class="countdown__unit">
+            <span class="countdown__value" id="cdHours">--</span>
+            <span class="countdown__label">Horas</span>
+          </div>
+          <div class="countdown__unit">
+            <span class="countdown__value" id="cdMinutes">--</span>
+            <span class="countdown__label">Minutos</span>
+          </div>
+          <div class="countdown__unit">
+            <span class="countdown__value" id="cdSeconds">--</span>
+            <span class="countdown__label">Segundos</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="progress-track">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+
+      <!-- Info items -->
+      <div class="info-items">
+        <div class="info-item">
+          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+          Datos protegidos
+        </div>
+        <div class="info-item">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Regreso automático
+        </div>
+        <div class="info-item">
+          <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2Z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Soporte activo
+        </div>
+      </div>
+
+      <!-- Contact link -->
+      <a
+        href="https://github.com/Davidcastanom/auditdata-ai/issues"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="footer-link"
+        id="contactLink"
+      >
+        Reportar un problema
+        <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+    </div>
+
+    <!-- Brand footer -->
+    <div class="brand-footer">
+      <div class="logo-mini">A</div>
+      AuditData AI — Flujo Base Data Quality System
+    </div>
+
+    <script>
+      /**
+       * ── Maintenance Countdown Timer ──────────────────────────────
+       *
+       * Configure MAINTENANCE_END to the expected UTC end time.
+       * When the countdown reaches zero the page auto-refreshes,
+       * sending users back to the real app if maintenance is over.
+       */
+
+      // ⚙️  SET YOUR MAINTENANCE END TIME HERE (UTC ISO 8601)
+      const MAINTENANCE_END = new Date(
+        Date.now() + 2 * 60 * 60 * 1000   // default: 2 hours from now
+      );
+
+      // Total duration for progress bar calculation
+      const TOTAL_DURATION_MS = 2 * 60 * 60 * 1000; // must match the window above
+
+      const $h = document.getElementById("cdHours");
+      const $m = document.getElementById("cdMinutes");
+      const $s = document.getElementById("cdSeconds");
+      const $bar = document.getElementById("progressBar");
+
+      function pad(n) {
+        return String(n).padStart(2, "0");
+      }
+
+      function tick() {
+        const now = Date.now();
+        const diff = Math.max(0, MAINTENANCE_END - now);
+
+        if (diff === 0) {
+          $h.textContent = "00";
+          $m.textContent = "00";
+          $s.textContent = "00";
+          $h.classList.add("countdown__value--done");
+          $m.classList.add("countdown__value--done");
+          $s.classList.add("countdown__value--done");
+          $bar.style.width = "100%";
+          // Auto-redirect to homepage after a brief pause
+          setTimeout(() => {
+            window.location.href = "/";
+          }, 3000);
+          return;
+        }
+
+        const totalSec = Math.floor(diff / 1000);
+        const hrs = Math.floor(totalSec / 3600);
+        const mins = Math.floor((totalSec % 3600) / 60);
+        const secs = totalSec % 60;
+
+        $h.textContent = pad(hrs);
+        $m.textContent = pad(mins);
+        $s.textContent = pad(secs);
+
+        // Progress bar: elapsed / total
+        const elapsed = TOTAL_DURATION_MS - diff;
+        const pct = Math.min(100, (elapsed / TOTAL_DURATION_MS) * 100);
+        $bar.style.width = pct.toFixed(2) + "%";
+      }
+
+      tick();
+      setInterval(tick, 1000);
+    </script>
+  </body>
+</html>

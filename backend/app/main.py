@@ -23,6 +23,7 @@ app = FastAPI(title="AuditData AI API", version="1.0.0")
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://127.0.0.1:8000").split(",")
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+MAINTENANCE_MODE = os.getenv("MAINTENANCE_MODE", "0").lower() in ("1", "true", "yes")
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,6 +32,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def maintenance_middleware(request, call_next):
+    """Si MAINTENANCE_MODE está activo, redirige todo excepto rutas esenciales."""
+    if MAINTENANCE_MODE:
+        path = request.url.path
+        # Rutas que siguen funcionando durante mantenimiento
+        allowed = (
+            path == "/maintenance"
+            or path.startswith("/frontend/")
+            or path == "/api/health"
+            or path.startswith("/admin")
+        )
+        if not allowed:
+            from starlette.responses import RedirectResponse
+            return RedirectResponse(url="/maintenance", status_code=307)
+    return await call_next(request)
 
 
 @app.middleware("http")
@@ -498,5 +517,11 @@ def read_root():
 def read_admin():
     """Ventana de administrador: métricas anónimas de uso."""
     return FileResponse(os.path.join(frontend_path, "admin.html"))
+
+
+@app.get("/maintenance")
+def read_maintenance():
+    """Página de mantenimiento programado."""
+    return FileResponse(os.path.join(frontend_path, "maintenance.html"))
 
 app.mount("/frontend", StaticFiles(directory=frontend_path), name="frontend")
