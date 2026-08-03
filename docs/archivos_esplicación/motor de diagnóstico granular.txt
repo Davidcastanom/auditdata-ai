@@ -1,0 +1,54 @@
+data_engine/diagnostic.py es el motor de diagnóstico granular: recorre cada columna del dataset y reporta todos los problemas encontrados agrupados en categorías (el producto documenta 28: 12 principales + 16 anexos). No corrige nada; solo detecta, clasifica, cuenta y localiza cada problema (con la fila exacta en Excel).
+
+Estructura de datos (las "cajas" de salida)
+IssueGroup (L52) — un hallazgo: category, category_code, severity (CRITICA/ALTA/MEDIA/BAJA), count, percentage, description, examples (hasta 10) y affected_rows (hasta 50 filas exactas).
+ColumnDiagnostic (L78) — resultado por columna: dominio inferido, confidence, veredicto (LIMPIA o "N problema(s)") y su lista de IssueGroup.
+DatasetDiagnostic (L101) — todas las columnas + summary (total de filas/columnas, problemas, columnas limpias/sucias, distribución por categoría y veredicto final).
+Orquestación (cómo "opera")
+diagnose_dataset(headers, rows, header_row_index) (L344) — es la entrada. Por cada columna:
+
+Extrae los valores → diagnose_column.
+Acumula contadores y distribuciones por categoría.
+Después revisa duplicados a nivel de fila completa (_check_row_duplicates, L397), que se insertan como una pseudo-columna __dataset__ al inicio.
+Genera el summary con veredicto LIMPIO o REQUIERE LIMPIEZA (N problemas en M columnas).
+Ajusta los índices de fila al número real de Excel (row_offset = header_row_index + 2, L355) — así el analista ve "fila 12" en su hoja, no el índice interno.
+Diagnóstico de una columna (diagnose_column, L283) — 3 fases
+Fase 1 — Inferencia de dominio: match_column_name(header) (de domain_rules.py) detecta si la columna es género, país, edad, fecha, ID, etc. con su rango esperado y tipo (number/date). Esto activa los chequeos que dependen de dominio.
+
+Fase 2 — Clasificación por frecuencia (FastTextProfiler v3.0) (_classify_column_by_frequency, L113): mide cobertura de los top 1/2/3/5/10 valores y clasifica:
+
+IDENTIFICADOR si ≥95% valores únicos
+CONSTANTE si el top1 cubre ≥95%
+BOOLEANA si el top2 cubre ≥95%
+CATEGORICA si top3/5/10 cubre ≥90%
+TEXTO_LIBRE si no matchea (con guard clause: si hay >50% únicos y moda <5%, fuerza TEXTO_LIBRE)
+Devuelve además confidence, risk (BAJO/MEDIO/ALTO/MANUAL) y suspicious_values (valores que no pertenecen al conjunto dominante).
+
+Fase 3 — Ejecución de chequeos (L301-316): solo si la columna no es TEXTO_LIBRE, IDENTIFICADOR ni CONSTANTE, se lanzan los chequeos en cadena. Esa es la clave del diseño: texto libre e IDs no se someten a reglas de formato (serían falsos positivos).
+
+Los 16 chequeos de categoría
+Chequeo	Código	Severidad típica	Qué detecta
+_check_missing	MISSING + HIDDEN_MISSING	ALTA / MEDIA	Celdas vacías y placeholders que ocultan faltantes ("N/A", "-", etc. vía is_hidden_missing)
+_check_duplicates	DUPLICATE	ALTA	Valores repetidos solo en columnas ID (en columnas normales repetir es frecuencia válida). Requiere _is_id_column (nombre + ≥95% unicidad, L38)
+_check_date_formats	DATE_FORMAT + DATE_INVALID	ALTA / CRITICA	Formatos de fecha mezclados y fechas imposibles (día/mes inválidos vía is_valid_calendar_date)
+_check_numeric_domain_violations	NUMERIC_DOMAIN	CRITICA	Valores fuera del rango esperado del dominio (ej. edad negativa)
+_check_text_errors	TEXT_ERROR	BAJA	Mayúsculas/minúsculas inconsistentes, espacios al inicio/fin, espacios dobles
+_check_categorical_inconsistency	CATEGORICAL	MEDIA	Sinónimos mezclados en género (M/Masculino/m) y país (vía get_gender_synonym/get_country_synonym)
+_check_type_validation	TYPE_VALIDATION	ALTA	Celdas que no coinciden con el tipo esperado del dominio (número/fecha)
+_check_unit_inconsistency	UNIT_ERROR	MEDIA	Unidades de medida mezcladas (kg vs lbs)
+_check_encoding	ENCODING	MEDIA	Caracteres corruptos por codificación (Ã±,  , etc.)
+_check_formula_errors	FORMULA_ERROR	ALTA	Errores de Excel exportados como texto (#N/A, #DIV/0!...)
+_check_scientific_notation	SCIENTIFIC	MEDIA	Números en notación científica (1.5E+10) no deseada
+_check_multivalue_cells	MULTI_VALUE	MEDIA	Una celda con varios valores separados por ;, `
+_check_mixed_languages	MIXED_LANG	BAJA	Mezcla español/inglés (heurística de palabras clave)
+_check_ghost_characters	GHOST_CHAR	BAJA	Caracteres invisibles de copiado/pegado (NBSP, BOM, etc.)
+_check_text_truncation	TEXT_TRUNCATION	MEDIA	Textos cortados a una longitud exacta máxima (>50 y >3 valores)
+_check_boolean_inconsistency	BOOL_INCONSISTENCY	MEDIA	Booleanos con múltiples representaciones (sí/no/true/false/1/0)
+_check_colección_inconsistencia	TYPE_PER_CELL	ALTA	Una columna que mezcla números y textos (mayoría <95%)
+Cómo se opera (conexión con la API)
+diagnose_dataset se invoca desde 3 endpoints de backend/app/main.py: POST /api/diagnose (L130, lo usa nube.js en el paso 3), POST /api/ai/recommend (L168) y POST /api/ai/chat-column (L196). El resultado alimenta el paso 3 del wizard (diagnóstico por columna), el panel del copiloto IA y el reporte PDF.
+
+Observación (posible bug)
+En diagnose_column (L301-318), la rama elif column_type in ("CATEGORICA", "BOOLEANA") → _check_categorical_suspicious es código muerto: esas columnas ya entran por el if anterior (no son TEXTO_LIBRE/IDENTIFICADOR/CONSTANTE), así que las "categorías sospechosas" del profiler nunca llegan a reportarse por esta vía. Vale la pena revisarlo.
+
+¿Quieres que agregue esta explicación como sección en docs/ (p. ej. docs/MAPEO_ANALISIS_ESTADISTICO.md o un nuevo docs/DIAGNOSTICO_28_CATEGORIAS.md)?
