@@ -76,6 +76,7 @@ test.describe("AuditData AI - Depuración 28 Categorías", () => {
     await skipValidationAndGoToStep4(page);
     await page.locator("[data-depur-open-col]").first().click();
     await expect(page.locator("#aiColumnDrawer.is-active")).toBeVisible({ timeout: 10000 });
+    await page.locator("#diagnosticSection .drawer-section__toggle").first().click();
     await expect(page.locator("#drawerDiagnostics")).toBeVisible();
   });
 
@@ -84,7 +85,7 @@ test.describe("AuditData AI - Depuración 28 Categorías", () => {
     await skipValidationAndGoToStep4(page);
     await page.locator("[data-depur-open-col]").first().click();
     await expect(page.locator("#aiColumnDrawer.is-active")).toBeVisible({ timeout: 10000 });
-    await expect(page.locator("#drawerAIRecs")).toBeVisible();
+    await expect(page.locator("#drawerChatFeed .chat-bubble--ai")).toContainText("Copiloto");
   });
 
   test("chat en drawer funciona con preguntas", async ({ page }) => {

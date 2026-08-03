@@ -5,7 +5,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/Tests-53%2F53%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-191%2F191%20passed%20(5%20xfail)-brightgreen.svg)](tests/)
 [![Deploy](https://img.shields.io/badge/Deploy-Render-blue.svg)](https://auditdata-ai-1.onrender.com)
 
 ---
@@ -235,13 +235,16 @@ El `render.yaml` declara `GROQ_API_KEY` y `Recomendaciones_de_copiloto` como `sy
 ## Testing
 
 ```bash
-# Tests Python (53/53)
-python -m pytest tests/ -v
+# Tests Python (196 total: 191 passed + 5 xfail del plan de mejora)
+python -m pytest tests/ -q --ignore=tests/frontend
 
 # Tests específicos
-python -m pytest tests/test_api.py -v          # 16 tests API
-python -m pytest tests/test_characterization.py -v  # 35 tests caracterización
-python -m pytest tests/test_analyzer.py -v     # 2 tests motor
+python -m pytest tests/test_api.py -v          # tests API
+python -m pytest tests/test_characterization.py -v  # tests caracterización
+python -m pytest tests/test_analyzer.py -v     # tests motor
+
+# Tests E2E de frontend (Playwright, 36 tests)
+npx playwright test
 ```
 
 ---
@@ -284,7 +287,7 @@ python -m pytest tests/test_analyzer.py -v     # 2 tests motor
 - [x] Duplicados configurables por columnas clave (key_columns)
 - [x] Timer de procesamiento en barra de estado
 - [x] Plantillas de dataset (Ventas, RRHH, Financiero, General)
-- [x] 53 tests Python
+- [x] 196 tests Python + 36 tests E2E de frontend (Playwright)
 - [x] Dead code removal y consolidación de modelos
 - [x] Respuestas de IA estructuradas como listas (no párrafos)
 - [x] Análisis profundo con fila exacta + valor ejemplo por hallazgo
