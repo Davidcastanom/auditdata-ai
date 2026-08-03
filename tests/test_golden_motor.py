@@ -96,7 +96,6 @@ def test_correo_sin_confirmacion_por_valores():
 
 
 # ── Caso 4: fecha única ───────────────────────────────────────────────────────
-@pytest.mark.xfail(reason="DG-02: fecha única clasifica IDENTIFICADOR/TEXTO_LIBRE y salta chequeos", strict=True)
 def test_fecha_unica_ejecuta_chequeos_de_fecha():
     """DG-02: una columna de fechas con alta cardinalidad NO se salta los
     chequeos DATE_INVALID/DATE_FORMAT por clasificarse IDENTIFICADOR/TEXTO_LIBRE."""

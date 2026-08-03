@@ -135,6 +135,14 @@ class DatasetDiagnostic:
         }
 
 
+def _is_numeric_value(value: str) -> bool:
+    try:
+        float(value.strip().replace(",", "."))
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
 def _classify_column_by_frequency(values: list[str]) -> dict[str, Any]:
     """FastTextProfiler v3.0 — Classify a text column by frequency distribution.
 
@@ -188,6 +196,16 @@ def _classify_column_by_frequency(values: list[str]) -> dict[str, Any]:
     if guard_pct > 50 and guard_moda_pct < 5:
         column_type = "TEXTO_LIBRE"
         dominant_k = 0
+
+    # DG-02 (B2): columnas que hoy se saltan los 16 chequeos
+    # (IDENTIFICADOR/CONSTANTE/TEXTO_LIBRE) pero que son claramente fechas o
+    # numeros (>=90% parseable) deben correr los chequeos DATE/NUMERIC (spec 4.3).
+    if column_type in ("IDENTIFICADOR", "CONSTANTE", "TEXTO_LIBRE"):
+        date_ratio = sum(1 for v in non_empty if is_valid_calendar_date(v)) / n
+        if date_ratio >= 0.9:
+            column_type = "FECHA"
+        elif sum(1 for v in non_empty if _is_numeric_value(v)) / n >= 0.9:
+            column_type = "NUMERICA"
 
     dominant_values = [{"value": val, "freq": count, "pct": round(count / n * 100, 2)}
                        for val, count in sorted_vals[:dominant_k]]
