@@ -10,13 +10,13 @@ from __future__ import annotations
 import csv
 import io
 import logging
+import os
 import statistics
 import unicodedata
 import zipfile
-import os
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -774,19 +774,27 @@ def _find_header_row(raw_rows: list[tuple]) -> int:
     return 0
 
 
-def _decode_text(payload: bytes, encoding: str | None = None) -> str:
-    """Decode CSV bytes trying the requested encoding first, then known ones."""
+def _decode_text_with_encoding(payload: bytes, encoding: str | None = None) -> tuple[str, str]:
+    """Decode CSV bytes trying the requested encoding first, then known ones.
+
+    Returns (text, detected_encoding_name).
+    """
     candidates = [encoding] if encoding else []
     candidates.extend(ENCODINGS_TO_TRY)
     for enc in candidates:
         if not enc:
             continue
         try:
-            return payload.decode(enc)
+            return payload.decode(enc), enc.replace("-sig", "")
         except (UnicodeDecodeError, LookupError):
             continue
     # latin-1 nunca falla: último recurso sin romper el análisis
-    return payload.decode("latin-1", errors="replace")
+    return payload.decode("latin-1", errors="replace"), "latin-1"
+
+
+def _decode_text(payload: bytes, encoding: str | None = None) -> str:
+    text, _ = _decode_text_with_encoding(payload, encoding=encoding)
+    return text
 
 
 def _resolve_delimiter(prefer: str | None) -> str | None:
@@ -800,21 +808,27 @@ def _resolve_delimiter(prefer: str | None) -> str | None:
     return None
 
 
-def _count_outside_quotes(line: str, ch: str) -> int:
-    """Count occurrences of `ch` outside of double-quoted sections."""
+def _count_outside_quotes(lines: list[str], ch: str) -> int:
+    """Count occurrences of `ch` outside of double-quoted sections.
+
+    Quote state is carried across line boundaries so a quoted field that spans
+    multiple lines is handled correctly.
+    """
     count = 0
     in_quotes = False
-    i = 0
-    while i < len(line):
-        c = line[i]
-        if c == '"':
-            if in_quotes and i + 1 < len(line) and line[i + 1] == '"':
-                i += 2
-                continue
-            in_quotes = not in_quotes
-        elif c == ch and not in_quotes:
-            count += 1
-        i += 1
+    for line in lines:
+        i = 0
+        n = len(line)
+        while i < n:
+            c = line[i]
+            if c == '"':
+                if in_quotes and i + 1 < n and line[i + 1] == '"':
+                    i += 2
+                    continue
+                in_quotes = not in_quotes
+            elif c == ch and not in_quotes:
+                count += 1
+            i += 1
     return count
 
 
@@ -839,12 +853,24 @@ def _detect_delimiter(lines: list[str], prefer: str | None = None) -> str:
     sample = lines[:20]
     counts: dict[str, int] = {}
     for name, ch in DELIMITER_NAMES.items():
-        total = sum(_count_outside_quotes(line, ch) for line in sample)
+        total = _count_outside_quotes(sample, ch)
         if total > 0:
             counts[name] = total
     if not counts:
         return ","
     return DELIMITER_NAMES[max(counts, key=counts.get)]
+
+
+def _find_header_index(lines: list[str], delim: str) -> int:
+    """Find the 0-based header row among the first 5 lines.
+
+    A row is considered a header row when it has at least 3 non-empty fields.
+    """
+    for i, line in enumerate(lines[:5]):
+        fields = [f.strip() for f in _split_csv_line(line, delim) if f.strip()]
+        if len(fields) >= 3:
+            return i
+    return 0
 
 
 def _load_csv(payload: bytes, delimiter: str | None = None, encoding: str | None = None, header_row: int | None = None) -> tuple[list[str], list[dict[str, Any]], int]:
@@ -860,16 +886,7 @@ def _load_csv(payload: bytes, delimiter: str | None = None, encoding: str | None
         return [], [], 0
 
     delim = _detect_delimiter(lines, prefer=delimiter)
-
-    if header_row is None:
-        header_idx = 0
-        for i, line in enumerate(lines[:5]):
-            fields = [f.strip() for f in _split_csv_line(line, delim) if f.strip()]
-            if len(fields) >= 3:
-                header_idx = i
-                break
-    else:
-        header_idx = header_row
+    header_idx = header_row if header_row is not None else _find_header_index(lines, delim)
 
     trimmed = "\n".join(lines[header_idx:])
     reader = csv.DictReader(io.StringIO(trimmed), delimiter=delim)
@@ -935,29 +952,14 @@ def detect_file_settings(filename: str, payload: bytes) -> dict[str, Any]:
             "format": "xlsx",
         }
 
-    encodings_to_try = ["utf-8-sig", "utf-8", "latin-1", "cp1252", "iso-8859-1"]
-    detected_encoding = "utf-8"
-    text = ""
-    for enc in encodings_to_try:
-        try:
-            text = payload.decode(enc)
-            detected_encoding = enc.replace("-sig", "")
-            break
-        except (UnicodeDecodeError, LookupError):
-            continue
+    text, detected_encoding = _decode_text_with_encoding(payload)
 
     lines = text.splitlines()
     if not lines:
         return {"error": "Archivo vacío"}
 
     delim_char = _detect_delimiter(lines)
-
-    header_idx = 0
-    for i, line in enumerate(lines[:5]):
-        fields = [f.strip() for f in _split_csv_line(line, delim_char) if f.strip()]
-        if len(fields) >= 3:
-            header_idx = i
-            break
+    header_idx = _find_header_index(lines, delim_char)
 
     trimmed = "\n".join(lines[header_idx:])
     reader = csv.DictReader(io.StringIO(trimmed), delimiter=delim_char)

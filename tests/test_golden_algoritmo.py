@@ -36,7 +36,7 @@ def test_csv_punto_y_coma_se_analiza_correctamente():
 def test_delimitador_respeta_campos_entre_comillas():
     """FE-02: ';' dentro de un campo entre comillas no debe elegirse como
     delimitador, y el valor debe conservarse completo."""
-    payload = 'id,nombre,nota\n1,Ana,"a;b;c;d;e"\n2,Luis,media\n'.encode("utf-8")
+    payload = b'id,nombre,nota\n1,Ana,"a;b;c;d;e"\n2,Luis,media\n'
     analysis = analyze_dataset("q.csv", payload)
     assert analysis["column_count"] == 3
     assert analysis["headers"] == ["id", "nombre", "nota"]
