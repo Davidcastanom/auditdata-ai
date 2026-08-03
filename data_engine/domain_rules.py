@@ -344,42 +344,78 @@ def detect_date_format(value: str) -> str | None:
     return None
 
 
-def is_valid_calendar_date(value: str) -> bool:
-    """Check if a date string represents a valid calendar date."""
-    import re
-    cleaned = value.strip()
+def _parse_ymd(year: int, month: int, day: int) -> bool:
+    if month < 1 or month > 12:
+        return False
+    if day < 1 or day > 31:
+        return False
+    if month in (4, 6, 9, 11) and day > 30:
+        return False
+    if month == 2:
+        is_leap = (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
+        if day > 29 or (not is_leap and day > 28):
+            return False
+    return True
 
+
+def _parse_slash_date(cleaned: str, day_first: bool) -> bool:
+    """Valida una fecha XX/YY/YYYY, XX-YY-YYYY o XX/YY/YY según el orden."""
+    m = re.match(r"^(\d{2})[/-](\d{2})[/-](\d{4})$", cleaned)
+    if m:
+        a, b, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        day, month = (a, b) if day_first else (b, a)
+        return _parse_ymd(year, month, day)
+    m = re.match(r"^(\d{2})/(\d{2})/(\d{2})$", cleaned)
+    if m:
+        a, b, year = int(m.group(1)), int(m.group(2)), 2000 + int(m.group(3))
+        day, month = (a, b) if day_first else (b, a)
+        return _parse_ymd(year, month, day)
+    return False
+
+
+def is_valid_calendar_date(value: str, fmt: str | None = None) -> bool:
+    """Check if a date string represents a valid calendar date.
+
+    DM-02 (A3): no se asume día-primero. Si `fmt` es un formato slash/dash
+    detectado de la columna, valida estrictamente con ese orden; si es None,
+    XX/YY/YYYY es válida si lo es bajo alguna interpretación (dd/mm o mm/dd).
+    """
+    cleaned = value.strip()
+    if fmt in ("%d/%m/%Y", "%d-%m-%Y", "%d/%m/%y"):
+        return _parse_slash_date(cleaned, day_first=True)
+    if fmt in ("%m/%d/%Y", "%m-%d-%Y"):
+        return _parse_slash_date(cleaned, day_first=False)
+    if fmt == "%Y-%m-%d":
+        m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", cleaned)
+        return _parse_ymd(int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else False
     m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", cleaned)
     if m:
-        year, month, day = int(m.group(1)), int(m.group(2)), int(m.group(3))
-        if month < 1 or month > 12:
-            return False
-        if day < 1 or day > 31:
-            return False
-        if month in (4, 6, 9, 11) and day > 30:
-            return False
-        if month == 2:
-            is_leap = (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
-            if day > 29 or (not is_leap and day > 28):
-                return False
-        return True
+        return _parse_ymd(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    return _parse_slash_date(cleaned, day_first=True) or _parse_slash_date(cleaned, day_first=False)
 
-    m2 = re.match(r"^(\d{2})/(\d{2})/(\d{4})", cleaned)
-    if m2:
-        day, month, year = int(m2.group(1)), int(m2.group(2)), int(m2.group(3))
-        if month < 1 or month > 12:
-            return False
-        if day < 1 or day > 31:
-            return False
-        if month in (4, 6, 9, 11) and day > 30:
-            return False
-        if month == 2:
-            is_leap = (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
-            if day > 29 or (not is_leap and day > 28):
-                return False
-        return True
 
-    return False
+def detect_date_day_order(values: list[str]) -> str | None:
+    """Detecta si la columna usa dd/mm o mm/dd (DM-02/A3).
+
+    Vota con los valores NO ambiguos (solo una interpretación es fecha válida).
+    Devuelve '%d/%m/%Y' (dd/mm), '%m/%d/%Y' (mm/dd) o None si es ambiguo/mixto.
+    """
+    votes: dict[str, int] = {"dd_mm": 0, "mm_dd": 0}
+    for v in values:
+        cleaned = v.strip()
+        day_first_ok = _parse_slash_date(cleaned, day_first=True)
+        month_first_ok = _parse_slash_date(cleaned, day_first=False)
+        if not day_first_ok and not month_first_ok:
+            continue
+        if day_first_ok == month_first_ok:
+            continue
+        if day_first_ok:
+            votes["dd_mm"] += 1
+        else:
+            votes["mm_dd"] += 1
+    if votes["dd_mm"] == votes["mm_dd"]:
+        return None
+    return "%d/%m/%Y" if votes["dd_mm"] > votes["mm_dd"] else "%m/%d/%Y"
 
 
 EXCEL_FORMULA_ERRORS: set[str] = {

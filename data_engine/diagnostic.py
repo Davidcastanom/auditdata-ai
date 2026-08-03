@@ -19,6 +19,7 @@ from .domain_rules import (
     EXCEL_FORMULA_ERRORS,
     MULTIVALUE_SEPARATORS,
     confirm_domain,
+    detect_date_day_order,
     detect_date_format,
     get_country_synonym,
     get_gender_synonym,
@@ -551,6 +552,8 @@ def _check_date_formats(values: list[str], total: int) -> list[IssueGroup]:
 
     date_pattern = re.compile(r"\d{4}[-/]\d{2}[-/]\d{2}|\d{2}[-/]\d{2}[-/]\d{4}|\d{2}/\d{2}/\d{2}")
 
+    day_order = detect_date_day_order(values)
+
     for i, v in enumerate(values):
         v_stripped = v.strip()
         if not v_stripped:
@@ -586,7 +589,7 @@ def _check_date_formats(values: list[str], total: int) -> list[IssueGroup]:
 
     for i, v in enumerate(values):
         v_stripped = v.strip()
-        if date_pattern.search(v_stripped) and not is_valid_calendar_date(v_stripped):
+        if date_pattern.search(v_stripped) and not is_valid_calendar_date(v_stripped, day_order):
             invalid_dates.append(v_stripped)
             invalid_rows.append(i)
 

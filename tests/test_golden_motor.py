@@ -105,6 +105,18 @@ def test_fecha_unica_ejecuta_chequeos_de_fecha():
     assert "DATE_INVALID" in codes(diag)
 
 
+# ── DM-02: fecha US 12/25/2020 no es "fecha imposible" ────────────────────────
+def test_fecha_us_no_date_invalid():
+    """DM-02 (A3): '12/25/2020' es una fecha válida en formato US (mm/dd/yyyy).
+    No debe marcarse DATE_INVALID por asumir día-primero."""
+    diag = diagnose_column(
+        "fecha_ingreso",
+        ["12/25/2020", "12/25/2020", "12/26/2020", "01/15/2021", "11/30/2021"],
+        5,
+    )
+    assert "DATE_INVALID" not in codes(diag)
+
+
 # ── Caso 5: "activo" solo "activo"/"inactivo" ─────────────────────────────────
 @pytest.mark.xfail(reason="DG-04: BOOL_INCONSISTENCY marca booleanos bien formados", strict=True)
 def test_activo_bien_formado_sin_bool_inconsistency():

@@ -53,7 +53,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 | CL-07 | IA por acción (Gemini serial, 2 proveedores) → lote Groq unificado | Algo. C7 | F5 | PENDIENTE | 2026-08-27 |
 | CL-08 | `after` se re-parsea desde CSV → re-perfilar en memoria | Algo. C8 | F3 | HECHO | 2026-08-19 |
 | DM-01 | `match_column_name` substring → tokens + confirmación por valores | Motor A1/A2/B9 | F4 | HECHO | 2026-08-03 |
-| DM-02 | Fechas: asumir formato detectado (dd/mm vs mm/dd) | Motor A3 | F4 | PENDIENTE | 2026-08-24 |
+| DM-02 | Fechas: asumir formato detectado (dd/mm vs mm/dd) | Motor A3 | F4 | HECHO | 2026-08-03 |
 | DM-03 | `MISSING_TOKENS_EXTENDED` depurado ("9999","-1","pendiente"," ") | Motor A4 | F4 | HECHO | 2026-08-24 |
 | DG-01 | `_is_id_column` solo por nombre → requiere nombre+cardinalidad | Motor B1/B3 | F5 | PENDIENTE | 2026-08-27 |
 | DG-02 | Fechas únicas clasificadas IDENTIFICADOR → tipo DATE/NUMERIC | Motor B2 | F5 | PENDIENTE | 2026-08-27 |
