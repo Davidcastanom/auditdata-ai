@@ -25,7 +25,7 @@ Orquestado por `analyze_dataset` (L110-129). Endpoint: `POST /api/analyze` (`mai
 | Inconsistencias de formato | `_add_format_groups` | 1013 | Agrupa variantes (case/espacios) con key normalizada; `format_groups` + `format_issues`. |
 | `invalid_type_count` | `_profile_column` | 927 | Solo se calcula cuando el tipo detectado es `number`. |
 | Duplicados | `_count_duplicate_rows` | 1026 | Compara fila completa por defecto; con `duplicate_key_columns` usa solo esas columnas normalizando (strip + lowercase + NFKD para acentos). |
-| Duplicados normalización | `_normalize_for_comparison` | 1048 | NFKD + quita diacríticos. |
+| Duplicados normalización | `normalize_for_comparison` (en `domain_rules.py`) | — | NFKD + quita diacríticos; firma única compartida por analyzer, diagnostic y removal (DU-01/DU-02). |
 
 ### Scores de calidad — 4 dimensiones (`_quality_scores`, L1055)
 

@@ -120,29 +120,30 @@ class TestCharacterizationCountDuplicates(unittest.TestCase):
         ]
         self.assertEqual(_count_duplicate_rows(headers, rows), 1)
 
-    def test_whitespace_stripped_but_case_sensitive(self):
-        """strip() is applied but case is NOT normalized.
-        ' Hello ' stripped = 'Hello', same as row 1 → 1 duplicate.
-        'hello' is different from 'Hello' → not a duplicate.
+    def test_whitespace_and_case_normalized(self):
+        """Firma unificada (DU-01): strip + lower + sin acentos.
+        'Hello', 'hello' y ' Hello ' normalizan a 'hello' → 2 duplicados.
         """
         headers = ["a"]
         rows = [{"a": "Hello"}, {"a": "hello"}, {"a": " Hello "}]
-        self.assertEqual(_count_duplicate_rows(headers, rows), 1)
+        self.assertEqual(_count_duplicate_rows(headers, rows), 2)
 
     def test_empty_values_are_duplicates(self):
         headers = ["a"]
         rows = [{"a": ""}, {"a": ""}]
         self.assertEqual(_count_duplicate_rows(headers, rows), 1)
 
-    def test_key_columns_param_preserves_legacy(self):
-        """With key_columns=None, full-row comparison still works."""
+    def test_key_columns_none_uses_full_row_normalized(self):
+        """Con key_columns=None, comparación full-row normalizada (DU-01):
+        'Ana' vs 'ana' ahora son duplicados (antes case-sensitive → 0).
+        """
         headers = ["id", "name"]
         rows = [
             {"id": "1", "name": "Ana"},
             {"id": "1", "name": "ana"},
         ]
-        self.assertEqual(_count_duplicate_rows(headers, rows), 0)
-        self.assertEqual(_count_duplicate_rows(headers, rows, key_columns=None), 0)
+        self.assertEqual(_count_duplicate_rows(headers, rows), 1)
+        self.assertEqual(_count_duplicate_rows(headers, rows, key_columns=None), 1)
 
 
 class TestCharacterizationProfileColumn(unittest.TestCase):

@@ -41,7 +41,6 @@ def test_sentinelas_9999_y_menos_uno_no_son_missing():
 
 
 # ── Caso 2: "nivel_estudios" ──────────────────────────────────────────────────
-@pytest.mark.xfail(reason="DM-01: 'nivel' matchea dominio 'score' por substring", strict=True)
 def test_nivel_estudios_dominio_no_confirmado():
     """DM-01: 'nivel' hace substring-match con dominio 'score' (rango 0-10)
     pero los valores (bachiller/universitario) no confirman un puntaje numérico.
@@ -51,14 +50,13 @@ def test_nivel_estudios_dominio_no_confirmado():
     assert "TYPE_VALIDATION" not in codes(diag)
 
 
-@pytest.mark.xfail(reason="DM-01: match_column_name usa substring", strict=True)
 def test_nivel_estudios_match_column_name_no_falso_positivo():
-    """DM-01: match_column_name no debe confirmar dominio por substring."""
+    """DM-01: match_column_name no matchea 'nivel_estudios' como 'score'
+    (matching por token completo, sin substring)."""
     assert match_column_name("nivel_estudios") is None
 
 
 # ── Caso 3: "validacion" (si/no) ──────────────────────────────────────────────
-@pytest.mark.xfail(reason="DM-01: 'validacion' matchea dominio 'id' por substring", strict=True)
 def test_validacion_dominio_no_id():
     """DM-01: 'validacion' contiene 'id' como substring pero NO es identificador."""
     diag = diagnose_column("validacion", ["si", "no", "si", "no", "si", "no", "si"], 7)
@@ -71,11 +69,30 @@ def test_validacion_sin_duplicate():
     assert "DUPLICATE" not in codes(diag)
 
 
-@pytest.mark.xfail(reason="DM-01: match_column_name usa substring", strict=True)
 def test_validacion_match_column_name_no_id():
     """DM-01: match_column_name('validacion') no debe devolver dominio 'id'."""
     info = match_column_name("validacion")
     assert info is None or info["domain"] != "id"
+
+
+def test_id_cliente_match_por_token():
+    """DM-01: el matcher por tokens SÍ reconoce 'id_cliente' como id
+    (token 'id' coincide con hint de dominio id, sin substring)."""
+    info = match_column_name("id_cliente")
+    assert info is not None and info["domain"] == "id"
+
+
+def test_fecha_nacimiento_match_por_token():
+    """DM-01: 'fecha_nacimiento' matchea date por 2 tokens ('fecha' + 'nacimiento')."""
+    info = match_column_name("fecha_nacimiento")
+    assert info is not None and info["domain"] == "date"
+
+
+def test_correo_sin_confirmacion_por_valores():
+    """DM-01: 'correo_electronico' matchea por nombre pero los valores no-email
+    no confirman el dominio (spec 4.2 paso 3)."""
+    diag = diagnose_column("correo_electronico", ["hola", "mundo", "hola", "mundo", "hola"], 5)
+    assert diag.inferred_domain != "email"
 
 
 # ── Caso 4: fecha única ───────────────────────────────────────────────────────

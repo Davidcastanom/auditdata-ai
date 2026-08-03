@@ -18,6 +18,7 @@ from typing import Any
 from .domain_rules import (
     EXCEL_FORMULA_ERRORS,
     MULTIVALUE_SEPARATORS,
+    confirm_domain,
     detect_date_format,
     get_country_synonym,
     get_gender_synonym,
@@ -25,6 +26,7 @@ from .domain_rules import (
     is_hidden_missing,
     is_valid_calendar_date,
     match_column_name,
+    normalize_for_comparison,
 )
 
 ID_NAME_PATTERNS = re.compile(
@@ -169,7 +171,6 @@ def _classify_column_by_frequency(values: list[str]) -> dict[str, Any]:
 
     suspicious_values = []
     if dominant_k > 0:
-        dominant_set = {val for val, _ in sorted_vals[:dominant_k]}
         for val, count in sorted_vals[dominant_k:]:
             pct = count / n * 100
             row_indices = [i for i, v in enumerate(values) if v.strip() == val]
@@ -283,6 +284,10 @@ def _shift_issue_rows(issue: IssueGroup, row_offset: int = EXCEL_ROW_OFFSET) -> 
 def diagnose_column(header: str, values: list[str], total_rows: int, row_offset: int = EXCEL_ROW_OFFSET) -> ColumnDiagnostic:
     """Run all 28 category checks on a single column and return results."""
     domain_info = match_column_name(header)
+    if domain_info and not confirm_domain(domain_info, values):
+        # DM-01: el candidato por nombre no se confirma con los valores reales
+        # (spec 4.2 paso 3) → sin dominio → se omiten los chequeos dependientes.
+        domain_info = None
     inferred_domain = domain_info["domain"] if domain_info else None
     confidence = 0.95 if domain_info else 0.5
 
@@ -401,7 +406,8 @@ def _check_row_duplicates(headers: list[str], rows: list[dict[str, Any]]) -> lis
         return issues
 
     def _row_signature(row: dict[str, Any], cols: list[str]) -> tuple[str, ...]:
-        return tuple(str(row.get(c, "")).strip().lower() for c in cols)
+        # DU-01: misma firma normalizada (NFKD + lower) que analyzer/removal.
+        return tuple(normalize_for_comparison(row.get(c, "")) for c in cols)
 
     sig_to_rows: dict[tuple[str, ...], list[int]] = {}
     for i, row in enumerate(rows):

@@ -6,6 +6,8 @@ by inferring what each column represents from its name and predominant values.
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from typing import Any
 
 from .missing import EXTENDED_MISSING_TOKENS, MISSING_TOKENS
@@ -138,7 +140,7 @@ DOMAIN_PATTERNS: list[dict[str, Any]] = [
     {
         "domain": "score",
         "name_hints": ["calificacion", "score", "rating", "puntuacion", "nota",
-                        "ranking", "nivel"],
+                        "ranking"],
         "range": [0, 10],
         "expected_type": "number",
         "description": "Calificacion o puntuacion",
@@ -210,34 +212,78 @@ BOOLEAN_SYNONYMS: dict[str, bool] = {
     "falso": False, "inactivo": False, "pendiente": False,
 }
 
-DATE_FORMATS: list[str] = [
-    "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y/%m/%d",
-    "%d-%m-%Y", "%m-%d-%Y", "%d.%m.%Y",
-    "%d %m %Y", "%Y%m%d",
-    "%d/%m/%y", "%m/%d/%y", "%y/%m/%d",
-    "%B %d, %Y", "%b %d, %Y",
-    "%d de %B de %Y", "%d de %b de %Y",
-]
-
 # Alias para compatibilidad con el nombre histórico (AP-04): la definición
 # única vive en `data_engine.missing`.
 MISSING_TOKENS_EXTENDED: set[str] = MISSING_TOKENS | EXTENDED_MISSING_TOKENS
 
 
+def _normalize_token(value: str) -> str:
+    """Lowercase and remove diacritics from a header/hint token (DM-01)."""
+    text = value.lower().strip()
+    nfkd = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
+
+
 def match_column_name(header: str) -> dict[str, Any] | None:
-    """Match a column header against known domain patterns.
+    """Match a column header against known domains by WHOLE TOKEN, no substring (DM-01).
 
-    Returns the matched domain dict or None if no pattern matches.
+    Tokeniza el header (split por _, espacio, -, /) y compara cada token contra
+    los hints normalizados de cada dominio. Sin substring: 'validacion' no matchea
+    'id', y 'nivel_estudios' no matchea 'score'.
     """
-    normalized = header.lower().strip()
-    normalized = normalized.replace(" ", "_").replace("-", "_")
+    normalized = _normalize_token(header).replace("_", " ").replace("-", " ").replace("/", " ")
+    tokens = [t for t in re.split(r"\s+", normalized) if t]
 
+    best: dict[str, Any] | None = None
+    best_score = 0
     for pattern in DOMAIN_PATTERNS:
+        hint_tokens: set[str] = set()
         for hint in pattern["name_hints"]:
-            if hint in normalized or normalized in hint:
-                return pattern
+            hint_norm = _normalize_token(hint).replace("_", " ").replace("-", " ")
+            hint_tokens.update(t for t in re.split(r"\s+", hint_norm) if t)
+        score = sum(1 for token in tokens if token in hint_tokens)
+        if score > best_score:
+            best_score = score
+            best = pattern
+    return best if best_score > 0 else None
 
-    return None
+
+def _is_numeric(value: str) -> bool:
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
+
+def _looks_like_date(value: str) -> bool:
+    return detect_date_format(value) is not None
+
+
+def confirm_domain(domain_info: dict[str, Any], values: list[str]) -> bool:
+    """Confirma un dominio candidato con los valores reales (DM-01 / spec 4.2 paso 3).
+
+    pattern (email) → >=90% cumple el regex; number → >=90% parsea float;
+    date → >=90% cumple un formato de fecha; boolean → sinónimos; text/any →
+    confirmación débil (siempre confirmado).
+    """
+    non_empty = [v.strip() for v in values if v.strip()]
+    if not non_empty:
+        return False
+    expected = domain_info.get("expected_type", "text")
+    pattern = domain_info.get("pattern")
+    if pattern is not None:
+        confirmed = sum(1 for v in non_empty if re.fullmatch(pattern, v))
+        return confirmed / len(non_empty) >= 0.9
+    if expected == "number":
+        confirmed = sum(1 for v in non_empty if _is_numeric(v))
+    elif expected == "date":
+        confirmed = sum(1 for v in non_empty if _looks_like_date(v))
+    elif expected == "boolean":
+        confirmed = sum(1 for v in non_empty if is_boolean_synonym(v) is not None)
+    else:
+        return True
+    return confirmed / len(non_empty) >= 0.9
 
 
 def get_country_synonym(value: str) -> str:
@@ -248,6 +294,17 @@ def get_country_synonym(value: str) -> str:
 def get_gender_synonym(value: str) -> str:
     """Return the standardized gender for a given variant."""
     return GENDER_SYNONYMS.get(value.lower().strip(), value)
+
+
+def normalize_for_comparison(value: Any) -> str:
+    """Normalize a value for duplicate comparison: strip + lowercase + remove accents.
+
+    Firma ÚNICA de comparación (DU-01): analyzer, diagnostic y
+    remove_duplicate_rows la usan para contar filas duplicadas de la misma forma.
+    """
+    text = str(value).strip().lower()
+    nfkd = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
 def is_boolean_synonym(value: str) -> bool | None:

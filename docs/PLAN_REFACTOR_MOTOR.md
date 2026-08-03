@@ -42,17 +42,17 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 | AP-05 | Outliers con IQR=0 se omiten sin aviso | Algo. P5 | F2 | HECHO | 2026-08-14 |
 | AP-06 | `format_groups`/`format_issues` sin semántica de filas | Algo. P6 | F2 | HECHO | 2026-08-14 |
 | AP-07 | Scores: accuracy=outliers, overall no ponderado, columnas vacías | Algo. S1-S4 | F2 | HECHO | 2026-08-14 |
-| DU-01 | Duplicados: definición distinta entre analyzer y diagnostic | Algo. X2/D1 | F3 | PENDIENTE | 2026-08-17 |
-| DU-02 | `remove_duplicate_rows` ignora `duplicate_key_columns` + NFKD | Algo. D2/D3 | F3 | PENDIENTE | 2026-08-18 |
-| CL-01 | `change_type` boolean no usa sinónimos ("activo"→"no") | Algo. C1 | F3 | PENDIENTE | 2026-08-18 |
-| CL-02 | `fill_empty` ignora `target_rows` | Algo. C2 | F3 | PENDIENTE | 2026-08-18 |
-| CL-03 | `flag_outliers` no marca filas reales (cosmético) | Algo. C3 | F3 | PENDIENTE | 2026-08-19 |
+| DU-01 | Duplicados: definición distinta entre analyzer y diagnostic | Algo. X2/D1 | F3 | HECHO | 2026-08-17 |
+| DU-02 | `remove_duplicate_rows` ignora `duplicate_key_columns` + NFKD | Algo. D2/D3 | F3 | HECHO | 2026-08-18 |
+| CL-01 | `change_type` boolean no usa sinónimos ("activo"→"no") | Algo. C1 | F3 | HECHO | 2026-08-18 |
+| CL-02 | `fill_empty` ignora `target_rows` | Algo. C2 | F3 | HECHO | 2026-08-18 |
+| CL-03 | `flag_outliers` no marca filas reales (cosmético) | Algo. C3 | F3 | HECHO | 2026-08-19 |
 | CL-04 | `review_issue` sin rama en `apply_cleaning_actions` (tarjetas muertas) | Motor C8 / Algo. C4 | F6 | PENDIENTE | 2026-09-01 |
-| CL-05 | `target_rows - 2` hardcodeado (header_row_index real) | Algo. C5 | F3 | PENDIENTE | 2026-08-19 |
-| CL-06 | Consolidar impute_missing/fill_missing/fill_empty | Algo. C6 | F3 | PENDIENTE | 2026-08-19 |
+| CL-05 | `target_rows - 2` hardcodeado (header_row_index real) | Algo. C5 | F3 | HECHO | 2026-08-19 |
+| CL-06 | Consolidar impute_missing/fill_missing/fill_empty | Algo. C6 | F3 | HECHO | 2026-08-19 |
 | CL-07 | IA por acción (Gemini serial, 2 proveedores) → lote Groq unificado | Algo. C7 | F5 | PENDIENTE | 2026-08-27 |
-| CL-08 | `after` se re-parsea desde CSV → re-perfilar en memoria | Algo. C8 | F3 | PENDIENTE | 2026-08-19 |
-| DM-01 | `match_column_name` substring → tokens + confirmación por valores | Motor A1/A2/B9 | F4 | PENDIENTE | 2026-08-24 |
+| CL-08 | `after` se re-parsea desde CSV → re-perfilar en memoria | Algo. C8 | F3 | HECHO | 2026-08-19 |
+| DM-01 | `match_column_name` substring → tokens + confirmación por valores | Motor A1/A2/B9 | F4 | HECHO | 2026-08-03 |
 | DM-02 | Fechas: asumir formato detectado (dd/mm vs mm/dd) | Motor A3 | F4 | PENDIENTE | 2026-08-24 |
 | DM-03 | `MISSING_TOKENS_EXTENDED` depurado ("9999","-1","pendiente"," ") | Motor A4 | F4 | HECHO | 2026-08-24 |
 | DG-01 | `_is_id_column` solo por nombre → requiere nombre+cardinalidad | Motor B1/B3 | F5 | PENDIENTE | 2026-08-27 |
@@ -122,7 +122,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 
 ### F3 — Duplicados y limpieza (2026-08-14 → 2026-08-19)
 - **Objetivo:** definiciones coherentes y acciones que respetan la selección del analista.
-- **Alcance:** AP-04, DU-01, DU-02, CL-01, CL-02, CL-03, CL-05, CL-06, CL-08.
+- **Alcance:** AP-04, DU-01/02, CL-01/02/03/05/06/08 (todos HECHO).
 - **Tareas:**
   1. Tabla única de missing en un módulo compartido (analyzer + diagnostic usan la misma).
   2. Duplicados: misma firma (NFKD + lower) en detección y en `remove_duplicate_rows`, respetando `key_columns`.

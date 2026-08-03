@@ -13,9 +13,9 @@ import logging
 import os
 import re
 import statistics
-import unicodedata
 import zipfile
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -33,6 +33,7 @@ except ImportError:
     genai = None
 
 
+from .domain_rules import is_boolean_synonym, normalize_for_comparison
 from .missing import is_missing
 
 TYPE_THRESHOLD = 0.70
@@ -129,6 +130,11 @@ def analyze_dataset(filename: str, payload: bytes, duplicate_key_columns: list[s
     """Run the complete reusable quality diagnosis for a dataset."""
 
     headers, rows, _header_idx = load_dataset(filename, payload, delimiter=delimiter, encoding=encoding, header_row=header_row)
+    return _analyze_rows(headers, rows, filename, duplicate_key_columns=duplicate_key_columns)
+
+
+def _analyze_rows(headers: list[str], rows: list[dict[str, Any]], filename: str, duplicate_key_columns: list[str] | None = None) -> dict[str, Any]:
+    """Core analysis from in-memory headers/rows (CL-08): re-perfila sin re-parsear CSV."""
     duplicate_rows = _count_duplicate_rows(headers, rows, key_columns=duplicate_key_columns)
     columns = [_profile_column(header, rows) for header in headers]
     scores = _quality_scores(columns, duplicate_rows, len(rows), max(len(headers), 1))
@@ -155,7 +161,7 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
     Now also tracks cell-level changes for the audit log.
     """
 
-    headers, rows, _header_idx = load_dataset(filename, payload, delimiter=delimiter, encoding=encoding, header_row=header_row)
+    headers, rows, header_idx = load_dataset(filename, payload, delimiter=delimiter, encoding=encoding, header_row=header_row)
     before = analyze_dataset(filename, payload, duplicate_key_columns=duplicate_key_columns, delimiter=delimiter, encoding=encoding, header_row=header_row)
     log: list[dict[str, str]] = []
     changelog: list[dict[str, Any]] = []
@@ -166,7 +172,8 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
         reason = action.get("reason", "").strip() or "Decisión registrada sin detalle adicional."
         target_rows = action.get("rows")  # Excel row numbers from frontend
         if target_rows is not None:
-            target_rows = [r - 2 for r in target_rows]  # Convert to 0-based data indices
+            # CL-05: convertir Excel row -> índice 0-based de datos usando el header REAL.
+            target_rows = [r - header_idx - 2 for r in target_rows]
 
         # Generate professional justification using Gemini if key is provided
         ai_reason = generate_ai_justification(column or "Dataset", kind, reason)
@@ -210,62 +217,35 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
         elif kind == "impute_missing" and column in headers:
             method = action.get("method", "mode")
             value = _imputation_value(rows, column, method, action.get("value"))
-            changed = 0
             target_set = set(target_rows) if target_rows is not None else None
-            for idx, row in enumerate(rows):
-                is_missing = _normalize_missing(row.get(column, "")) == ""
-                in_target = target_set is None or idx in target_set
-                if is_missing and in_target:
-                    old_val = row.get(column, "")
-                    row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
-                    changelog.append({
-                        "action": f"Imputar con {method}",
-                        "column": column,
-                        "reason": ai_reason,
-                        "changes": [{"row": str(row_id), "column": column, "old": str(old_val) or "(vacío)", "new": str(value)}],
-                    })
-                    row[column] = value
-                    changed += 1
+            changed, entries = _apply_fill_cells(
+                rows, headers, column, target_set,
+                lambda v: _normalize_missing(v) == "",
+                value, f"Imputar con {method}", ai_reason,
+            )
+            changelog.extend(entries)
             scope = "filas especificas" if target_rows else "todas las vacias"
             log.append(_log_entry(column, f"Imputar faltantes con {method}", ai_reason, f"{changed} valores reemplazados ({scope})."))
 
         elif kind == "fill_missing" and column in headers:
             method = action.get("method", "mode")
+            target_set = set(target_rows) if target_rows is not None else None
             if method == "null":
-                changed = 0
-                target_set = set(target_rows) if target_rows is not None else None
-                for idx, row in enumerate(rows):
-                    is_missing = _normalize_missing(row.get(column, "")) == ""
-                    in_target = target_set is None or idx in target_set
-                    if is_missing and in_target:
-                        row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
-                        changelog.append({
-                            "action": "Rellenar con NULL",
-                            "column": column,
-                            "reason": ai_reason,
-                            "changes": [{"row": str(row_id), "column": column, "old": "(vacío)", "new": "NULL"}],
-                        })
-                        row[column] = "NULL"
-                        changed += 1
+                changed, entries = _apply_fill_cells(
+                    rows, headers, column, target_set,
+                    lambda v: _normalize_missing(v) == "",
+                    "NULL", "Rellenar con NULL", ai_reason,
+                )
+                changelog.extend(entries)
                 log.append(_log_entry(column, "Rellenar vacíos con NULL", ai_reason, f"{changed} celdas rellenadas con NULL."))
             else:
                 value = _imputation_value(rows, column, method, action.get("value"))
-                changed = 0
-                target_set = set(target_rows) if target_rows is not None else None
-                for idx, row in enumerate(rows):
-                    is_missing = _normalize_missing(row.get(column, "")) == ""
-                    in_target = target_set is None or idx in target_set
-                    if is_missing and in_target:
-                        old_val = row.get(column, "")
-                        row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
-                        changelog.append({
-                            "action": f"Rellenar con {method}",
-                            "column": column,
-                            "reason": ai_reason,
-                            "changes": [{"row": str(row_id), "column": column, "old": str(old_val) or "(vacío)", "new": str(value)}],
-                        })
-                        row[column] = value
-                        changed += 1
+                changed, entries = _apply_fill_cells(
+                    rows, headers, column, target_set,
+                    lambda v: _normalize_missing(v) == "",
+                    value, f"Rellenar con {method}", ai_reason,
+                )
+                changelog.extend(entries)
                 log.append(_log_entry(column, f"Rellenar vacíos con {method}", ai_reason, f"{changed} celdas rellenadas ({method})."))
 
         elif kind == "standardize_text" and column in headers:
@@ -312,8 +292,9 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
             else:
                 seen: set[tuple[str, ...]] = set()
                 clean_rows = []
+                compare_headers = duplicate_key_columns if duplicate_key_columns else headers
                 for row in rows:
-                    key = tuple(str(row.get(h, "")).strip() for h in headers)
+                    key = tuple(normalize_for_comparison(row.get(h, "")) for h in compare_headers)
                     if key not in seen:
                         seen.add(key)
                         clean_rows.append(row)
@@ -330,9 +311,35 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
 
         elif kind == "flag_outliers" and column in headers:
             if target_rows:
-                log.append(_log_entry(column, "Marcar outliers para revision", ai_reason, f"{len(target_rows)} filas marcadas para revision manual."))
+                target_set = set(target_rows)
+                marked = 0
+                for idx, row in enumerate(rows):
+                    if idx not in target_set:
+                        continue
+                    row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+                    changelog.append({
+                        "action": "Marcar outlier",
+                        "column": column,
+                        "reason": ai_reason,
+                        "changes": [{"row": str(row_id), "column": column, "old": str(row.get(column, "")), "new": "(marcado para revision)"}],
+                    })
+                    marked += 1
+                log.append(_log_entry(column, "Marcar outliers para revision", ai_reason, f"{marked} filas marcadas para revision manual."))
             else:
-                log.append(_log_entry(column, "Marcar outliers para revision", ai_reason, "Sin cambios destructivos en el dataset."))
+                outlier_indices = _outlier_row_indices(rows, column)
+                if outlier_indices:
+                    for idx in outlier_indices:
+                        row = rows[idx]
+                        row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+                        changelog.append({
+                            "action": "Marcar outlier",
+                            "column": column,
+                            "reason": ai_reason,
+                            "changes": [{"row": str(row_id), "column": column, "old": str(row.get(column, "")), "new": "(marcado para revision)"}],
+                        })
+                    log.append(_log_entry(column, "Marcar outliers para revision", ai_reason, f"{len(outlier_indices)} filas atípicas detectadas y marcadas para revisión manual."))
+                else:
+                    log.append(_log_entry(column, "Marcar outliers para revision", ai_reason, "Sin cambios destructivos en el dataset."))
 
         elif kind == "replace_with_null" and column in headers:
             changed = 0
@@ -417,8 +424,8 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
                     row[column] = str(val)
                     changed += 1
                 elif target_type == "boolean":
-                    lower_val = str(val).strip().lower()
-                    new_val = "si" if lower_val in {"si", "sí", "true", "1"} else "no"
+                    syn = is_boolean_synonym(str(val))
+                    new_val = "si" if syn is True else "no"
                     row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
                     changelog.append({
                         "action": f"Tipo: {target_type}",
@@ -432,23 +439,19 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
 
         elif kind == "fill_empty" and column in headers:
             fill_val = action.get("value", "NULL")
-            changed = 0
-            for row in rows:
-                old_val = row.get(column, "")
-                if not old_val or not str(old_val).strip():
-                    row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
-                    changelog.append({
-                        "action": f"Rellenar vacío con '{fill_val}'",
-                        "column": column,
-                        "reason": ai_reason,
-                        "changes": [{"row": str(row_id), "column": column, "old": str(old_val) or "(vacío)", "new": str(fill_val)}],
-                    })
-                    row[column] = fill_val
-                    changed += 1
-            log.append(_log_entry(column, f"Rellenar vacíos con '{fill_val}'", ai_reason, f"{changed} celdas rellenadas."))
+            target_set = set(target_rows) if target_rows is not None else None
+            changed, entries = _apply_fill_cells(
+                rows, headers, column, target_set,
+                lambda v: not v or not str(v).strip(),
+                fill_val, f"Rellenar vacío con '{fill_val}'", ai_reason,
+            )
+            changelog.extend(entries)
+            scope = "filas especificas" if target_rows else "todas las vacias"
+            log.append(_log_entry(column, f"Rellenar vacíos con '{fill_val}'", ai_reason, f"{changed} celdas rellenadas ({scope})."))
 
     clean_csv = rows_to_csv(headers, rows)
-    after = analyze_dataset(_clean_filename(filename), clean_csv.encode("utf-8"), duplicate_key_columns=duplicate_key_columns)
+    # CL-08: after re-perfilado en memoria, sin re-parsear el CSV limpio.
+    after = _analyze_rows(headers, rows, _clean_filename(filename), duplicate_key_columns=duplicate_key_columns)
     return {"before": before, "after": after, "actions": log, "clean_csv": clean_csv, "changelog": changelog}
 
 
@@ -1128,6 +1131,28 @@ def _to_float_column(values: list[str]) -> list[float | None]:
     return [_to_float(value, separator_mode=separator_mode) for value in values]
 
 
+def _outlier_row_indices(rows: list[dict[str, Any]], column: str) -> list[int]:
+    """Return 0-based row indices flagged as numeric outliers (CL-03).
+
+    Reusa la MISMA definición de outliers que `_add_numeric_stats` (IQR): requiere
+    >=4 valores numéricos y dispersión (IQR > 0); los tokens missing se descartan.
+    """
+    values = [_normalize_missing(row.get(column, "")) for row in rows]
+    parsed = _to_float_column(values)
+    numeric = [(i, v) for i, v in enumerate(parsed) if v is not None]
+    if len(numeric) < 4:
+        return []
+    sorted_values = sorted(v for _, v in numeric)
+    q1 = statistics.median(sorted_values[: len(sorted_values) // 2])
+    q3 = statistics.median(sorted_values[(len(sorted_values) + 1) // 2 :])
+    iqr = q3 - q1
+    if iqr == 0:
+        return []
+    low = q1 - 1.5 * iqr
+    high = q3 + 1.5 * iqr
+    return [i for i, v in numeric if v < low or v > high]
+
+
 _DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y%m%d", "%d%m%Y", "%m%d%Y")
 
 
@@ -1201,29 +1226,20 @@ def _count_duplicate_rows(headers: list[str], rows: list[dict[str, Any]], key_co
     """Count full-row duplicates, optionally using only key_columns for comparison.
 
     When key_columns is None, compares ALL columns (legacy behavior).
-    When key_columns has values, builds the key from those columns only,
-    normalizing (strip + lowercase + remove accents) for comparison only.
+    When key_columns has values, builds the key from those columns only.
+    Both use the SAME normalized signature (strip + lower + remove accents),
+    so detection, removal and the diagnostic agree (DU-01/DU-02).
     """
     seen: set[tuple[str, ...]] = set()
     duplicates = 0
     compare_headers = key_columns if key_columns else headers
     for row in rows:
-        if key_columns:
-            key = tuple(_normalize_for_comparison(row.get(h, "")) for h in compare_headers)
-        else:
-            key = tuple(str(row.get(header, "")).strip() for header in headers)
+        key = tuple(normalize_for_comparison(row.get(h, "")) for h in compare_headers)
         if key in seen:
             duplicates += 1
         else:
             seen.add(key)
     return duplicates
-
-
-def _normalize_for_comparison(value: Any) -> str:
-    """Normalize a value for duplicate comparison: strip + lowercase + remove accents."""
-    text = str(value).strip().lower()
-    nfkd = unicodedata.normalize("NFKD", text)
-    return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
 def _quality_scores(columns: list[ColumnProfile], duplicate_rows: int, row_count: int, column_count: int) -> dict[str, float]:
@@ -1314,6 +1330,34 @@ def _imputation_value(rows: list[dict[str, Any]], column: str, method: str, cust
         return round(statistics.median(numeric), 4)
     counts = Counter(map(str, present))
     return counts.most_common(1)[0][0]
+
+
+def _apply_fill_cells(rows: list[dict[str, Any]], headers: list[str], column: str,
+                      target_set: set[int] | None, is_missing_value: Callable[[Any], bool],
+                      new_value: Any, action_label: str, ai_reason: str) -> tuple[int, list[dict[str, Any]]]:
+    """Rellena celdas de 'column' que cumplen `is_missing_value`, respetando target_rows.
+
+    CL-06: implementación ÚNICA compartida por impute_missing / fill_missing / fill_empty.
+    Devuelve (celdas cambiadas, entradas de changelog).
+    """
+    changed = 0
+    entries: list[dict[str, Any]] = []
+    for idx, row in enumerate(rows):
+        if target_set is not None and idx not in target_set:
+            continue
+        old_val = row.get(column, "")
+        if not is_missing_value(old_val):
+            continue
+        row_id = row.get("id", row.get("ID", row.get(headers[0], "?")))
+        entries.append({
+            "action": action_label,
+            "column": column,
+            "reason": ai_reason,
+            "changes": [{"row": str(row_id), "column": column, "old": str(old_val) or "(vacío)", "new": str(new_value)}],
+        })
+        row[column] = new_value
+        changed += 1
+    return changed, entries
 
 
 def _standardize_text(value: str, mode: str) -> str:
