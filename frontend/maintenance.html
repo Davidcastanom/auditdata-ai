@@ -636,6 +636,11 @@
         <div class="countdown-label">Regresamos en</div>
         <div class="countdown" id="countdown">
           <div class="countdown__unit">
+            <span class="countdown__value" id="cdDays">--</span>
+            <span class="countdown__label">Días</span>
+          </div>
+          <span class="countdown__sep">:</span>
+          <div class="countdown__unit">
             <span class="countdown__value" id="cdHours">--</span>
             <span class="countdown__label">Horas</span>
           </div>
@@ -702,9 +707,9 @@
 
       // ⚙️  CONFIGURAR: fecha/hora de fin del mantenimiento (UTC ISO 8601)
       const MAINTENANCE_END = new Date(
-        Date.now() + 2 * 60 * 60 * 1000   // default: 2 horas desde ahora
+        Date.now() + 2 * 24 * 60 * 60 * 1000   // 2 días desde ahora
       );
-      const TOTAL_DURATION_MS = 2 * 60 * 60 * 1000;
+      const TOTAL_DURATION_MS = 2 * 24 * 60 * 60 * 1000;
 
       // ── Rotating quotes ──────────────────────────────────────────
       const quotes = [
@@ -750,6 +755,7 @@
       setInterval(rotateQuote, 8000);
 
       // ── Countdown ────────────────────────────────────────────────
+      const $d = document.getElementById("cdDays");
       const $h = document.getElementById("cdHours");
       const $m = document.getElementById("cdMinutes");
       const $s = document.getElementById("cdSeconds");
@@ -764,17 +770,20 @@
         const diff = Math.max(0, MAINTENANCE_END - now);
 
         if (diff === 0) {
+          $d.textContent = "00";
           $h.textContent = "00";
           $m.textContent = "00";
           $s.textContent = "00";
-          [$h, $m, $s].forEach(el => el.classList.add("countdown__value--done"));
+          [$d, $h, $m, $s].forEach(el => el.classList.add("countdown__value--done"));
           $bar.style.width = "100%";
           setTimeout(() => { window.location.href = "/"; }, 3000);
           return;
         }
 
         const totalSec = Math.floor(diff / 1000);
-        $h.textContent = pad(Math.floor(totalSec / 3600));
+        const days = Math.floor(totalSec / 86400);
+        $d.textContent = pad(days);
+        $h.textContent = pad(Math.floor((totalSec % 86400) / 3600));
         $m.textContent = pad(Math.floor((totalSec % 3600) / 60));
         $s.textContent = pad(totalSec % 60);
 
