@@ -564,6 +564,8 @@ export class NubeValidación {
     } else {
       const issuesHtml = issues.map(iss => `
         <div class="drawer-issue-item">
+          <span class="nube-rec__severity nube-rec__severity--${this._getSeverityClass(iss.severity)}">${this._escapeAttr(iss.severity || '')}</span>
+          ${iss.signal ? `<span class="nube-rec__signal nube-rec__signal--${iss.signal === 'CONFIRMADO' ? 'confirmado' : 'a_revisar'}">${this._escapeAttr(iss.signal)}</span>` : ''}
           <strong>${this._escHtml(iss.category || iss.category_code)}</strong>: ${iss.count || 0} ocurrencias (${(iss.percentage || 0).toFixed(1)}%).
           <div class="depur-examples" style="margin-top: 4px;">
             ${(iss.examples || []).slice(0, 3).map(e => `<div>${this._renderExample(e)}</div>`).join('')}
