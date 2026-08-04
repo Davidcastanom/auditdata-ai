@@ -1,11 +1,15 @@
 """Granular diagnostic engine for AuditData AI.
 
 Scans every column and returns all issues grouped by category.
-28 categories: 12 main + 16 annexes from the master diagnostic guide.
+28 checks across 20 unique category codes (some codes cover multiple scenarios).
 
-Each column returns a verdict:
-  - "LIMPIA": no issues found
-  - list of issue groups, each with: category, severity, count, description, examples
+Each IssueGroup contains:
+  - category / category_code / severity (CRITICA/ALTA/MEDIA/BAJA)
+  - count (distinct affected rows) / total_rows / percentage
+  - confidence (0-100) / signal (CONFIRMADO | A_REVISAR)
+  - description / examples / affected_rows
+
+Verdict per column: "LIMPIA" (clean) or list of issues.
 """
 
 from __future__ import annotations

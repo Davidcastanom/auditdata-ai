@@ -79,25 +79,31 @@ auditdata-ai/
 
 ---
 
-## Motor de Diagnóstico (28 categorías)
+## Motor de Diagnóstico (28 chequeos, 20 códigos)
 
-El diagnóstico detecta automáticamente **28 categorías** de problemas agrupadas en:
+El diagnóstico detecta automáticamente **28 chequeos** de problemas (algunos códigos cubren más de un escenario), agrupados en:
 
-| Categoría | Descripción |
-|-----------|-------------|
-| EMPTY | Columnas sin datos |
-| DUPLICATE | Filas duplicadas completas |
-| TYPE_VALIDATION | Errores de tipo por celda |
-| FORMAT_INCONSISTENCY | Formatos mezclados en misma columna |
-| CASE_INCONSISTENCY | Mayúsculas/minúsculas inconsistentes |
-| ENCODING_ERROR | Caracteres mal codificados |
-| TEXT_ERRORS | Errores de escritura |
-| SUSPICIOUS_VALUE | Valores fuera de patrón esperado |
-| BOOLEAN_NONSTANDARD | Valores booleanos no estándar |
-| NUMERIC_OUTLIER | Outliers numéricos (IQR) |
-| NUMERIC_RANGE | Valores fuera de rango esperado |
-| EMPTY_CELLS | Celdas vacías en columna |
-| ... y 16 más | Ver `data_engine/diagnostic.py` |
+| Código | Descripción | Señal |
+|--------|-------------|-------|
+| MISSING | Valores faltantes (celdas vacías o NULL) | CONFIRMADO |
+| HIDDEN_MISSING | Placeholders que ocultan faltantes | CONFIRMADO |
+| DUPLICATE | Valores repetidos en columna ID / filas duplicadas completas | CONFIRMADO |
+| DATE_FORMAT | Formatos de fecha mezclados en la misma columna | CONFIRMADO |
+| DATE_INVALID | Fechas imposibles o inconsistentes | CONFIRMADO |
+| NUMERIC_DOMAIN | Valores fuera del rango permitido por dominio | CONFIRMADO |
+| TYPE_VALIDATION | Errores de tipo de dato por celda | CONFIRMADO |
+| TYPE_PER_CELL | Mezcla de numérico y texto en la misma columna | CONFIRMADO |
+| TEXT_ERROR | Errores de formato (espacios extra, inconsistencia de grafía) | CONFIRMADO / A_REVISAR |
+| CATEGORICAL | Inconsistencia categórica (variantes, sospechosas) | A_REVISAR |
+| BOOL_INCONSISTENCY | Representación booleana inconsistente | A_REVISAR |
+| MIXED_LANG | Mezcla de idiomas | A_REVISAR |
+| MULTI_VALUE | Celdas con múltiples valores | A_REVISAR |
+| SCIENTIFIC | Notación científica no deseada | A_REVISAR |
+| UNIT_ERROR | Unidades inconsistenes en una columna | A_REVISAR |
+| TEXT_TRUNCATION | Truncamiento de texto | A_REVISAR |
+| ENCODING | Problemas de codificación de caracteres | CONFIRMADO |
+| FORMULA_ERROR | Fórmulas de hoja de cálculo como texto | CONFIRMADO |
+| GHOST_CHAR | Caracteres invisibles o no imprimibles | CONFIRMADO |
 
 ### Clasificación de columnas (FastTextProfiler v3.0)
 
