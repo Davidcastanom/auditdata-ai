@@ -224,6 +224,39 @@ def test_texto_mixto_idiomas_sigue_mixed_lang():
     assert "MIXED_LANG" in codes(diag)
 
 
+# ── DG-08: count = nº de filas distintas afectadas (C1) ──────────────────────
+def test_mixed_lang_count_filas_distintas_afectadas():
+    """DG-08: count debe ser el nº de filas distintas afectadas y coincidir
+    con len(affected_rows). Hoy count=8 con affected_rows vacío."""
+    values = ["de la casa", "in the house", "en el parque", "a nice day",
+              "la ciudad", "the city", "de la casa", "in the house"]
+    diag = diagnose_column("comentario", values, len(values))
+    mix = [i for i in diag.issues if i.category_code == "MIXED_LANG"]
+    assert len(mix) == 1
+    issue = mix[0]
+    assert issue.count == len(issue.affected_rows) == 8
+
+
+def test_bool_inconsistency_count_filas_distintas_afectadas():
+    """DG-08: BOOL_INCONSISTENCY afecta a todas las filas con valor; count debe
+    coincidir con len(affected_rows). Hoy count=9 vs affected_rows=3."""
+    diag = diagnose_column("activo", ["si", "yes", "no"] * 3, 9)
+    bool_issues = [i for i in diag.issues if i.category_code == "BOOL_INCONSISTENCY"]
+    assert len(bool_issues) == 1
+    issue = bool_issues[0]
+    assert issue.count == len(issue.affected_rows) == 9
+
+
+def test_pais_variantes_count_filas_distintas_afectadas():
+    """DG-08: la inconsistencia categorica afecta a todas las filas con valor;
+    count debe coincidir con len(affected_rows). Hoy count=6 vs affected_rows=3."""
+    diag = diagnose_column("pais", ["Spain", "Espana", "Spanien", "Spain", "Espana", "Espana"], 6)
+    cat = [i for i in diag.issues if i.category_code == "CATEGORICAL" and "Inconsistencia" in i.category]
+    assert len(cat) == 1
+    issue = cat[0]
+    assert issue.count == len(issue.affected_rows) == 6
+
+
 # ── Caso 5: "activo" solo "activo"/"inactivo" ─────────────────────────────────
 def test_activo_bien_formado_sin_bool_inconsistency():
     """DG-04: dos etiquetas booleanas limpias (activo/inactivo) no son

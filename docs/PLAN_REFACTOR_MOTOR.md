@@ -62,7 +62,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 | DG-05 | `TEXT_ERROR` en texto uniforme (solo grafías mixtas) | Motor B6 | F5 | HECHO | 2026-08-03 |
 | DG-06 | `MULTI_VALUE` marca fechas (12/03/2020) | Motor B7 | F5 | HECHO | 2026-08-03 |
 | DG-07 | `MIXED_LANG`/`UNIT_ERROR`/`SCIENTIFIC` sin guard de tipo | Motor B8/B10 | F5 | HECHO | 2026-08-03 |
-| DG-08 | Semántica unificada de `count` = filas afectadas | Motor C1 | F5 | PENDIENTE | 2026-08-28 |
+| DG-08 | Semántica unificada de `count` = filas afectadas | Motor C1 | F5 | HECHO | 2026-08-03 |
 | DG-09 | Severidad única desde backend (CRITICA/ALTA/MEDIA/BAJA) | Motor C2 | F5 | PENDIENTE | 2026-08-28 |
 | DG-10 | Deduplicar conteo DUPLICATE (columna + dataset) | Motor C3 | F5 | PENDIENTE | 2026-08-28 |
 | DG-11 | `confidence`/`signal` (CONFIRMADO vs A_REVISAR) por hallazgo | Motor 4.5 | F5 | PENDIENTE | 2026-08-28 |

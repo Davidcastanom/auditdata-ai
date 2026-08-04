@@ -269,10 +269,16 @@ def _check_categorical_suspicious(
     if not suspicious:
         return issues
 
+    # DG-08 (C1): affected_rows = union de filas de TODOS los valores
+    # sospechosos; count = nº de filas distintas (una fila tiene un solo valor,
+    # asi que coincide con la suma de frecuencias).
     all_rows: list[int] = []
+    for sv in suspicious:
+        all_rows.extend(sv.get("rows", []))
+    all_rows = sorted(set(all_rows))
+
     examples: list[dict[str, Any]] = []
     for sv in suspicious[:10]:
-        all_rows.extend(sv.get("rows", []))
         examples.append({
             "value": sv["value"],
             "freq": sv["freq"],
@@ -288,12 +294,12 @@ def _check_categorical_suspicious(
         category="Categorías sospechosas (FastProfiler)",
         category_code="CATEGORICAL",
         severity=severity,
-        count=sum(sv["freq"] for sv in suspicious),
+        count=len(all_rows),
         total_rows=total_rows,
-        percentage=sum(sv["freq"] for sv in suspicious) / total_rows * 100 if total_rows > 0 else 0,
+        percentage=len(all_rows) / total_rows * 100 if total_rows > 0 else 0,
         description=f"{len(suspicious)} categoría(s) fuera del conjunto dominante (cobertura: {profiler.get('coverage', 0)}%)",
         examples=examples,
-        affected_rows=list(set(all_rows)),
+        affected_rows=all_rows,
     ))
 
     return issues
@@ -614,7 +620,7 @@ def _check_date_formats(values: list[str], total: int) -> list[IssueGroup]:
     format_rows: dict[str, list[int]] = {}
     invalid_dates: list[str] = []
     invalid_rows: list[int] = []
-    parsed_count = 0
+    parsed_rows: list[int] = []
 
     date_pattern = re.compile(r"\d{4}[-/]\d{2}[-/]\d{2}|\d{2}[-/]\d{2}[-/]\d{4}|\d{2}/\d{2}/\d{2}")
 
@@ -625,7 +631,7 @@ def _check_date_formats(values: list[str], total: int) -> list[IssueGroup]:
         if not v_stripped:
             continue
         if date_pattern.search(v_stripped):
-            parsed_count += 1
+            parsed_rows.append(i)
             fmt = detect_date_format(v_stripped)
             if fmt:
                 format_counts[fmt] += 1
@@ -635,19 +641,20 @@ def _check_date_formats(values: list[str], total: int) -> list[IssueGroup]:
                 format_rows.setdefault("desconocido", []).append(i)
 
     if len(format_counts) > 1:
-        all_rows: list[int] = []
+        # DG-08 (C1): affected_rows = todas las filas con formato detectado;
+        # los ejemplos se limitan a los 5 formatos principales.
+        all_rows = parsed_rows
         examples: list[dict[str, Any]] = []
         for f, c in format_counts.most_common(5):
             rows_for_fmt = format_rows.get(f, [])
-            all_rows.extend(rows_for_fmt)
             examples.append({"row": rows_for_fmt[0] if rows_for_fmt else 0, "format": f, "count": c})
         issues.append(IssueGroup(
             category="Inconsistencia de formato de fecha",
             category_code="DATE_FORMAT",
             severity="ALTA",
-            count=parsed_count,
+            count=len(all_rows),
             total_rows=total,
-            percentage=parsed_count / total * 100 if total > 0 else 0,
+            percentage=len(all_rows) / total * 100 if total > 0 else 0,
             description=f"Múltiples formatos de fecha detectados: {dict(format_counts)}",
             examples=examples,
             affected_rows=all_rows,
@@ -807,24 +814,24 @@ def _check_categorical_inconsistency(
             standard = get_country_synonym(v)
             synonyms_c[standard] += 1
         if len(synonyms_c) > 1:
-            all_rows_c: list[int] = []
             examples_c: list[dict[str, Any]] = []
             seen_c: list[str] = []
             for i, v in non_empty_indices:
                 standard = get_country_synonym(v)
                 if v not in seen_c:
                     seen_c.append(v)
-                    all_rows_c.append(i)
                     examples_c.append({"row": i, "original": v, "standard": standard})
                 if len(examples_c) >= 5:
                     break
+            # DG-08 (C1): todas las filas con valor usan una variante inconsistente.
+            all_rows_c: list[int] = [i for i, _ in non_empty_indices]
             issues.append(IssueGroup(
                 category="Inconsistencia categorica",
                 category_code="CATEGORICAL",
                 severity="MEDIA",
-                count=len(non_empty_indices),
+                count=len(all_rows_c),
                 total_rows=total,
-                percentage=len(non_empty_indices) / total * 100 if total > 0 else 0,
+                percentage=len(all_rows_c) / total * 100 if total > 0 else 0,
                 description=f"Paises con diferentes formatos: {dict(synonyms_c)}",
                 examples=examples_c,
                 affected_rows=all_rows_c,
@@ -1086,28 +1093,34 @@ def _check_mixed_languages(
     if not non_empty or len(non_empty) < 5:
         return issues
 
-    lang_es = 0
-    lang_en = 0
+    es_rows: list[int] = []
+    en_rows: list[int] = []
     es_words = {"el", "la", "los", "las", "un", "una", "de", "del", "en", "y", "o", "por", "para", "con", "sin", "sobre"}
     en_words = {"the", "a", "an", "of", "in", "on", "at", "to", "for", "with", "by", "from", "and", "or", "not"}
 
-    for v in non_empty:
+    for i, v in enumerate(values):
+        v = v.strip()
+        if not v:
+            continue
         words = set(v.lower().split())
         if words & es_words:
-            lang_es += 1
+            es_rows.append(i)
         if words & en_words:
-            lang_en += 1
+            en_rows.append(i)
 
-    if lang_es > 0 and lang_en > 0:
+    if es_rows and en_rows:
+        # DG-08 (C1): count = nº de filas distintas afectadas, no ocurrencias sumadas.
+        affected_rows = sorted(set(es_rows + en_rows))
         issues.append(IssueGroup(
             category="Mezcla de idiomas",
             category_code="MIXED_LANG",
             severity="BAJA",
-            count=lang_es + lang_en,
+            count=len(affected_rows),
             total_rows=total,
-            percentage=(lang_es + lang_en) / total * 100 if total > 0 else 0,
-            description=f"Valores en múltiples idiomas: {lang_es} español, {lang_en} ingles",
+            percentage=len(affected_rows) / total * 100 if total > 0 else 0,
+            description=f"Valores en múltiples idiomas: {len(es_rows)} español, {len(en_rows)} ingles",
             examples=[],
+            affected_rows=affected_rows,
         ))
 
     return issues
@@ -1205,18 +1218,20 @@ def _check_boolean_inconsistency(values: list[str], total: int) -> list[IssueGro
     false_vals = {k for k, m in display.items() if m is False}
 
     if true_vals and false_vals:
-        all_rows: list[int] = []
+        # DG-08 (C1): afectan todas las filas con valor (todas usan una
+        # representación del conjunto inconsistente); count coincide con
+        # len(affected_rows).
+        all_rows: list[int] = [i for i, _ in non_empty_indices]
         examples: list[dict[str, Any]] = []
         for v in list(true_vals | false_vals)[:5]:
-            all_rows.append(bool_rows.get(v, 0))
             examples.append({"row": bool_rows.get(v, 0), "value": v, "meaning": "verdadero" if v in true_vals else "falso"})
         issues.append(IssueGroup(
             category="Inconsistencia booleana",
             category_code="BOOL_INCONSISTENCY",
             severity="MEDIA",
-            count=len(non_empty_indices),
+            count=len(all_rows),
             total_rows=total,
-            percentage=len(non_empty_indices) / total * 100 if total > 0 else 0,
+            percentage=len(all_rows) / total * 100 if total > 0 else 0,
             description=f"Valores booleanos con múltiples representaciones: verdadero={true_vals}, falso={false_vals}",
             examples=examples,
             affected_rows=all_rows,
