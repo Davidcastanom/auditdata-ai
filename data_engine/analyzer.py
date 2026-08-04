@@ -417,6 +417,15 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
             scope = "filas especificas" if target_rows else "todas las vacias"
             log.append(_log_entry(column, f"Rellenar vacíos con '{fill_val}'", ai_reason, f"{changed} celdas rellenadas ({scope})."))
 
+        elif kind == "review_issue":
+            changelog.append({
+                "action": "Revision manual",
+                "column": column,
+                "reason": ai_reason,
+                "changes": [],
+            })
+            log.append(_log_entry(column, "Revision manual", ai_reason, "Issue revisado sin modificar datos."))
+
     clean_csv = rows_to_csv(headers, rows)
     # CL-08: after re-perfilado en memoria, sin re-parsear el CSV limpio.
     after = _analyze_rows(headers, rows, _clean_filename(filename), duplicate_key_columns=duplicate_key_columns)
@@ -503,6 +512,7 @@ def _format_action_markdown(item: dict[str, Any]) -> tuple[str, str]:
         "drop_rows": "Eliminar filas",
         "fix_format": "Corregir formato",
         "replace_value": "Reemplazar valor",
+        "review_issue": "Revision manual",
     }
     label = _labels.get(kind, kind) or "-"
 

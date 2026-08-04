@@ -372,3 +372,38 @@ def test_cl07_changelog_acciones_multiples():
     assert len(changelog) >= 3
     reasons = [e["reason"] for e in changelog]
     assert all(len(r) > 10 for r in reasons), "todas las justificaciones deben tener contenido real"
+
+
+# ── CL-04: review_issue registra en changelog sin modificar datos ─────────────
+def test_review_issue_no_modifica_datos():
+    """CL-04: review_issue registra revision manual en changelog sin mutar el dataset."""
+    payload = (
+        b"id,name,age\n"
+        b"1,Alice,30\n"
+        b"2,Bob,25\n"
+    )
+    actions = [
+        {"kind": "review_issue", "column": "age", "reason": "Outlier confirmado, sin accion"},
+    ]
+    result = apply_cleaning_actions("t.csv", payload, actions)
+    changelog = result["changelog"]
+    assert len(changelog) == 1, f"expected 1 changelog entry, got {len(changelog)}"
+    entry = changelog[0]
+    assert entry["action"] == "Revision manual"
+    assert entry["column"] == "age"
+    assert "Outlier confirmado" in entry["reason"]
+    csv_out = result["clean_csv"]
+    assert "30" in csv_out and "25" in csv_out, "datos no deben cambiar"
+
+
+def test_review_issue_multiple():
+    """CL-04: varias review_issue generan un changelog entry cada una."""
+    payload = b"id,val\n1,10\n2,20\n"
+    actions = [
+        {"kind": "review_issue", "column": "val", "reason": "Revisar manualmente"},
+        {"kind": "review_issue", "column": "val", "reason": "Segunda revision"},
+    ]
+    result = apply_cleaning_actions("t.csv", payload, actions)
+    assert len(result["changelog"]) == 2
+    assert result["clean_csv"].count("10") == 1
+    assert result["clean_csv"].count("20") == 1
