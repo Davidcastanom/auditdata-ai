@@ -107,6 +107,15 @@ test.describe("AuditData AI - Depuración 28 Categorías", () => {
     expect(hasBackend).toBeTruthy();
   });
 
+  test("step 3 muestra signal badge CONFIRMADO o A_REVISAR (UI-01)", async ({ page }) => {
+    await clearLoadAnalyze(page);
+    await runDiagnostic(page);
+    const signals = await page.locator(".nube-rec__signal").allTextContents();
+    const valid = signals.map(s => s.trim());
+    expect(valid.length).toBeGreaterThan(0);
+    expect(valid.every(s => s === "CONFIRMADO" || s === "A_REVISAR")).toBeTruthy();
+  });
+
   test("cerrar drawer oculta el panel", async ({ page }) => {
     await clearLoadAnalyze(page);
     await skipValidationAndGoToStep4(page);

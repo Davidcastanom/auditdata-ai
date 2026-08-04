@@ -1752,6 +1752,25 @@ th {
   color: #22C55E;
 }
 
+.nube-rec__signal {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+}
+
+.nube-rec__signal--confirmado {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16A34A;
+}
+
+.nube-rec__signal--a_revisar {
+  background: rgba(245, 158, 11, 0.15);
+  color: #D97706;
+}
+
 .nube-rec__cat-name {
   font-size: 0.85rem;
   font-weight: 600;

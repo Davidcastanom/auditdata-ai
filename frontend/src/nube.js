@@ -202,6 +202,7 @@ export class NubeValidación {
                 <div class="nube-manual-issue__info">
                   <div class="nube-manual-issue__header">
                     <span class="nube-rec__severity nube-rec__severity--${this._getSeverityClass(issue.severity)}">${this._escHtml(issue.severity || '')}</span>
+                    ${issue.signal ? `<span class="nube-rec__signal nube-rec__signal--${issue.signal === 'CONFIRMADO' ? 'confirmado' : 'a_revisar'}">${this._escHtml(issue.signal)}</span>` : ''}
                     <strong>${this._escHtml(issue.category_code)}</strong>
                     <span class="nube-manual-issue__count">${issue.count || 0} filas afectadas (${(issue.percentage || 0).toFixed(1)}%)</span>
                   </div>
