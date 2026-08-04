@@ -160,7 +160,6 @@ def test_activo_bien_formado_sin_bool_inconsistency():
 
 
 # ── Caso 6: "ciudad" minúscula uniforme ───────────────────────────────────────
-@pytest.mark.xfail(reason="DG-05: TEXT_ERROR marca minúsculas uniformes", strict=True)
 def test_ciudad_minuscula_uniforme_sin_text_error():
     """DG-05: texto uniforme en minúsculas no es TEXT_ERROR. Solo se señalan
     grafías MIXTAS con el mismo contenido."""
@@ -198,7 +197,6 @@ def test_edad_450_violacion_dominio_critica():
 
 
 # ── Caso 10: "bogota"/"Bogotá" → CATEGORICAL A_REVISAR ───────────────────────
-@pytest.mark.xfail(reason="DG-05: variantes de case no generan CATEGORICAL", strict=True)
 def test_ciudad_variantes_case_categorical():
     """DG-05/DG-11: variantes de case/acento del mismo valor son CATEGORICAL
     (A_REVISAR), no TEXT_ERROR."""

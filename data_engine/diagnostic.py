@@ -699,8 +699,6 @@ def _check_text_errors(values: list[str], total: int) -> list[IssueGroup]:
     leading_rows: list[int] = []
     trailing_rows: list[int] = []
     double_space_rows: list[int] = []
-    inconsistent_case: Counter = Counter()
-    case_rows: dict[str, list[tuple[int, str]]] = {}
 
     for i, v in enumerate(values):
         if not v.strip():
@@ -712,36 +710,6 @@ def _check_text_errors(values: list[str], total: int) -> list[IssueGroup]:
                 trailing_rows.append(i)
         if "  " in v:
             double_space_rows.append(i)
-
-        normalized = v.strip().lower()
-        if normalized:
-            inconsistent_case[normalized] += 1
-            case_rows.setdefault(normalized, []).append((i, v.strip()))
-
-    case_issues = {k: v for k, v in inconsistent_case.items() if v > 1 and k != k.title()}
-    if case_issues:
-        all_rows: list[int] = []
-        examples: list[dict[str, Any]] = []
-        for k, v in list(case_issues.items())[:5]:
-            rows_for_val = case_rows.get(k, [])
-            all_rows.extend(r[0] for r in rows_for_val)
-            original_vals = list({r[1] for r in rows_for_val})
-            examples.append({
-                "row": rows_for_val[0][0] if rows_for_val else 0,
-                "value": " / ".join(original_vals[:4]),
-                "variants": v,
-            })
-        issues.append(IssueGroup(
-            category="Errores de redacción y formato",
-            category_code="TEXT_ERROR",
-            severity="BAJA",
-            count=sum(case_issues.values()),
-            total_rows=total,
-            percentage=sum(case_issues.values()) / total * 100 if total > 0 else 0,
-            description="Inconsistencia de mayusculas/minusculas y espacios",
-            examples=examples,
-            affected_rows=all_rows,
-        ))
 
     total_spacing_rows = list(set(leading_rows + trailing_rows + double_space_rows))
     total_spacing = len(total_spacing_rows)
@@ -834,6 +802,35 @@ def _check_categorical_inconsistency(
                 description=f"Paises con diferentes formatos: {dict(synonyms_c)}",
                 examples=examples_c,
                 affected_rows=all_rows_c,
+            ))
+
+    # DG-05 (B6): variantes de mayusculas/acento del mismo valor son
+    # CATEGORICAL (A_REVISAR), no TEXT_ERROR. Se salta gender/country, que ya
+    # manejan sinonimos equivalentes en las ramas anteriores.
+    if not (domain_info and domain_info["domain"] in ("gender", "country")):
+        variant_groups: dict[str, set[str]] = {}
+        variant_rows: dict[str, list[int]] = {}
+        for i, v in non_empty_indices:
+            key = normalize_for_comparison(v)
+            variant_groups.setdefault(key, set()).add(v)
+            variant_rows.setdefault(key, []).append(i)
+        variants = {k: sorted(vs) for k, vs in variant_groups.items() if len(vs) > 1}
+        if variants:
+            all_rows_v = sorted({i for k in variants for i in variant_rows[k]})
+            examples_v = [
+                {"row": variant_rows[k][0], "value": " / ".join(vs), "variants": len(vs)}
+                for k, vs in list(variants.items())[:5]
+            ]
+            issues.append(IssueGroup(
+                category="Inconsistencia categorica",
+                category_code="CATEGORICAL",
+                severity="MEDIA",
+                count=len(all_rows_v),
+                total_rows=total,
+                percentage=len(all_rows_v) / total * 100 if total > 0 else 0,
+                description=f"Variantes de mayusculas/acento del mismo valor: {len(variants)} grupo(s)",
+                examples=examples_v,
+                affected_rows=all_rows_v,
             ))
 
     return issues
