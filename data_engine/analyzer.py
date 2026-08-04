@@ -10,7 +10,6 @@ from __future__ import annotations
 import csv
 import io
 import logging
-import os
 import re
 import statistics
 import zipfile
@@ -26,11 +25,6 @@ try:
     import openpyxl
 except ImportError:
     openpyxl = None
-
-try:
-    import google.generativeai as genai
-except ImportError:
-    genai = None
 
 
 from .domain_rules import is_boolean_synonym, normalize_for_comparison
@@ -49,37 +43,6 @@ QUALITY_WEIGHTS: dict[str, float] = {
 
 DELIMITER_NAMES: dict[str, str] = {"comma": ",", "semicolon": ";", "tab": "\t", "pipe": "|"}
 ENCODINGS_TO_TRY: list[str] = ["utf-8-sig", "utf-8", "latin-1", "cp1252", "iso-8859-1"]
-
-
-def generate_ai_justification(column: str, action: str, current_reason: str) -> str:
-    """Generate a professional justification for a cleaning action using Gemini API."""
-    if not genai:
-        return current_reason or "Tratamiento aplicado para mejorar la calidad del dataset."
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        return current_reason or "Tratamiento aplicado para mejorar la calidad del dataset."
-
-    try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
-
-        prompt = (
-            f"Actúa como un Auditor Senior de Calidad de Datos.\n"
-            f"El analista ha tomado la siguiente decisión:\n"
-            f"- Columna afectada: '{column}'\n"
-            f"- Acción: '{action}'\n"
-            f"- Justificación inicial del analista: '{current_reason}'\n\n"
-            f"Redacta una justificación técnica formal y profesional de una sola oración para el informe final de limpieza de datos, justificando por qué es correcto aplicar este tratamiento a nivel metodológico."
-        )
-
-        response = model.generate_content(prompt)
-        text = response.text.strip()
-        if text.startswith('"') and text.endswith('"'):
-            text = text[1:-1]
-        return text
-    except Exception as e:
-        logger.warning("Error calling Gemini: %s", e)
-        return current_reason or "Tratamiento aplicado para mejorar la calidad del dataset."
 
 
 
@@ -166,17 +129,22 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
     log: list[dict[str, str]] = []
     changelog: list[dict[str, Any]] = []
 
-    for action in actions:
+    justification_params = [
+        (a.get("column", "") or "Dataset", a.get("kind"), a.get("reason", "").strip() or "Decision registrada sin detalle adicional.")
+        for a in actions
+    ]
+    from data_engine.ai_advisor import get_justifications_batch
+    justifications = get_justifications_batch(justification_params)
+
+    for i, action in enumerate(actions):
         kind = action.get("kind")
         column = action.get("column", "")
-        reason = action.get("reason", "").strip() or "Decisión registrada sin detalle adicional."
         target_rows = action.get("rows")  # Excel row numbers from frontend
         if target_rows is not None:
             # CL-05: convertir Excel row -> índice 0-based de datos usando el header REAL.
             target_rows = [r - header_idx - 2 for r in target_rows]
 
-        # Generate professional justification using Gemini if key is provided
-        ai_reason = generate_ai_justification(column or "Dataset", kind, reason)
+        ai_reason = justifications[i]
 
         if kind == "delete_column" and column in headers:
             changelog.append({

@@ -9,6 +9,7 @@ Cubren:
 """
 
 import base64
+import json
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -20,6 +21,7 @@ from data_engine.ai_advisor import (
     _build_chat_context_message,
     chat_with_column_advisor,
     compute_column_context,
+    get_justifications_batch,
 )
 
 client = TestClient(app)
@@ -543,6 +545,76 @@ class TestColumnDeepAnalysisEndpointContext(unittest.TestCase):
             "response" in data or "analysis" in data,
             "Debe incluir un mensaje explicativo de IA deshabilitada",
         )
+
+
+# ---------------------------------------------------------------------------
+# CL-07: justificaciones batch (Groq unico, sin Gemini)
+# ---------------------------------------------------------------------------
+
+from data_engine.analyzer import apply_cleaning_actions
+
+
+class TestGetJustificationsBatch(unittest.TestCase):
+
+    def test_empty_input_returns_empty(self):
+        result = get_justifications_batch([])
+        self.assertEqual(result, [])
+
+    def test_no_api_key_returns_original_reasons(self):
+        with patch("data_engine.ai_advisor.init_groq_client", return_value=None):
+            items = [
+                ("edad", "replace_value", "outlier detected"),
+                ("nombre", "standardize_text", "case variants"),
+            ]
+            result = get_justifications_batch(items)
+        self.assertEqual(result, ["outlier detected", "case variants"])
+
+    def test_batch_returns_one_justification_per_action(self):
+        batch_response = json.dumps({
+            "justificaciones": [
+                "Se reemplazaron valores atipicos en edad segun protocolo de deteccion de outliers.",
+                "Se estandarizaron variantes de caso en nombre para uniformizar el dataset.",
+            ]
+        })
+        fake = _FakeClient(response_text=batch_response)
+        with patch("data_engine.ai_advisor.init_groq_client", return_value=fake):
+            items = [
+                ("edad", "replace_value", "outlier detected"),
+                ("nombre", "standardize_text", "case variants"),
+            ]
+            result = get_justifications_batch(items)
+        self.assertEqual(len(result), 2)
+        self.assertIn("outliers", result[0].lower())
+        self.assertIn("nombre", result[1].lower())
+
+    def test_batch_list_key_direct(self):
+        batch_response = json.dumps(["Justificacion A", "Justificacion B"])
+        fake = _FakeClient(response_text=batch_response)
+        with patch("data_engine.ai_advisor.init_groq_client", return_value=fake):
+            items = [("col1", "act1", "r1"), ("col2", "act2", "r2")]
+            result = get_justifications_batch(items)
+        self.assertEqual(result, ["Justificacion A", "Justificacion B"])
+
+    def test_groq_error_returns_fallback(self):
+        def _boom(*a, **kw):
+            raise Exception("boom")
+        fake = _FakeClient()
+        fake.chat.completions.create = _boom
+        with patch("data_engine.ai_advisor.init_groq_client", return_value=fake):
+            items = [("col", "act", "reason")]
+            result = get_justifications_batch(items)
+        self.assertEqual(result, ["reason"])
+
+    def test_apply_cleaning_actions_uses_batch_not_gemini(self):
+        csv_payload = b"id,name,age\n1,Alice,30\n2,Bob,25\n"
+        actions = [
+            {"kind": "delete_column", "column": "age", "reason": "Columna irrelevante"},
+        ]
+        result = apply_cleaning_actions("test.csv", csv_payload, actions)
+        changelog = result["changelog"]
+        self.assertEqual(len(changelog), 1)
+        self.assertIn("reason", changelog[0])
+        self.assertTrue(len(changelog[0]["reason"]) > 10)
 
 
 if __name__ == "__main__":

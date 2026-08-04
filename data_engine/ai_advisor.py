@@ -168,6 +168,87 @@ RESPUESTA ESPERADA (JSON):
 
 
 # ---------------------------------------------------------------------------
+# JUSTIFICACIONES BATCH (reemplaza Gemini serial por Groq unico)
+# ---------------------------------------------------------------------------
+
+_JUSTIFICATION_BATCH_SYSTEM = (
+    "Actua como un Auditor Senior de Calidad de Datos. "
+    "Para cada accion de limpieza que se te presenta, redacta una "
+    "justificacion tecnica formal y profesional de UNA sola oracion."
+)
+
+
+def get_justifications_batch(
+    items: list[tuple[str, str, str]],
+) -> list[str]:
+    """Genera justificaciones profesionales en UNA sola llamada Groq.
+
+    Parameters
+    ----------
+    items : list[tuple[column, action, reason]]
+        Tuplas con los datos de cada accion a justificar.
+
+    Returns
+    -------
+    list[str]
+        Lista de justificaciones en el mismo orden que ``items``.
+        Si no hay cliente Groq o hay error, retorna ``reason`` original.
+    """
+    fallback = [r for _, _, r in items]
+    if not items:
+        return []
+
+    client = init_groq_client()
+    if not client:
+        return fallback
+
+    lines = [
+        f"{i + 1}. Columna: '{col}', Accion: '{act}', Razon original: '{reason}'"
+        for i, (col, act, reason) in enumerate(items)
+    ]
+    user_prompt = (
+        "Genera UNA justificacion tecnica por cada accion:\n\n"
+        + "\n".join(lines)
+        + "\n\n"
+        "Responde con un array JSON de strings, uno por accion, en orden."
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": _JUSTIFICATION_BATCH_SYSTEM},
+                {"role": "user", "content": user_prompt},
+            ],
+            max_tokens=MAX_TOKENS,
+            temperature=TEMPERATURE,
+            response_format={"type": "json_object"},
+        )
+        raw = response.choices[0].message.content.strip()
+        import json as _json
+        parsed = _json.loads(raw)
+
+        if isinstance(parsed, dict):
+            for key in ("justificaciones", "justifications", "results"):
+                if key in parsed and isinstance(parsed[key], list):
+                    parsed = parsed[key]
+                    break
+            else:
+                parsed = list(parsed.values())
+                if parsed and isinstance(parsed[0], dict):
+                    parsed = [v.get("justificacion", v.get("justification", str(v))) for v in parsed]
+
+        if isinstance(parsed, list) and len(parsed) == len(items):
+            return [str(j).strip() or fallback[i] for i, j in enumerate(parsed)]
+
+        logger.warning("Groq batch justificaciones: longitud inesperada (%d vs %d)", len(parsed), len(items))
+        return fallback
+    except Exception as e:
+        logger.warning("Groq batch justificaciones error: %s", e)
+        return fallback
+
+
+# ---------------------------------------------------------------------------
 # FUNCION PRINCIPAL
 # ---------------------------------------------------------------------------
 
