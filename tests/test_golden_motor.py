@@ -338,3 +338,29 @@ def test_ciudad_variantes_case_categorical():
         "ciudad", ["bogota", "Bogotá", "MEDELLIN", "medellin", "bogota", "Bogota", "medellin"], 7
     )
     assert "CATEGORICAL" in codes(diag)
+
+
+# ── DG-11: confidence / signal por hallazgo (4.5) ────────────────────────────
+def test_todos_los_issues_tienen_confidence_y_signal():
+    """DG-11: cada IssueGroup debe incluir confidence (0-100) y signal."""
+    diag = diagnose_column("edad", ["18", "25", "30", "45", "450", "30", "25"], 7)
+    for i in diag.issues:
+        assert 0 <= i.confidence <= 100, f"{i.category_code}: confidence fuera de rango"
+        assert i.signal in ("CONFIRMADO", "A_REVISAR"), f"{i.category_code}: signal invalido"
+        d = i.to_dict()
+        assert "confidence" in d and "signal" in d
+
+
+def test_numeric_domain_es_confirmado():
+    """DG-11: NUMERIC_DOMAIN es una regla estricta → CONFIRMADO."""
+    diag = diagnose_column("edad", ["18", "25", "30", "45", "450", "30", "25"], 7)
+    nd = [i for i in diag.issues if i.category_code == "NUMERIC_DOMAIN"]
+    assert nd and nd[0].signal == "CONFIRMADO" and nd[0].confidence >= 95
+
+
+def test_categorical_sospechosa_es_a_revisar():
+    """DG-11: CATEGORICAL (sospechosa por frecuencia) es heurístico → A_REVISAR."""
+    values = ["A"] * 80 + ["B"] * 7 + ["C"] * 5 + ["D"] * 4 + ["E"] * 3 + ["F"] * 1
+    diag = diagnose_column("letra", values, len(values))
+    cat = [i for i in diag.issues if i.category_code == "CATEGORICAL"]
+    assert cat and cat[0].signal == "A_REVISAR"

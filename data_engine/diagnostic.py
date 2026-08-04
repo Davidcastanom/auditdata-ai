@@ -51,6 +51,34 @@ ID_VALUE_PATTERN = re.compile(
 NON_ID_DOMAINS = {"city", "gender", "country"}
 
 
+# ── DG-11 (4.5): confianza y señal por categoría ────────────────────────────
+# CONFIRMADO = guarda estricta (cobertura, mínimos, sin ambigüedad).
+# A_REVISAR = heurístico, requiere revisión manual del analista.
+_SIGNAL_MAP: dict[str, tuple[float, str]] = {
+    # --- CONFIRMADO (reglas duras) ---
+    "MISSING":          (95, "CONFIRMADO"),
+    "HIDDEN_MISSING":   (90, "CONFIRMADO"),
+    "DUPLICATE":        (95, "CONFIRMADO"),
+    "NUMERIC_DOMAIN":   (98, "CONFIRMADO"),
+    "DATE_INVALID":     (95, "CONFIRMADO"),
+    "DATE_FORMAT":      (85, "CONFIRMADO"),
+    "TYPE_VALIDATION":  (92, "CONFIRMADO"),
+    "TYPE_PER_CELL":    (88, "CONFIRMADO"),
+    "ENCODING":         (95, "CONFIRMADO"),
+    "FORMULA_ERROR":    (95, "CONFIRMADO"),
+    "GHOST_CHARACTERS": (90, "CONFIRMADO"),
+    "TEXT_ERROR":       (85, "CONFIRMADO"),
+    # --- A_REVISAR (heurístico) ---
+    "CATEGORICAL":      (65, "A_REVISAR"),
+    "BOOL_INCONSISTENCY": (70, "A_REVISAR"),
+    "MIXED_LANG":       (60, "A_REVISAR"),
+    "MULTI_VALUE":      (65, "A_REVISAR"),
+    "SCIENTIFIC":       (60, "A_REVISAR"),
+    "UNIT_ERROR":       (60, "A_REVISAR"),
+    "TEXT_TRUNCATION":  (65, "A_REVISAR"),
+}
+
+
 def _is_id_column(header: str, values: list[str]) -> bool:
     """Detect if a column is an ID/unique identifier based on name + cardinality.
 
@@ -85,6 +113,12 @@ class IssueGroup:
     description: str
     examples: list[dict[str, Any]] = field(default_factory=list)
     affected_rows: list[int] = field(default_factory=list)
+    # DG-11 (4.5): campos calculados desde _SIGNAL_MAP
+    confidence: float = field(init=False)
+    signal: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.confidence, self.signal = _SIGNAL_MAP.get(self.category_code, (80, "A_REVISAR"))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -97,6 +131,8 @@ class IssueGroup:
             "description": self.description,
             "examples": self.examples[:10],
             "affected_rows": self.affected_rows[:50],
+            "confidence": self.confidence,
+            "signal": self.signal,
         }
 
 

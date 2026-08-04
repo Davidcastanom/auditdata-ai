@@ -65,7 +65,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 | DG-08 | Semántica unificada de `count` = filas afectadas | Motor C1 | F5 | HECHO | 2026-08-03 |
 | DG-09 | Severidad única desde backend (CRITICA/ALTA/MEDIA/BAJA) | Motor C2 | F5 | HECHO | 2026-08-03 |
 | DG-10 | Deduplicar conteo DUPLICATE (columna + dataset) | Motor C3 | F5 | HECHO | 2026-08-03 |
-| DG-11 | `confidence`/`signal` (CONFIRMADO vs A_REVISAR) por hallazgo | Motor 4.5 | F5 | PENDIENTE | 2026-08-28 |
+| DG-11 | `confidence`/`signal` (CONFIRMADO vs A_REVISAR) por hallazgo | Motor 4.5 | F5 | HECHO | 2026-08-03 |
 | DG-12 | Alinear nombres/códigos de categorías (docstring vs código vs UI) | Motor C5 | F5 | PENDIENTE | 2026-08-28 |
 | UI-01 | Tarjetas con severidad del backend + badge signal | Motor C2/C4 | F6 | PENDIENTE | 2026-08-31 |
 | UI-02 | `escapeAttr` en headers (XSS/HTML roto) | Motor C7 | F6 | PENDIENTE | 2026-08-31 |

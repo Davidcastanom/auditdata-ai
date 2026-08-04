@@ -252,7 +252,8 @@ def get_ai_recommendations(
                     {
                         "category": iss.get("category", iss.get("category_code", "UNKNOWN")),
                         "count": iss.get("count", 0),
-                        "text": f"Problema {iss.get('category_code', iss.get('category', ''))}: "
+                        "text": f"Problema {iss.get('category_code', iss.get('category', ''))} "
+                                f"[{iss.get('signal', 'A_REVISAR')}]: "
                                 f"{iss.get('count', 0)} ocurrencias. "
                                 f"Filas afectadas: {iss.get('affected_rows', [])[:10]}. "
                                 f"Requiere revision manual.",
@@ -261,7 +262,7 @@ def get_ai_recommendations(
                             "column": col_name,
                             "reason": f"Problema {iss.get('category_code', '')} detectado por diagnóstico",
                         },
-                        "confidence": 0.3,
+                        "confidence": iss.get("confidence", 80) / 100,
                         "affected_rows": iss.get("affected_rows", []),
                     }
                     for iss in issues
@@ -335,7 +336,8 @@ def _build_batch_prompt(
         sample_values = _get_sample_values(col_name, sample_rows)
 
         issues_text = "\n".join([
-            f"  - {iss.get('category_code', iss.get('category', ''))}: "
+            f"  - {iss.get('category_code', iss.get('category', ''))} "
+            f"[{iss.get('signal', 'A_REVISAR')}]: "
             f"{iss.get('count', 0)} ocurrencias ({iss.get('percentage', 0):.1f}%)"
             for iss in issues
         ])
