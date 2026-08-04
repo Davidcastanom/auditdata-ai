@@ -201,7 +201,7 @@ export class NubeValidación {
                 <input type="checkbox" class="nube-manual-check" data-column="${this._escHtml(rawCol)}" data-category="${this._escHtml(issue.category_code)}" data-count="${issue.count || 0}" checked />
                 <div class="nube-manual-issue__info">
                   <div class="nube-manual-issue__header">
-                    <span class="nube-rec__severity nube-rec__severity--${this._getSeverity(issue.category_code)}">${this._getSeverity(issue.category_code)}</span>
+                    <span class="nube-rec__severity nube-rec__severity--${this._getSeverityClass(issue.severity)}">${this._escHtml(issue.severity || '')}</span>
                     <strong>${this._escHtml(issue.category_code)}</strong>
                     <span class="nube-manual-issue__count">${issue.count || 0} filas afectadas (${(issue.percentage || 0).toFixed(1)}%)</span>
                   </div>
@@ -347,12 +347,11 @@ export class NubeValidación {
     this.onAllReviewed([]);
   }
 
-  _getSeverity(category) {
-    const high = ['MISSING', 'DUPLICATE', 'NUMERIC_DOMAIN', 'OUT_OF_RANGE', 'FORMULA_ERROR', 'TYPE_PER_CELL'];
-    const medium = ['DATE_FORMAT', 'CATEGORICAL', 'TYPE_ERROR', 'UNIT_ERROR', 'MULTI_VALUE', 'TEXT_ERROR', 'ENCODING', 'SCIENTIFIC'];
-    if (high.includes(category)) return 'alta';
-    if (medium.includes(category)) return 'media';
-    return 'baja';
+  // DG-09 (C2): la severidad es única y viene del backend (CRITICA/ALTA/MEDIA/BAJA).
+  // Solo se mapea el valor a la clase CSS: CRITICA y ALTA comparten semaforo rojo.
+  _getSeverityClass(severity) {
+    const map = { CRITICA: 'alta', ALTA: 'alta', MEDIA: 'media', BAJA: 'baja' };
+    return map[severity] || 'baja';
   }
 
   // --- Shared renderers ---

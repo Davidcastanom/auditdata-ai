@@ -98,6 +98,15 @@ test.describe("AuditData AI - Depuración 28 Categorías", () => {
     await expect(page.locator(".chat-bubble--user")).toHaveCount(1, { timeout: 5000 });
   });
 
+  test("step 3 muestra severidad del backend (DG-09)", async ({ page }) => {
+    await clearLoadAnalyze(page);
+    await runDiagnostic(page);
+    const sevs = await page.locator(".nube-rec__severity").allTextContents();
+    const hasBackend = sevs.some(s => /^(CRITICA|ALTA|MEDIA|BAJA)$/.test(s.trim()));
+    expect(sevs.length).toBeGreaterThan(0);
+    expect(hasBackend).toBeTruthy();
+  });
+
   test("cerrar drawer oculta el panel", async ({ page }) => {
     await clearLoadAnalyze(page);
     await skipValidationAndGoToStep4(page);
