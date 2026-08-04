@@ -187,6 +187,43 @@ def test_categorica_con_minoria_detecta_categorica():
     assert "CATEGORICAL" in codes(diag)
 
 
+# ── DG-07: guard de tipo en SCIENTIFIC/MIXED_LANG/UNIT_ERROR ─────────────────
+def test_numerica_con_notacion_cientifica_no_scientific():
+    """DG-07: una columna NUMERICA con notación científica es un número válido,
+    no un error de escritura → no debe reportarse SCIENTIFIC."""
+    diag = diagnose_column("monto", ["1E5", "2E6", "3E7"], 3)
+    assert "SCIENTIFIC" not in codes(diag)
+
+
+def test_cantidad_una_unidad_y_palabra_no_unit_error():
+    """DG-07: 'treinta' es un número en palabras, no una unidad. Una sola
+    unidad real (kg) consistente → no hay UNIT_ERROR."""
+    diag = diagnose_column(
+        "cantidad", [str(x) for x in range(1, 39)] + ["10 kg", "treinta"], 40
+    )
+    assert "UNIT_ERROR" not in codes(diag)
+
+
+def test_unidades_reales_mezcladas_si_unit_error():
+    """Regresión DG-07: dos unidades reales distintas (kg vs lb) SÍ son
+    UNIT_ERROR."""
+    diag = diagnose_column(
+        "cantidad", [str(x) for x in range(1, 39)] + ["10 kg", "20 lb"], 40
+    )
+    assert "UNIT_ERROR" in codes(diag)
+
+
+def test_texto_mixto_idiomas_sigue_mixed_lang():
+    """Regresión DG-07: una columna de texto con español e inglés mezclados
+    SÍ debe reportarse MIXED_LANG."""
+    diag = diagnose_column(
+        "observacion",
+        ["el proceso", "the process", "el proceso", "la data", "the process"],
+        5,
+    )
+    assert "MIXED_LANG" in codes(diag)
+
+
 # ── Caso 5: "activo" solo "activo"/"inactivo" ─────────────────────────────────
 def test_activo_bien_formado_sin_bool_inconsistency():
     """DG-04: dos etiquetas booleanas limpias (activo/inactivo) no son

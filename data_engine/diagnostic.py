@@ -301,6 +301,23 @@ def _check_categorical_suspicious(
 
 EXCEL_ROW_OFFSET = 2
 
+_TEXT_LIKE_TYPES = {"TEXTO_LIBRE", "CATEGORICA", "BOOLEANA"}
+_NON_TEXT_DOMAINS = {
+    "number", "date", "quantity", "currency", "percentage", "phone",
+    "latitude", "longitude", "score", "duration", "weight", "distance",
+    "email", "id",
+}
+
+
+def _is_text_like(column_type: str, domain_info: dict | None) -> bool:
+    """DG-07 (B8/B10): columnas de texto libre/categoricas. Las numericas,
+    fechas, codigos y dominios numericos NO son texto libre."""
+    if column_type not in _TEXT_LIKE_TYPES:
+        return False
+    if domain_info and domain_info["domain"] in _NON_TEXT_DOMAINS:
+        return False
+    return True
+
 
 def _to_excel_row(index: int) -> int:
     """Convert 0-based data index to Excel row number (header=row 1, data starts row 2)."""
@@ -353,9 +370,7 @@ def diagnose_column(header: str, values: list[str], total_rows: int, row_offset:
         issues.extend(_check_unit_inconsistency(values, total_rows, domain_info))
         issues.extend(_check_encoding(values, total_rows))
         issues.extend(_check_formula_errors(values, total_rows))
-        issues.extend(_check_scientific_notation(values, total_rows))
         issues.extend(_check_multivalue_cells(values, total_rows))
-        issues.extend(_check_mixed_languages(values, total_rows, domain_info))
         issues.extend(_check_ghost_characters(values, total_rows))
         issues.extend(_check_text_truncation(values, total_rows))
         issues.extend(_check_boolean_inconsistency(values, total_rows))
@@ -367,6 +382,12 @@ def diagnose_column(header: str, values: list[str], total_rows: int, row_offset:
         # distribucion (suspicious) son ortogonales y conviven.
         if column_type in ("CATEGORICA", "BOOLEANA"):
             issues.extend(_check_categorical_suspicious(profiler, values, total_rows))
+        # DG-07 (B8/B10): SCIENTIFIC y MIXED_LANG solo aplican a columnas de
+        # texto libre/categoricas; en numericas/fechas/codigos son falsos
+        # positivos. UNIT_ERROR queda con su guard de dominio numerico interno.
+        if _is_text_like(column_type, domain_info):
+            issues.extend(_check_scientific_notation(values, total_rows))
+            issues.extend(_check_mixed_languages(values, total_rows, domain_info))
 
     if not issues:
         return ColumnDiagnostic(
@@ -889,7 +910,10 @@ def _check_unit_inconsistency(
         return issues
 
     non_empty_indices = [(i, v.strip()) for i, v in enumerate(values) if v.strip() and not is_hidden_missing(v)]
-    has_alpha = [(i, v) for i, v in non_empty_indices if re.search(r"[a-zA-Z]", v)]
+    # DG-07 (B10): una "unidad" es un sufijo corto pegado a un numero
+    # ("10 kg", "1.5cm", "20lb"). "treinta" es un numero en palabras, no una
+    # unidad; no debe contarse.
+    has_alpha = [(i, v) for i, v in non_empty_indices if re.match(r"^\d+(?:[.,]\d+)?\s*[a-zA-Z]{1,4}$", v)]
 
     if len(has_alpha) > 0 and len(has_alpha) < len(non_empty_indices) * 0.3:
         units: Counter = Counter()
