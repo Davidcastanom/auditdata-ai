@@ -50,7 +50,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 | CL-04 | `review_issue` sin rama en `apply_cleaning_actions` (tarjetas muertas) | Motor C8 / Algo. C4 | F6 | PENDIENTE | 2026-09-01 |
 | CL-05 | `target_rows - 2` hardcodeado (header_row_index real) | Algo. C5 | F3 | HECHO | 2026-08-19 |
 | CL-06 | Consolidar impute_missing/fill_missing/fill_empty | Algo. C6 | F3 | HECHO | 2026-08-19 |
-| CL-07 | IA por acción (Gemini serial, 2 proveedores) → lote Groq unificado | Algo. C7 | F5 | PENDIENTE | 2026-08-27 |
+| CL-07 | IA por acción (Gemini serial, 2 proveedores) → lote Groq unificado | Algo. C7 | F5 | HECHO | 2026-08-03 |
 | CL-08 | `after` se re-parsea desde CSV → re-perfilar en memoria | Algo. C8 | F3 | HECHO | 2026-08-19 |
 | DM-01 | `match_column_name` substring → tokens + confirmación por valores | Motor A1/A2/B9 | F4 | HECHO | 2026-08-03 |
 | DM-02 | Fechas: asumir formato detectado (dd/mm vs mm/dd) | Motor A3 | F4 | HECHO | 2026-08-03 |
