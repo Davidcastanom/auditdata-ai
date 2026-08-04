@@ -151,7 +151,6 @@ def test_id_real_repetido_sigue_duplicate():
 
 
 # ── Caso 5: "activo" solo "activo"/"inactivo" ─────────────────────────────────
-@pytest.mark.xfail(reason="DG-04: BOOL_INCONSISTENCY marca booleanos bien formados", strict=True)
 def test_activo_bien_formado_sin_bool_inconsistency():
     """DG-04: dos etiquetas booleanas limpias (activo/inactivo) no son
     BOOL_INCONSISTENCY. Solo debe señalarse cuando un mismo significado tiene

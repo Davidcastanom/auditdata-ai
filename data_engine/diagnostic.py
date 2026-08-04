@@ -1131,19 +1131,31 @@ def _check_boolean_inconsistency(values: list[str], total: int) -> list[IssueGro
     if not non_empty_indices:
         return issues
 
-    bool_map: dict[str, bool | None] = {}
+    norm_map: dict[str, bool] = {}
+    display: dict[str, bool] = {}
     bool_rows: dict[str, int] = {}
+    ambiguous = False
     for i, v in non_empty_indices:
         result = is_boolean_synonym(v)
         if result is not None:
-            bool_map[v] = result
+            key = normalize_for_comparison(v)
+            if key in norm_map and norm_map[key] != result:
+                ambiguous = True
+            norm_map[key] = result
+            display.setdefault(v, result)
             bool_rows.setdefault(v, i)
 
-    if not bool_map:
+    if not norm_map:
         return issues
 
-    true_vals = {k for k, v in bool_map.items() if v is True}
-    false_vals = {k for k, v in bool_map.items() if v is False}
+    # DG-04 (B5): una columna con solo 2 representaciones canonicas
+    # (verdadero/falso) esta bien formada. Solo hay inconsistencia si hay
+    # >2 etiquetas distintas o la misma etiqueta mapea a ambos significados.
+    if len(norm_map) <= 2 and not ambiguous:
+        return issues
+
+    true_vals = {k for k, m in display.items() if m is True}
+    false_vals = {k for k, m in display.items() if m is False}
 
     if true_vals and false_vals:
         all_rows: list[int] = []
