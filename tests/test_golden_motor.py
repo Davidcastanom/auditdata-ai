@@ -12,8 +12,6 @@ Convención (ver docs/PLAN_REFACTOR_MOTOR.md, regla R2):
   (regresión de verdaderos positivos).
 """
 
-import pytest
-
 from data_engine.diagnostic import (
     _check_multivalue_cells,
     diagnose_column,
@@ -168,7 +166,6 @@ def test_ciudad_minuscula_uniforme_sin_text_error():
 
 
 # ── Caso 7: fechas no son MULTI_VALUE ─────────────────────────────────────────
-@pytest.mark.xfail(reason="DG-06: MULTI_VALUE marca fechas (12/03/2020)", strict=True)
 def test_fechas_no_multivalue():
     """DG-06: '12/03/2020' no es una celda multivaluada por contener '/'."""
     issues = _check_multivalue_cells(

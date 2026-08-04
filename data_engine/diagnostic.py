@@ -996,20 +996,41 @@ def _check_scientific_notation(values: list[str], total: int) -> list[IssueGroup
     return issues
 
 
+def _is_multivalue_cell(value: str) -> bool:
+    """DG-06 (B7): una celda es multivaluada solo si tiene separadores y
+    NO es una fecha ni un número con separadores de miles. Con un solo
+    separador exige al menos un token no numérico."""
+    v = value.strip()
+    if not v:
+        return False
+    if is_valid_calendar_date(v):
+        return False
+    sep_hits = [sep for sep in MULTIVALUE_SEPARATORS if sep in v]
+    if not sep_hits:
+        return False
+    compact = v.replace(",", "").replace(".", "").replace(" ", "")
+    try:
+        float(compact)
+        return False
+    except (ValueError, TypeError):
+        pass
+    tokens = [t.strip() for t in re.split(r"[,;/|]+", v) if t.strip()]
+    if len(tokens) <= 2:
+        return False
+    if len(set(sep_hits)) >= 2:
+        return True
+    return any(not _is_numeric_value(t) for t in tokens)
+
+
 def _check_multivalue_cells(values: list[str], total: int) -> list[IssueGroup]:
     issues: list[IssueGroup] = []
     multi_rows: list[int] = []
     multi_vals: list[str] = []
 
     for i, v in enumerate(values):
-        v_stripped = v.strip()
-        if not v_stripped:
-            continue
-        for sep in MULTIVALUE_SEPARATORS:
-            if sep in v_stripped and len(v_stripped.split(sep)) > 2:
-                multi_rows.append(i)
-                multi_vals.append(v_stripped)
-                break
+        if _is_multivalue_cell(v):
+            multi_rows.append(i)
+            multi_vals.append(v.strip())
 
     if multi_rows:
         examples = [{"row": multi_rows[j], "value": multi_vals[j]} for j in range(min(5, len(multi_rows)))]
