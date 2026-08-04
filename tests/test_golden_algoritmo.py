@@ -330,3 +330,45 @@ def test_after_reperfilado_en_memoria():
     after_valor = next(c for c in result["after"]["columns"] if c["name"] == "valor")
     assert after_valor["detected_type"] == "number"
     assert result["after"]["row_count"] == 3
+
+
+# ── CL-07: justificaciones batch llegan al changelog ─────────────────────────
+def test_cl07_changelog_tiene_justificaciones_reales():
+    """CL-07: batch Groq genera justificaciones para cada accion en changelog."""
+    payload = (
+        b"id,nombre,edad\n"
+        b"1,,25\n"
+        b"2,Carlos,30\n"
+        b"3,,35\n"
+    )
+    actions = [
+        {"kind": "delete_column", "column": "edad", "reason": "Columna no necesaria"},
+        {"kind": "fill_missing", "column": "nombre", "method": "mode"},
+    ]
+    result = apply_cleaning_actions("t.csv", payload, actions)
+    changelog = result["changelog"]
+    assert len(changelog) == 3, f"expected 3 changelog entries (1 delete + 2 fills), got {len(changelog)}: {changelog}"
+    for entry in changelog:
+        assert "reason" in entry
+        assert len(entry["reason"]) > 10, f"justificacion demasiado corta: {entry['reason']!r}"
+        assert "Gemini" not in entry["reason"], "justificacion no debe mencionar Gemini"
+
+
+def test_cl07_changelog_acciones_multiples():
+    """CL-07: 3 acciones en batch -> 3+ justificaciones en changelog."""
+    payload = (
+        b"id,ciudad,edad\n"
+        b"1,bogota,25\n"
+        b"2,medellin,30\n"
+        b"3,bogota,35\n"
+    )
+    actions = [
+        {"kind": "standardize_text", "column": "ciudad", "method": "title", "reason": "Unificar capitalizacion"},
+        {"kind": "fill_missing", "column": "edad", "method": "mode"},
+        {"kind": "remove_duplicate_rows", "reason": "Filas repetidas"},
+    ]
+    result = apply_cleaning_actions("t.csv", payload, actions)
+    changelog = result["changelog"]
+    assert len(changelog) >= 3
+    reasons = [e["reason"] for e in changelog]
+    assert all(len(r) > 10 for r in reasons), "todas las justificaciones deben tener contenido real"
