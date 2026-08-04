@@ -190,7 +190,7 @@ def resolve_errors(ids: list[str] | None = None) -> int:
     if not metrics_enabled():
         return 0
     try:
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timezone
 
         from backend.app.auth import get_supabase_client
 
