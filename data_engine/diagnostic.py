@@ -360,8 +360,13 @@ def diagnose_column(header: str, values: list[str], total_rows: int, row_offset:
         issues.extend(_check_text_truncation(values, total_rows))
         issues.extend(_check_boolean_inconsistency(values, total_rows))
         issues.extend(_check_colección_inconsistencia(values, total_rows, domain_info))
-    elif column_type in ("CATEGORICA", "BOOLEANA"):
-        issues.extend(_check_categorical_suspicious(profiler, values, total_rows))
+        # DG-03 (B4): activar la deteccion de categorias sospechosas por
+        # frecuencia. Analogia: un booleano tiene 2 valores predominantes y el
+        # resto son errores potenciales; una categorica tiene 3+ valores
+        # distinguidos por frecuencia. Los chequeos de contenido (16) y el de
+        # distribucion (suspicious) son ortogonales y conviven.
+        if column_type in ("CATEGORICA", "BOOLEANA"):
+            issues.extend(_check_categorical_suspicious(profiler, values, total_rows))
 
     if not issues:
         return ColumnDiagnostic(

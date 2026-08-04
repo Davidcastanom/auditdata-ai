@@ -157,6 +157,36 @@ def test_identificador_repetido_sigue_duplicate():
     assert "DUPLICATE" in codes(diag)
 
 
+# ── DG-03: booleano = 2 valores predominantes + el resto son errores ─────────
+def test_booleano_con_valor_fuera_detecta_categorica():
+    """DG-03: un booleano con 2 valores predominantes (si/no) y un valor ajeno
+    al conjunto dominante → el 'resto' es un error potencial → CATEGORICAL."""
+    diag = diagnose_column(
+        "activo", ["si"] * 10 + ["no"] * 10 + ["quizas"], 21
+    )
+    assert "CATEGORICAL" in codes(diag)
+
+
+def test_booleano_con_valor_fuera_no_bool_inconsistency():
+    """Regresión DG-03: si/no/quizas no debe disparar BOOL_INCONSISTENCY
+    (solo 2 significados bien formados + un valor ajeno)."""
+    diag = diagnose_column(
+        "activo", ["si"] * 10 + ["no"] * 10 + ["quizas"], 21
+    )
+    assert "BOOL_INCONSISTENCY" not in codes(diag)
+
+
+def test_categorica_con_minoria_detecta_categorica():
+    """DG-03: una categórica con valores fuera del conjunto dominante (top3)
+    reporta las categorías sospechosas como CATEGORICAL."""
+    diag = diagnose_column(
+        "region",
+        ["norte"] * 40 + ["sur"] * 35 + ["este"] * 20 + ["oeste"] * 4 + ["otra"] * 1,
+        100,
+    )
+    assert "CATEGORICAL" in codes(diag)
+
+
 # ── Caso 5: "activo" solo "activo"/"inactivo" ─────────────────────────────────
 def test_activo_bien_formado_sin_bool_inconsistency():
     """DG-04: dos etiquetas booleanas limpias (activo/inactivo) no son

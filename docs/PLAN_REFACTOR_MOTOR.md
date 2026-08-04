@@ -57,7 +57,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 | DM-03 | `MISSING_TOKENS_EXTENDED` depurado ("9999","-1","pendiente"," ") | Motor A4 | F4 | HECHO | 2026-08-24 |
 | DG-01 | `_is_id_column` solo por nombre → requiere nombre+cardinalidad | Motor B1/B3 | F5 | HECHO | 2026-08-03 |
 | DG-02 | Fechas únicas clasificadas IDENTIFICADOR → tipo DATE/NUMERIC | Motor B2 | F5 | HECHO | 2026-08-03 |
-| DG-03 | Rama muerta `_check_categorical_suspicious` (elif inalcanzable) | Motor B4 | F5 | PENDIENTE | 2026-08-27 |
+| DG-03 | Rama muerta `_check_categorical_suspicious` (elif inalcanzable) | Motor B4 | F5 | HECHO | 2026-08-03 |
 | DG-04 | `BOOL_INCONSISTENCY` en booleanos bien formados | Motor B5 | F5 | HECHO | 2026-08-03 |
 | DG-05 | `TEXT_ERROR` en texto uniforme (solo grafías mixtas) | Motor B6 | F5 | HECHO | 2026-08-03 |
 | DG-06 | `MULTI_VALUE` marca fechas (12/03/2020) | Motor B7 | F5 | HECHO | 2026-08-03 |
