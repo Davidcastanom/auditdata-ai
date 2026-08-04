@@ -40,6 +40,16 @@ export class NubeValidación {
     return d.innerHTML;
   }
 
+  _escapeAttr(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
   _renderExample(e) {
     if (typeof e === 'string') return this._escHtml(e);
     if (!e || typeof e !== 'object') return String(e);
@@ -172,7 +182,7 @@ export class NubeValidación {
     const analysisId = `colAnalysis_${rawCol}`;
 
     return `
-      <div class="nube-column nube-column--manual" data-column="${this._escHtml(rawCol)}">
+      <div class="nube-column nube-column--manual" data-column="${this._escapeAttr(rawCol)}">
         <div class="nube-column__header">
           <div class="nube-column__title">
             <span class="nube-column__name" style="font-weight: 700; font-size: 1.05rem; color: var(--color-primary);">${this._escHtml(displayName)}</span>
@@ -180,25 +190,25 @@ export class NubeValidación {
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
             <span class="nube-column__count">${issues.length} problema${issues.length !== 1 ? 's' : ''}</span>
-            <button class="button button--ghost button--sm" data-inspect-col="${this._escHtml(rawCol)}" type="button">Inspeccionar</button>
+            <button class="button button--ghost button--sm" data-inspect-col="${this._escapeAttr(rawCol)}" type="button">Inspeccionar</button>
           </div>
         </div>
         ${hasAnalysis ? `
-        <div class="nube-column-ia drawer-section--collapsible" data-col-analysis="${this._escHtml(rawCol)}">
+        <div class="nube-column-ia drawer-section--collapsible" data-col-analysis="${this._escapeAttr(rawCol)}">
           <button class="drawer-section__toggle nube-ia-toggle" type="button" onclick="this.parentElement.classList.toggle('is-open')">
             Recomendaci\u00f3n de Copiloto <span class="toggle-arrow">\u25be</span>
           </button>
           <div class="drawer-section__body nube-ia-body">
-            <button class="button button--primary button--sm btn-analyze-col" data-analyze-col="${this._escHtml(rawCol)}" type="button">Ejecutar an\u00e1lisis</button>
+            <button class="button button--primary button--sm btn-analyze-col" data-analyze-col="${this._escapeAttr(rawCol)}" type="button">Ejecutar an\u00e1lisis</button>
             <div id="${analysisId}" class="nube-ia-output"></div>
           </div>
         </div>
         ` : ''}
         <div class="nube-column__body">
           ${issues.map(issue => `
-            <div class="nube-manual-issue" data-category="${this._escHtml(issue.category_code)}">
+            <div class="nube-manual-issue" data-category="${this._escapeAttr(issue.category_code)}">
               <label class="nube-manual-issue__label">
-                <input type="checkbox" class="nube-manual-check" data-column="${this._escHtml(rawCol)}" data-category="${this._escHtml(issue.category_code)}" data-count="${issue.count || 0}" checked />
+                <input type="checkbox" class="nube-manual-check" data-column="${this._escapeAttr(rawCol)}" data-category="${this._escapeAttr(issue.category_code)}" data-count="${issue.count || 0}" checked />
                 <div class="nube-manual-issue__info">
                   <div class="nube-manual-issue__header">
                     <span class="nube-rec__severity nube-rec__severity--${this._getSeverityClass(issue.severity)}">${this._escHtml(issue.severity || '')}</span>
