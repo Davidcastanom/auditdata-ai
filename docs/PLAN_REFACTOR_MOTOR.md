@@ -47,7 +47,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 | CL-01 | `change_type` boolean no usa sinónimos ("activo"→"no") | Algo. C1 | F3 | HECHO | 2026-08-18 |
 | CL-02 | `fill_empty` ignora `target_rows` | Algo. C2 | F3 | HECHO | 2026-08-18 |
 | CL-03 | `flag_outliers` no marca filas reales (cosmético) | Algo. C3 | F3 | HECHO | 2026-08-19 |
-| CL-04 | `review_issue` sin rama en `apply_cleaning_actions` (tarjetas muertas) | Motor C8 / Algo. C4 | F6 | PENDIENTE | 2026-09-01 |
+| CL-04 | `review_issue` sin rama en `apply_cleaning_actions` (tarjetas muertas) | Motor C8 / Algo. C4 | F6 | HECHO | 2026-08-03 |
 | CL-05 | `target_rows - 2` hardcodeado (header_row_index real) | Algo. C5 | F3 | HECHO | 2026-08-19 |
 | CL-06 | Consolidar impute_missing/fill_missing/fill_empty | Algo. C6 | F3 | HECHO | 2026-08-19 |
 | CL-07 | IA por acción (Gemini serial, 2 proveedores) → lote Groq unificado | Algo. C7 | F5 | HECHO | 2026-08-03 |
