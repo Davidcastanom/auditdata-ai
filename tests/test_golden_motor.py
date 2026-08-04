@@ -148,6 +148,15 @@ def test_id_real_repetido_sigue_duplicate():
     assert "DUPLICATE" in codes(diag)
 
 
+def test_identificador_repetido_sigue_duplicate():
+    """Regresión DG-01: 'identificador' (header común, no estaba en los
+    patrones) con alta cardinalidad y un repetido sigue siendo ID → DUPLICATE."""
+    ids = [f"{2000 + i}" for i in range(1, 21)]
+    ids[19] = "2001"
+    diag = diagnose_column("identificador", ids, 20)
+    assert "DUPLICATE" in codes(diag)
+
+
 # ── Caso 5: "activo" solo "activo"/"inactivo" ─────────────────────────────────
 def test_activo_bien_formado_sin_bool_inconsistency():
     """DG-04: dos etiquetas booleanas limpias (activo/inactivo) no son

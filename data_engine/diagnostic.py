@@ -31,7 +31,7 @@ from .domain_rules import (
 )
 
 ID_NAME_PATTERNS = re.compile(
-    r"(^|[_\s])id($|[_\s])|^cod[_\s]|^codigo[_\s]|^identificación|^documento|^cedula|^nit$|^uuid|^key$|^ref[_\s]|^referencia|^registro$|^consecutivo|^num[_\s]",
+    r"(^|[_\s])id($|[_\s])|^cod[_\s]|^codigo[_\s]|^identifica|^documento|^cedula|^nit$|^uuid|^key$|^ref[_\s]|^referencia|^registro$|^consecutivo|^num[_\s]",
     re.IGNORECASE,
 )
 
