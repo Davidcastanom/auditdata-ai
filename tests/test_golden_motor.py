@@ -15,6 +15,7 @@ Convención (ver docs/PLAN_REFACTOR_MOTOR.md, regla R2):
 from data_engine.diagnostic import (
     _check_multivalue_cells,
     diagnose_column,
+    diagnose_dataset,
     match_column_name,
 )
 
@@ -255,6 +256,33 @@ def test_pais_variantes_count_filas_distintas_afectadas():
     assert len(cat) == 1
     issue = cat[0]
     assert issue.count == len(issue.affected_rows) == 6
+
+
+# ── DG-10: sin doble conteo de DUPLICATE columna + dataset (C3) ───────────────
+def test_dataset_duplicate_sin_doble_conteo_en_summary():
+    """DG-10 (C3): una columna-ID con valor repetido que además es fila duplicada
+    completa no debe sumarse dos veces en summary.total_issues."""
+    headers = ["id", "nombre"]
+    rows = [
+        {"id": "a1b2c3d4-0001-0000-0000-000000000001", "nombre": "Ana"},
+        {"id": "a1b2c3d4-0002-0000-0000-000000000002", "nombre": "Juan"},
+        {"id": "a1b2c3d4-0001-0000-0000-000000000001", "nombre": "Ana"},
+    ]
+    diag = diagnose_dataset(headers, rows)
+    assert diag.summary["total_issues"] == 1
+
+
+def test_dataset_duplicate_columna_sin_fila_duplicada_no_se_descuenta():
+    """Regresión DG-10: la dedup no debe eliminar un DUPLICATE de columna-ID
+    legítimo cuando NO hay fila duplicada completa."""
+    headers = ["id", "nombre"]
+    rows = [
+        {"id": "a1b2c3d4-0001-0000-0000-000000000001", "nombre": "Ana"},
+        {"id": "a1b2c3d4-0002-0000-0000-000000000002", "nombre": "Juan"},
+        {"id": "a1b2c3d4-0001-0000-0000-000000000001", "nombre": "Pepe"},
+    ]
+    diag = diagnose_dataset(headers, rows)
+    assert diag.summary["total_issues"] == 1
 
 
 # ── Caso 5: "activo" solo "activo"/"inactivo" ─────────────────────────────────

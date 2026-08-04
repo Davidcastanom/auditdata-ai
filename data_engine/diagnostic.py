@@ -448,7 +448,16 @@ def diagnose_dataset(headers: list[str], rows: list[dict[str, Any]], header_row_
     if row_dup_issues:
         for issue in row_dup_issues:
             _shift_issue_rows(issue, row_offset=row_offset)
-        total_issues += row_dup_issues[0].count
+        # DG-10 (C3): una fila duplicada completa NO debe sumarse dos veces en
+        # total_issues (DUPLICATE de columna-ID + DUPLICATE de __dataset__).
+        # Se descuentan las filas de columna-ID ya contadas por __dataset__.
+        dataset_dup_rows = set(row_dup_issues[0].affected_rows)
+        col_dup_overlap = 0
+        for diag in column_diagnostics:
+            for issue in diag.issues:
+                if issue.category_code == "DUPLICATE":
+                    col_dup_overlap += len(set(issue.affected_rows) & dataset_dup_rows)
+        total_issues += row_dup_issues[0].count - col_dup_overlap
         category_counts["DUPLICATE"] += 1
         column_diagnostics.insert(0, ColumnDiagnostic(
             column="__dataset__",
