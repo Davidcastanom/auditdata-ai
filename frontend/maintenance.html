@@ -14,7 +14,7 @@
       rel="stylesheet"
     />
     <style>
-      /* ── Design tokens (from AuditData AI design-system.css) ───── */
+      /* ── Design tokens ───── */
       :root {
         --color-primary: #0066ff;
         --color-primary-dark: #0052cc;
@@ -27,7 +27,6 @@
         --color-muted: #9090a0;
         --color-success: #22c55e;
         --color-warning: #f59e0b;
-        --color-danger: #ef4444;
         --radius-sm: 8px;
         --radius-md: 12px;
         --font-sans: "Outfit", "Plus Jakarta Sans", Inter, system-ui, sans-serif;
@@ -42,6 +41,7 @@
 
       html, body {
         height: 100%;
+        background-color: var(--color-black);
       }
 
       body {
@@ -50,72 +50,62 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background:
-          radial-gradient(
-            ellipse at 30% 0%,
-            rgba(0, 102, 255, 0.20),
-            transparent 55%
-          ),
-          radial-gradient(
-            ellipse at 70% 100%,
-            rgba(0, 212, 255, 0.10),
-            transparent 55%
-          ),
-          radial-gradient(
-            circle at 50% 50%,
-            rgba(0, 102, 255, 0.03),
-            transparent 70%
-          ),
-          var(--color-black);
+        padding: 2rem 1rem 5rem;
         color: var(--color-text);
         font-family: var(--font-sans);
         -webkit-font-smoothing: antialiased;
         overflow-x: hidden;
+        position: relative;
       }
 
-      /* ── Floating particles ──────────────────────────────────────── */
-      .particles {
+      /* ── Hiperrealista: Nebulosa Profunda (CSS) ──────────────── */
+      .nebula-bg {
         position: fixed;
-        inset: 0;
-        pointer-events: none;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background:
+          radial-gradient(circle at 20% 30%, rgba(0, 102, 255, 0.08), transparent 40%),
+          radial-gradient(circle at 80% 70%, rgba(0, 212, 255, 0.06), transparent 35%),
+          radial-gradient(circle at 50% 50%, rgba(124, 0, 255, 0.04), transparent 50%);
+        filter: blur(80px);
+        animation: nebulaShift 60s ease-in-out infinite; /* Movimiento extremadamente lento */
         z-index: 0;
+        pointer-events: none;
       }
-      .particles span {
-        position: absolute;
-        border-radius: 50%;
-        background: var(--color-primary);
-        opacity: 0;
-        animation: float linear infinite;
-      }
-      .particles span:nth-child(1) { width: 4px; height: 4px; left: 8%;  animation-duration: 20s; animation-delay: 0s; }
-      .particles span:nth-child(2) { width: 3px; height: 3px; left: 18%; animation-duration: 24s; animation-delay: 3s; background: var(--color-accent); }
-      .particles span:nth-child(3) { width: 6px; height: 6px; left: 35%; animation-duration: 16s; animation-delay: 1s; }
-      .particles span:nth-child(4) { width: 3px; height: 3px; left: 52%; animation-duration: 22s; animation-delay: 5s; background: var(--color-accent); }
-      .particles span:nth-child(5) { width: 5px; height: 5px; left: 68%; animation-duration: 18s; animation-delay: 2s; }
-      .particles span:nth-child(6) { width: 4px; height: 4px; left: 82%; animation-duration: 26s; animation-delay: 4s; background: var(--color-accent); }
-      .particles span:nth-child(7) { width: 3px; height: 3px; left: 92%; animation-duration: 19s; animation-delay: 6s; }
-      .particles span:nth-child(8) { width: 5px; height: 5px; left: 45%; animation-duration: 21s; animation-delay: 7s; background: var(--color-accent); }
 
-      @keyframes float {
-        0%   { transform: translateY(100vh) scale(0.5); opacity: 0; }
-        8%   { opacity: 0.12; }
-        92%  { opacity: 0.12; }
-        100% { transform: translateY(-10vh) scale(1.2); opacity: 0; }
+      @keyframes nebulaShift {
+        0%, 100% { transform: rotate(0deg) scale(1); }
+        33% { transform: rotate(10deg) scale(1.1) translate(2%, -2%); }
+        66% { transform: rotate(-5deg) scale(0.95) translate(-2%, 2%); }
+      }
+
+      /* ── 3D Canvas Background ──────────────────────────────────── */
+      #bg-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        pointer-events: none;
       }
 
       /* ── Glowing orb behind card ─────────────────────────────────── */
       .glow-orb {
         position: fixed;
-        width: 400px;
-        height: 400px;
+        width: clamp(250px, 50vw, 400px);
+        height: clamp(250px, 50vw, 400px);
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(0, 102, 255, 0.12), transparent 70%);
+        background: radial-gradient(circle, rgba(0, 102, 255, 0.15), transparent 70%);
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
         pointer-events: none;
-        z-index: 0;
-        animation: orbPulse 6s ease-in-out infinite;
+        z-index: 1;
+        animation: orbPulse 10s ease-in-out infinite; /* Más lento (6s a 10s) */
+        filter: blur(40px);
       }
 
       @keyframes orbPulse {
@@ -123,66 +113,82 @@
         50%      { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
       }
 
-      /* ── Main card ───────────────────────────────────────────────── */
+      /* ── 3D Tilt Wrapper ───────────────────────────────────────── */
+      #tilt-wrapper {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        max-width: 620px;
+        display: flex;
+        justify-content: center;
+        perspective: 1000px;
+      }
+
+      /* ── Main card ───────────────────────────────────────────── */
       .maintenance-card {
         position: relative;
-        z-index: 1;
-        max-width: 620px;
-        width: calc(100% - 32px);
-        padding: 3rem 2.5rem 2.5rem;
+        width: 100%;
+        padding: clamp(1.75rem, 5vw, 3rem) clamp(1.25rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.5rem);
         background: rgba(18, 18, 26, 0.65);
         backdrop-filter: blur(28px) saturate(1.3);
         -webkit-backdrop-filter: blur(28px) saturate(1.3);
-        border: 1px solid rgba(36, 36, 54, 0.6);
-        border-radius: 24px;
+        border: 1px solid rgba(36, 36, 54, 0.8);
+        border-radius: clamp(18px, 3vw, 24px);
         text-align: center;
         box-shadow:
           0 0 100px rgba(0, 102, 255, 0.05),
           0 32px 64px rgba(0, 0, 0, 0.45),
           inset 0 1px 0 rgba(255, 255, 255, 0.04);
-        animation: cardIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: cardIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; /* Entrada más majestuosa */
         opacity: 0;
         transform: translateY(40px);
+        transform-style: preserve-3d;
+        will-change: transform;
+        /* El transition de transform se quita, ahora es controlado por JS con Lerp físico */
       }
+
+      .layer-3d-1 { transform: translateZ(50px); }
+      .layer-3d-2 { transform: translateZ(30px); }
+      .layer-3d-3 { transform: translateZ(15px); }
 
       @keyframes cardIn {
         to { opacity: 1; transform: translateY(0); }
       }
 
-      /* ── Rocket icon ─────────────────────────────────────────────── */
+      /* ── Rocket icon ─────────────────────────────────────────── */
       .icon-container {
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-bottom: 1.75rem;
+        margin-bottom: clamp(1rem, 4vw, 1.75rem);
       }
 
       .rocket-wrapper {
         position: relative;
-        width: 80px;
-        height: 80px;
+        width: clamp(60px, 15vw, 80px);
+        height: clamp(60px, 15vw, 80px);
         display: flex;
         align-items: center;
         justify-content: center;
       }
 
-      .rocket-wrapper::before {
+      .rocket-wrapper::before, .rocket-wrapper::after {
         content: '';
         position: absolute;
-        inset: -8px;
         border-radius: 50%;
+      }
+
+      .rocket-wrapper::before {
+        inset: -8px;
         background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
         opacity: 0.1;
-        animation: ringPulse 3s ease-in-out infinite;
+        animation: ringPulse 5s ease-in-out infinite; /* Más lento (3s a 5s) */
       }
 
       .rocket-wrapper::after {
-        content: '';
-        position: absolute;
         inset: -16px;
-        border-radius: 50%;
         border: 1px solid rgba(0, 102, 255, 0.1);
-        animation: ringPulse 3s ease-in-out infinite reverse;
+        animation: ringPulse 5s ease-in-out infinite reverse;
       }
 
       @keyframes ringPulse {
@@ -191,13 +197,13 @@
       }
 
       .rocket-icon {
-        width: 48px;
-        height: 48px;
+        width: clamp(36px, 9vw, 48px);
+        height: clamp(36px, 9vw, 48px);
         fill: none;
         stroke-width: 1.5;
         stroke-linecap: round;
         stroke-linejoin: round;
-        animation: rocketFloat 4s ease-in-out infinite;
+        animation: rocketFloat 6s ease-in-out infinite; /* Más lento (4s a 6s) */
       }
 
       .rocket-icon .rocket-body { stroke: var(--color-primary); }
@@ -209,7 +215,7 @@
         50%      { transform: translateY(-6px) rotate(2deg); }
       }
 
-      /* ── Eyebrow badge ───────────────────────────────────────────── */
+      /* ── Eyebrow badge ───────────────────────────────────────── */
       .eyebrow {
         display: inline-flex;
         align-items: center;
@@ -221,7 +227,7 @@
         border-radius: 999px;
         color: var(--color-warning);
         font-family: var(--font-mono);
-        font-size: 0.72rem;
+        font-size: clamp(0.65rem, 2vw, 0.72rem);
         letter-spacing: 0.1em;
         text-transform: uppercase;
         font-weight: 600;
@@ -232,7 +238,7 @@
         height: 7px;
         border-radius: 50%;
         background: var(--color-warning);
-        animation: pulse 2s ease-in-out infinite;
+        animation: pulse 3s ease-in-out infinite; /* Más lento (2s a 3s) */
         flex-shrink: 0;
       }
 
@@ -241,9 +247,9 @@
         50%      { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
       }
 
-      /* ── Typography ──────────────────────────────────────────────── */
+      /* ── Typography ──────────────────────────────────────────── */
       h1 {
-        font-size: clamp(1.7rem, 4.5vw, 2.5rem);
+        font-size: clamp(1.6rem, 5vw, 2.5rem);
         font-weight: 800;
         line-height: 1.15;
         letter-spacing: -0.03em;
@@ -256,7 +262,7 @@
 
       .description {
         color: var(--color-muted);
-        font-size: 1.05rem;
+        font-size: clamp(0.95rem, 2.5vw, 1.05rem);
         line-height: 1.7;
         margin-bottom: 1.75rem;
         max-width: 480px;
@@ -269,12 +275,12 @@
         font-weight: 600;
       }
 
-      /* ── Inspirational quote ─────────────────────────────────────── */
+      /* ── Inspirational quote ─────────────────────────────────── */
       .quote-block {
         position: relative;
         margin: 0 auto 2rem;
         max-width: 440px;
-        padding: 1.25rem 1.5rem;
+        padding: clamp(1rem, 3vw, 1.25rem) clamp(1.25rem, 3vw, 1.5rem);
         background: linear-gradient(135deg, rgba(0, 102, 255, 0.06), rgba(0, 212, 255, 0.04));
         border: 1px solid rgba(0, 102, 255, 0.12);
         border-radius: var(--radius-md);
@@ -298,11 +304,12 @@
 
       .quote-text {
         color: var(--color-text);
-        font-size: 0.95rem;
+        font-size: clamp(0.85rem, 2.5vw, 0.95rem);
         font-style: italic;
         line-height: 1.6;
         font-weight: 300;
         padding-left: 0.5rem;
+        transition: opacity 0.8s ease; /* Transición más suave */
       }
 
       .quote-author {
@@ -310,13 +317,13 @@
         margin-top: 0.5rem;
         padding-left: 0.5rem;
         color: var(--color-primary);
-        font-size: 0.75rem;
+        font-size: clamp(0.7rem, 2vw, 0.75rem);
         font-style: normal;
         font-weight: 600;
         letter-spacing: 0.05em;
       }
 
-      /* ── What we're doing list ───────────────────────────────────── */
+      /* ── What we're doing list ───────────────────────────────── */
       .improvements {
         display: flex;
         flex-direction: column;
@@ -336,14 +343,15 @@
         background: rgba(18, 18, 26, 0.5);
         border: 1px solid var(--color-border);
         border-radius: var(--radius-sm);
-        font-size: 0.88rem;
+        font-size: clamp(0.8rem, 2.5vw, 0.88rem);
         color: var(--color-muted);
-        transition: border-color 0.3s, background 0.3s;
+        transition: border-color 0.4s ease, background 0.4s ease, transform 0.4s ease;
       }
 
       .improvement-item:hover {
         border-color: rgba(0, 102, 255, 0.3);
         background: rgba(0, 102, 255, 0.04);
+        transform: translateX(5px);
       }
 
       .improvement-icon {
@@ -357,26 +365,17 @@
         font-size: 0.7rem;
       }
 
-      .improvement-icon--speed {
-        background: rgba(0, 102, 255, 0.15);
-        color: var(--color-primary);
-      }
-      .improvement-icon--shield {
-        background: rgba(34, 197, 94, 0.15);
-        color: var(--color-success);
-      }
-      .improvement-icon--brain {
-        background: rgba(0, 212, 255, 0.15);
-        color: var(--color-accent);
-      }
+      .improvement-icon--speed { background: rgba(0, 102, 255, 0.15); color: var(--color-primary); }
+      .improvement-icon--shield { background: rgba(34, 197, 94, 0.15); color: var(--color-success); }
+      .improvement-icon--brain { background: rgba(0, 212, 255, 0.15); color: var(--color-accent); }
 
-      /* ── Countdown ───────────────────────────────────────────────── */
+      /* ── Countdown ───────────────────────────────────────────── */
       .countdown-wrapper {
         margin-bottom: 1.75rem;
       }
 
       .countdown-label {
-        font-size: 0.7rem;
+        font-size: clamp(0.65rem, 2vw, 0.7rem);
         color: var(--color-muted);
         text-transform: uppercase;
         letter-spacing: 0.12em;
@@ -387,7 +386,8 @@
       .countdown {
         display: flex;
         justify-content: center;
-        gap: 0.75rem;
+        flex-wrap: wrap;
+        gap: clamp(0.25rem, 2vw, 0.75rem);
       }
 
       .countdown__unit {
@@ -397,31 +397,34 @@
       }
 
       .countdown__value {
-        font-size: 1.8rem;
+        font-size: clamp(1.2rem, 5vw, 1.8rem);
         font-weight: 700;
         font-family: var(--font-mono);
         color: var(--color-text);
         background: var(--color-surface-2);
         border: 1px solid var(--color-border);
         border-radius: var(--radius-sm);
-        min-width: 60px;
+        min-width: clamp(45px, 15vw, 60px);
         padding: 0.45rem 0.65rem;
         line-height: 1;
-        transition: color 0.3s, border-color 0.3s;
+        transition: color 0.5s, border-color 0.5s, box-shadow 0.5s;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
       }
 
       .countdown__value--done {
         color: var(--color-success);
         border-color: rgba(34, 197, 94, 0.3);
+        box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
       }
 
       .countdown__sep {
-        font-size: 1.5rem;
+        font-size: clamp(1.1rem, 4vw, 1.5rem);
         font-weight: 700;
         color: var(--color-muted);
         align-self: center;
         margin-bottom: 1.2rem;
-        animation: blink 1s ease-in-out infinite;
+        animation: blink 2.5s ease-in-out infinite; /* Más lento (1s a 2.5s) */
       }
 
       @keyframes blink {
@@ -430,17 +433,17 @@
       }
 
       .countdown__label {
-        font-size: 0.6rem;
+        font-size: clamp(0.55rem, 1.5vw, 0.6rem);
         color: var(--color-muted);
         text-transform: uppercase;
         letter-spacing: 0.08em;
         margin-top: 0.35rem;
       }
 
-      /* ── Progress bar ────────────────────────────────────────────── */
+      /* ── Progress bar ────────────────────────────────────────── */
       .progress-track {
         width: 100%;
-        height: 3px;
+        height: 4px;
         background: var(--color-surface-2);
         border-radius: 2px;
         margin-bottom: 1.75rem;
@@ -452,15 +455,15 @@
         border-radius: 2px;
         background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
         width: 0%;
-        transition: width 1s ease;
-        box-shadow: 0 0 12px rgba(0, 102, 255, 0.4);
+        transition: width 1.5s ease; /* Más lento (1s a 1.5s) */
+        box-shadow: 0 0 12px rgba(0, 102, 255, 0.6);
       }
 
-      /* ── Info badges ─────────────────────────────────────────────── */
+      /* ── Info badges ─────────────────────────────────────────── */
       .info-items {
         display: flex;
         justify-content: center;
-        gap: 1.5rem;
+        gap: clamp(0.75rem, 3vw, 1.5rem);
         margin-bottom: 1.75rem;
         flex-wrap: wrap;
       }
@@ -470,7 +473,7 @@
         align-items: center;
         gap: 0.4rem;
         color: var(--color-muted);
-        font-size: 0.8rem;
+        font-size: clamp(0.75rem, 2vw, 0.8rem);
       }
 
       .info-item svg {
@@ -482,16 +485,16 @@
         flex-shrink: 0;
       }
 
-      /* ── Footer link ─────────────────────────────────────────────── */
+      /* ── Footer link ─────────────────────────────────────────── */
       .footer-link {
         display: inline-flex;
         align-items: center;
         gap: 0.4rem;
         color: var(--color-primary);
-        font-size: 0.85rem;
+        font-size: clamp(0.8rem, 2.5vw, 0.85rem);
         font-weight: 500;
         text-decoration: none;
-        transition: color 0.2s, gap 0.2s;
+        transition: color 0.3s, gap 0.3s;
       }
 
       .footer-link:hover {
@@ -507,7 +510,7 @@
         stroke-width: 2;
       }
 
-      /* ── Brand footer ────────────────────────────────────────────── */
+      /* ── Brand footer ────────────────────────────────────────── */
       .brand-footer {
         position: fixed;
         bottom: 1.25rem;
@@ -517,8 +520,8 @@
         align-items: center;
         gap: 0.5rem;
         color: var(--color-muted);
-        font-size: 0.7rem;
-        z-index: 1;
+        font-size: clamp(0.6rem, 2vw, 0.7rem);
+        z-index: 2;
         opacity: 0.5;
         white-space: nowrap;
       }
@@ -534,164 +537,150 @@
         font-weight: 700;
         font-size: 0.55rem;
         color: #fff;
+        flex-shrink: 0;
       }
 
-      /* ── Responsive ──────────────────────────────────────────────── */
-      @media (max-width: 520px) {
-        .maintenance-card {
-          padding: 2rem 1.25rem 1.75rem;
-          border-radius: 18px;
+      /* ── Responsive ─── */
+      @media (max-height: 740px) {
+        body {
+          justify-content: flex-start;
+          padding-top: 2rem;
         }
-        .countdown__value {
-          font-size: 1.4rem;
-          min-width: 48px;
-        }
-        .info-items {
-          flex-direction: column;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        .improvements {
-          max-width: 100%;
-        }
-        .quote-block {
-          padding: 1rem 1.25rem;
-        }
-        h1 {
-          font-size: 1.5rem;
-        }
+        .icon-container { margin-bottom: 0.75rem; }
+        h1 { margin-bottom: 0.75rem; }
+        .quote-block { margin-bottom: 1.25rem; }
+        .improvements { margin-bottom: 1.25rem; }
+        .countdown-wrapper { margin-bottom: 1.25rem; }
+        .progress-track { margin-bottom: 1.25rem; }
+        .info-items { margin-bottom: 1.25rem; }
+      }
+
+      @media (max-width: 360px) {
+        .countdown__sep { display: none; }
+        .info-items { flex-direction: column; align-items: center; gap: 0.5rem; }
+        .brand-footer { flex-direction: column; gap: 0.25rem; }
       }
     </style>
   </head>
   <body>
-    <!-- Floating particles -->
-    <div class="particles">
-      <span></span><span></span><span></span><span></span>
-      <span></span><span></span><span></span><span></span>
-    </div>
-
-    <!-- Glowing orb -->
+    <!-- Hiperrealista: Capa de Nebulosa CSS -->
+    <div class="nebula-bg"></div>
+    
+    <!-- Canvas de Estrellas y Polvo -->
+    <canvas id="bg-canvas"></canvas>
     <div class="glow-orb"></div>
 
-    <!-- Main card -->
-    <div class="maintenance-card" id="maintenanceCard">
-      <!-- Rocket icon -->
-      <div class="icon-container">
-        <div class="rocket-wrapper">
-          <svg class="rocket-icon" viewBox="0 0 24 24">
-            <path class="rocket-body" d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09Z"/>
-            <path class="rocket-body" d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2Z"/>
-            <path class="rocket-body" d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
-            <path class="rocket-body" d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
-            <line class="rocket-flame" x1="2" y1="22" x2="7" y2="17" opacity="0.6"/>
-            <circle class="rocket-stars" cx="18" cy="5" r="0.7"/>
-            <circle class="rocket-stars" cx="20" cy="8" r="0.5"/>
-          </svg>
-        </div>
-      </div>
-
-      <!-- Status badge -->
-      <div class="eyebrow">
-        <span class="status-dot"></span>
-        Mantenimiento en curso
-      </div>
-
-      <!-- Heading -->
-      <h1>Estamos trabajando para generar impacto</h1>
-
-      <!-- Description -->
-      <p class="description">
-        Nos tomamos un momento para <strong>mejorar lo que ya funciona</strong>
-        y preparar cosas nuevas que van a facilitar tu trabajo con datos.
-        <strong>Tu información está segura</strong> y la plataforma se
-        reactivará automáticamente en poco tiempo.
-      </p>
-
-      <!-- Inspirational quote -->
-      <div class="quote-block">
-        <p class="quote-text" id="quoteText">
-          La calidad de los datos no es un destino, es un camino que construimos juntos, paso a paso.
-        </p>
-        <span class="quote-author">— Equipo AuditData AI</span>
-      </div>
-
-      <!-- What we're doing -->
-      <div class="improvements">
-        <div class="improvement-item">
-          <div class="improvement-icon improvement-icon--speed">⚡</div>
-          Optimizando la velocidad del motor de diagnóstico
-        </div>
-        <div class="improvement-item">
-          <div class="improvement-icon improvement-icon--shield">🛡️</div>
-          Fortaleciendo la seguridad de tus datasets
-        </div>
-        <div class="improvement-item">
-          <div class="improvement-icon improvement-icon--brain">🧠</div>
-          Mejorando las recomendaciones del Copiloto IA
-        </div>
-      </div>
-
-      <!-- Countdown -->
-      <div class="countdown-wrapper">
-        <div class="countdown-label">Regresamos en</div>
-        <div class="countdown" id="countdown">
-          <div class="countdown__unit">
-            <span class="countdown__value" id="cdDays">--</span>
-            <span class="countdown__label">Días</span>
-          </div>
-          <span class="countdown__sep">:</span>
-          <div class="countdown__unit">
-            <span class="countdown__value" id="cdHours">--</span>
-            <span class="countdown__label">Horas</span>
-          </div>
-          <span class="countdown__sep">:</span>
-          <div class="countdown__unit">
-            <span class="countdown__value" id="cdMinutes">--</span>
-            <span class="countdown__label">Min</span>
-          </div>
-          <span class="countdown__sep">:</span>
-          <div class="countdown__unit">
-            <span class="countdown__value" id="cdSeconds">--</span>
-            <span class="countdown__label">Seg</span>
+    <!-- Envoltura 3D con Física Lerp -->
+    <div id="tilt-wrapper">
+      <div class="maintenance-card" id="maintenanceCard">
+        
+        <div class="layer-3d-1">
+          <div class="icon-container">
+            <div class="rocket-wrapper">
+              <svg class="rocket-icon" viewBox="0 0 24 24">
+                <path class="rocket-body" d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09Z"/>
+                <path class="rocket-body" d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2Z"/>
+                <path class="rocket-body" d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
+                <path class="rocket-body" d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+                <line class="rocket-flame" x1="2" y1="22" x2="7" y2="17" opacity="0.6"/>
+                <circle class="rocket-stars" cx="18" cy="5" r="0.7"/>
+                <circle class="rocket-stars" cx="20" cy="8" r="0.5"/>
+              </svg>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Progress bar -->
-      <div class="progress-track">
-        <div class="progress-bar" id="progressBar"></div>
-      </div>
+        <div class="layer-3d-2">
+          <div class="eyebrow">
+            <span class="status-dot"></span>
+            Mantenimiento en curso
+          </div>
 
-      <!-- Info badges -->
-      <div class="info-items">
-        <div class="info-item">
-          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
-          Datos protegidos
+          <h1>Estamos trabajando para generar impacto</h1>
+
+          <p class="description">
+            Nos tomamos un momento para <strong>mejorar lo que ya funciona</strong>
+            y preparar cosas nuevas que van a facilitar tu trabajo con datos.
+            <strong>Tu información está segura</strong> y la plataforma se
+            reactivará automáticamente en poco tiempo.
+          </p>
         </div>
-        <div class="info-item">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          Regreso automático
-        </div>
-        <div class="info-item">
-          <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2Z"/><polyline points="22,6 12,13 2,6"/></svg>
-          Soporte activo
+
+        <div class="layer-3d-3">
+          <div class="quote-block">
+            <p class="quote-text" id="quoteText">
+              La calidad de los datos no es un destino, es un camino que construimos juntos, paso a paso.
+            </p>
+            <span class="quote-author">— Equipo AuditData AI</span>
+          </div>
+
+          <div class="improvements">
+            <div class="improvement-item">
+              <div class="improvement-icon improvement-icon--speed">⚡</div>
+              Optimizando la velocidad del motor de diagnóstico
+            </div>
+            <div class="improvement-item">
+              <div class="improvement-icon improvement-icon--shield">🛡️</div>
+              Fortaleciendo la seguridad de tus datasets
+            </div>
+            <div class="improvement-item">
+              <div class="improvement-icon improvement-icon--brain">🧠</div>
+              Mejorando las recomendaciones del Copiloto IA
+            </div>
+          </div>
+
+          <div class="countdown-wrapper">
+            <div class="countdown-label">Regresamos en</div>
+            <div class="countdown" id="countdown">
+              <div class="countdown__unit">
+                <span class="countdown__value" id="cdDays">--</span>
+                <span class="countdown__label">Días</span>
+              </div>
+              <span class="countdown__sep">:</span>
+              <div class="countdown__unit">
+                <span class="countdown__value" id="cdHours">--</span>
+                <span class="countdown__label">Horas</span>
+              </div>
+              <span class="countdown__sep">:</span>
+              <div class="countdown__unit">
+                <span class="countdown__value" id="cdMinutes">--</span>
+                <span class="countdown__label">Min</span>
+              </div>
+              <span class="countdown__sep">:</span>
+              <div class="countdown__unit">
+                <span class="countdown__value" id="cdSeconds">--</span>
+                <span class="countdown__label">Seg</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="progress-track">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+
+          <div class="info-items">
+            <div class="info-item">
+              <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+              Datos protegidos
+            </div>
+            <div class="info-item">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Regreso automático
+            </div>
+            <div class="info-item">
+              <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2Z"/><polyline points="22,6 12,13 2,6"/></svg>
+              Soporte activo
+            </div>
+          </div>
+
+          <a href="https://github.com/Davidcastanom/auditdata-ai/issues" target="_blank" rel="noopener noreferrer" class="footer-link" id="contactLink">
+            ¿Tienes dudas? Escríbenos
+            <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </a>
         </div>
       </div>
-
-      <!-- Contact link -->
-      <a
-        href="https://github.com/Davidcastanom/auditdata-ai/issues"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="footer-link"
-        id="contactLink"
-      >
-        ¿Tienes dudas? Escríbenos
-        <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-      </a>
     </div>
 
-    <!-- Brand footer -->
     <div class="brand-footer">
       <div class="logo-mini">A</div>
       AuditData AI — Flujo Base Data Quality System
@@ -699,40 +688,156 @@
 
     <script>
       /**
-       * ── Maintenance Page – AuditData AI ──────────────────────────
-       *
-       * Countdown timer + rotating inspirational quotes.
-       * Configure MAINTENANCE_END for your real maintenance window.
+       * ── 1. Canvas: Estrellas Lentas + Polvo Cinematográfico ──────────
        */
+      const canvas = document.getElementById('bg-canvas');
+      const ctx = canvas.getContext('2d');
+      let width, height, stars, dust;
 
-      // ⚙️  CONFIGURAR: fecha/hora de fin del mantenimiento (UTC ISO 8601)
-      const MAINTENANCE_END = new Date(
-        Date.now() + 2 * 24 * 60 * 60 * 1000   // 2 días desde ahora
-      );
+      function initCanvas() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+        
+        // Estrellas del hiperespacio (Muy lentas)
+        stars = [];
+        const numStars = Math.min(150, Math.floor((width * height) / 10000));
+        for (let i = 0; i < numStars; i++) {
+          stars.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            z: Math.random() * width,
+            color: Math.random() > 0.5 ? 'rgba(0, 102, 255,' : 'rgba(0, 212, 255,'
+          });
+        }
+
+        // Partículas de Polvo Hiperrealistas (Bokeh)
+        dust = [];
+        const numDust = 15; // Pocas pero grandes y desenfocadas
+        for (let i = 0; i < numDust; i++) {
+          dust.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            r: Math.random() * 80 + 40, // Radio grande para desenfoque
+            vx: (Math.random() - 0.5) * 0.1, // Movimiento extremadamente lento
+            vy: (Math.random() - 0.5) * 0.1,
+            alpha: Math.random() * 0.03 + 0.01 // Brillo muy sutil
+          });
+        }
+      }
+
+      function drawScene() {
+        // Estela de movimiento suave
+        ctx.fillStyle = 'rgba(10, 10, 15, 0.1)';
+        ctx.fillRect(0, 0, width, height);
+        
+        // Dibujar Polvo (Aditivo para efecto de luz volumétrica realista)
+        ctx.globalCompositeOperation = 'lighter';
+        for (let p of dust) {
+          p.x += p.vx;
+          p.y += p.vy;
+          
+          // Bucle infinito suave
+          if (p.x < -p.r) p.x = width + p.r;
+          if (p.x > width + p.r) p.x = -p.r;
+          if (p.y < -p.r) p.y = height + p.r;
+          if (p.y > height + p.r) p.y = -p.r;
+          
+          const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+          grad.addColorStop(0, `rgba(150, 200, 255, ${p.alpha})`);
+          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalCompositeOperation = 'source-over';
+
+        // Dibujar Estrellas (Velocidad reducida drásticamente)
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const speed = 0.8; // Antes era 4, ahora 0.8 (majestuoso)
+
+        for (let i = 0; i < stars.length; i++) {
+          const p = stars[i];
+          p.z -= speed;
+          
+          if (p.z <= 0) {
+            p.x = Math.random() * width;
+            p.y = Math.random() * height;
+            p.z = width;
+          }
+
+          const k = 140 / p.z;
+          const px = (p.x - centerX) * k + centerX;
+          const py = (p.y - centerY) * k + centerY;
+
+          if (px >= 0 && px <= width && py >= 0 && py <= height) {
+            const size = (1 - p.z / width) * 2;
+            const opacity = 1 - p.z / width;
+            ctx.fillStyle = p.color + opacity + ')';
+            ctx.beginPath();
+            ctx.arc(px, py, size, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        requestAnimationFrame(drawScene);
+      }
+
+      initCanvas();
+      drawScene();
+      window.addEventListener('resize', initCanvas);
+
+
+      /**
+       * ── 2. Física Lerp para Tilt 3D Hiperrealista ──────────────────
+       * La tarjeta se mueve con inercia, persiguiendo al ratón suavemente.
+       */
+      const card = document.getElementById('maintenanceCard');
+      let targetX = 0, targetY = 0, currentX = 0, currentY = 0;
+      let isCardVisible = false;
+
+      // Observador para saber cuándo la tarjeta es visible y detener animación si no lo está
+      const observer = new IntersectionObserver((entries) => {
+        isCardVisible = entries[0].isIntersecting;
+      });
+      observer.observe(card);
+
+      if (window.matchMedia("(hover: hover)").matches) {
+        document.addEventListener('mousemove', (e) => {
+          targetX = (e.clientX / window.innerWidth - 0.5) * 8; // Reducido a 8 grados max
+          targetY = (e.clientY / window.innerHeight - 0.5) * -8;
+        });
+      }
+
+      function animateTilt() {
+        if (isCardVisible) {
+          // Interpolación lineal (Lerp) para inercia física
+          currentX += (targetX - currentX) * 0.05; // 0.05 = Suavidad/Retardo
+          currentY += (targetY - currentY) * 0.05;
+          
+          card.style.transform = `rotateY(${currentX}deg) rotateX(${currentY}deg)`;
+        }
+        requestAnimationFrame(animateTilt);
+      }
+      // Iniciar la animación física después de que entre la tarjeta
+      setTimeout(() => {
+        card.style.opacity = '1'; // Forzar visibilidad para Lerp
+        animateTilt();
+      }, 1200);
+
+
+      /**
+       * ── 3. Maintenance Page Logic ──────────────────────────────
+       */
+      const MAINTENANCE_END = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
       const TOTAL_DURATION_MS = 2 * 24 * 60 * 60 * 1000;
 
-      // ── Rotating quotes ──────────────────────────────────────────
       const quotes = [
-        {
-          text: "La calidad de los datos no es un destino, es un camino que construimos juntos, paso a paso.",
-          author: "Equipo AuditData AI"
-        },
-        {
-          text: "Cada dato limpio es una mejor decisión. Cada decisión, un paso más cerca del impacto real.",
-          author: "Equipo AuditData AI"
-        },
-        {
-          text: "No solo limpiamos datos, construimos confianza en la información que mueve tu negocio.",
-          author: "Equipo AuditData AI"
-        },
-        {
-          text: "La excelencia no es un acto, sino un hábito. Estamos perfeccionando cada detalle para ti.",
-          author: "Aristóteles, adaptado por AuditData AI"
-        },
-        {
-          text: "Detrás de cada gran análisis hay datos que alguien se tomó el tiempo de preparar bien.",
-          author: "Equipo AuditData AI"
-        },
+        { text: "La calidad de los datos no es un destino, es un camino que construimos juntos, paso a paso.", author: "Equipo AuditData AI" },
+        { text: "Cada dato limpio es una mejor decisión. Cada decisión, un paso más cerca del impacto real.", author: "Equipo AuditData AI" },
+        { text: "No solo limpiamos datos, construimos confianza en la información que mueve tu negocio.", author: "Equipo AuditData AI" },
+        { text: "La excelencia no es un acto, sino un hábito. Estamos perfeccionando cada detalle para ti.", author: "Aristóteles, adaptado por AuditData AI" },
+        { text: "Detrás de cada gran análisis hay datos que alguien se tomó el tiempo de preparar bien.", author: "Equipo AuditData AI" },
       ];
 
       const $quoteText = document.getElementById("quoteText");
@@ -743,37 +848,29 @@
         quoteIndex = (quoteIndex + 1) % quotes.length;
         if ($quoteText) {
           $quoteText.style.opacity = "0";
-          $quoteText.style.transition = "opacity 0.4s";
           setTimeout(() => {
             $quoteText.textContent = quotes[quoteIndex].text;
             if ($quoteAuthor) $quoteAuthor.textContent = "— " + quotes[quoteIndex].author;
             $quoteText.style.opacity = "1";
-          }, 400);
+          }, 800); // Espera más para coincidir con la transición CSS lenta
         }
       }
+      setInterval(rotateQuote, 10000); // Rotación más lenta (8s a 10s)
 
-      setInterval(rotateQuote, 8000);
-
-      // ── Countdown ────────────────────────────────────────────────
       const $d = document.getElementById("cdDays");
       const $h = document.getElementById("cdHours");
       const $m = document.getElementById("cdMinutes");
       const $s = document.getElementById("cdSeconds");
       const $bar = document.getElementById("progressBar");
 
-      function pad(n) {
-        return String(n).padStart(2, "0");
-      }
+      function pad(n) { return String(n).padStart(2, "0"); }
 
       function tick() {
         const now = Date.now();
         const diff = Math.max(0, MAINTENANCE_END - now);
 
         if (diff === 0) {
-          $d.textContent = "00";
-          $h.textContent = "00";
-          $m.textContent = "00";
-          $s.textContent = "00";
+          $d.textContent = "00"; $h.textContent = "00"; $m.textContent = "00"; $s.textContent = "00";
           [$d, $h, $m, $s].forEach(el => el.classList.add("countdown__value--done"));
           $bar.style.width = "100%";
           setTimeout(() => { window.location.href = "/"; }, 3000);
@@ -781,8 +878,7 @@
         }
 
         const totalSec = Math.floor(diff / 1000);
-        const days = Math.floor(totalSec / 86400);
-        $d.textContent = pad(days);
+        $d.textContent = pad(Math.floor(totalSec / 86400));
         $h.textContent = pad(Math.floor((totalSec % 86400) / 3600));
         $m.textContent = pad(Math.floor((totalSec % 3600) / 60));
         $s.textContent = pad(totalSec % 60);
