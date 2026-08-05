@@ -124,4 +124,36 @@ test.describe("AuditData AI - Depuración 28 Categorías", () => {
     await page.click("#drawerCloseButton");
     await expect(page.locator("#aiColumnDrawer.is-active")).toHaveCount(0);
   });
+
+  test("aceptar confirmadas selecciona solo CONFIRMADO (UI-04)", async ({ page }) => {
+    await clearLoadAnalyze(page);
+    await runDiagnostic(page);
+    await page.locator("#nubeDeselectAll").click();
+    await page.locator("#nubeAcceptConfirmed").click();
+    const checks = await page.locator(".nube-manual-check").evaluateAll(cs =>
+      cs.filter(c => c.checked).map(c => c.dataset.signal)
+    );
+    expect(checks.length).toBeGreaterThan(0);
+    expect(checks.every(s => s === "CONFIRMADO")).toBeTruthy();
+  });
+
+  test("omitir A_REVISAR deselecciona las A_REVISAR (UI-04)", async ({ page }) => {
+    await clearLoadAnalyze(page);
+    await runDiagnostic(page);
+    await page.locator("#nubeSkipPending").click();
+    const pending = await page.locator(".nube-manual-check").evaluateAll(cs =>
+      cs.filter(c => c.dataset.signal === "A_REVISAR").map(c => c.checked)
+    );
+    expect(pending.length).toBeGreaterThan(0);
+    expect(pending.every(v => v === false)).toBeTruthy();
+  });
+
+  test("marcar revisado agrega estado is-reviewed (UI-04)", async ({ page }) => {
+    await clearLoadAnalyze(page);
+    await runDiagnostic(page);
+    const firstReviewed = page.locator(".nube-manual-reviewed").first();
+    await firstReviewed.check();
+    const card = firstReviewed.locator("..");
+    await expect(page.locator(".nube-manual-issue.is-reviewed")).toHaveCount(1);
+  });
 });

@@ -1437,6 +1437,30 @@ th {
   cursor: pointer;
 }
 
+.nube-manual-issue__reviewed {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0 26px;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.nube-manual-issue__reviewed input {
+  width: 14px;
+  height: 14px;
+  min-height: 14px;
+  accent-color: var(--color-success);
+  cursor: pointer;
+}
+
+.nube-manual-issue.is-reviewed {
+  background: rgba(34, 197, 94, 0.05);
+  border-left: 3px solid #22C55E;
+  padding-left: 8px;
+}
+
 .nube-manual-issue__info {
   flex: 1;
 }

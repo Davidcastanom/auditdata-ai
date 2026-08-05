@@ -148,6 +148,8 @@ export class NubeValidación {
         <div class="nube-actions-global">
           <button class="nube-btn nube-btn--ghost nube-btn--skip" id="nubeSkipManual" type="button">Omitir validación</button>
           <button class="nube-btn nube-btn--ghost" id="nubeSelectAllManual" type="button">Seleccionar todo</button>
+          <button class="nube-btn nube-btn--ghost" id="nubeAcceptConfirmed" type="button">Aceptar confirmadas</button>
+          <button class="nube-btn nube-btn--ghost" id="nubeSkipPending" type="button">Omitir A_REVISAR</button>
           <button class="nube-btn nube-btn--ghost nube-btn--danger" id="nubeDeselectAll" type="button">Limpiar selección</button>
         </div>
       </div>
@@ -208,7 +210,7 @@ export class NubeValidación {
           ${issues.map(issue => `
             <div class="nube-manual-issue" data-category="${this._escapeAttr(issue.category_code)}">
               <label class="nube-manual-issue__label">
-                <input type="checkbox" class="nube-manual-check" data-column="${this._escapeAttr(rawCol)}" data-category="${this._escapeAttr(issue.category_code)}" data-count="${issue.count || 0}" checked />
+                <input type="checkbox" class="nube-manual-check" data-column="${this._escapeAttr(rawCol)}" data-category="${this._escapeAttr(issue.category_code)}" data-count="${issue.count || 0}" data-signal="${this._escapeAttr(issue.signal || '')}" checked />
                 <div class="nube-manual-issue__info">
                   <div class="nube-manual-issue__header">
                     <span class="nube-rec__severity nube-rec__severity--${this._getSeverityClass(issue.severity)}">${this._escHtml(issue.severity || '')}</span>
@@ -229,6 +231,10 @@ export class NubeValidación {
                   ` : ''}
                 </div>
               </label>
+              <label class="nube-manual-issue__reviewed">
+                <input type="checkbox" class="nube-manual-reviewed" data-column="${this._escapeAttr(rawCol)}" data-category="${this._escapeAttr(issue.category_code)}" />
+                <span>Marcar revisado</span>
+              </label>
             </div>
           `).join('')}
         </div>
@@ -242,6 +248,8 @@ export class NubeValidación {
 
     const selectAll = this.container.querySelector('#nubeSelectAllManual');
     const deselectAll = this.container.querySelector('#nubeDeselectAll');
+    const acceptConfirmed = this.container.querySelector('#nubeAcceptConfirmed');
+    const skipPending = this.container.querySelector('#nubeSkipPending');
     const confirmBtn = this.container.querySelector('#nubeManualConfirm');
     const skipManual = this.container.querySelector('#nubeSkipManual');
 
@@ -262,8 +270,30 @@ export class NubeValidación {
       checks.forEach(ch => { ch.checked = false; });
       this._updateManualProgress();
     });
+    if (acceptConfirmed) acceptConfirmed.addEventListener('click', () => {
+      checks.forEach(ch => { ch.checked = ch.dataset.signal === 'CONFIRMADO'; });
+      this._updateManualProgress();
+    });
+    if (skipPending) skipPending.addEventListener('click', () => {
+      checks.forEach(ch => { if (ch.dataset.signal === 'A_REVISAR') ch.checked = false; });
+      this._updateManualProgress();
+    });
     if (confirmBtn) confirmBtn.addEventListener('click', () => this._confirmManualSelection());
     if (skipManual) skipManual.addEventListener('click', () => this._handleSkipValidation());
+
+    this.container.querySelectorAll('.nube-manual-reviewed').forEach(rv => {
+      rv.addEventListener('change', () => this._updateManualReviewed(rv));
+    });
+  }
+
+  _updateManualReviewed(rv) {
+    const card = rv.closest('.nube-manual-issue');
+    if (!card) return;
+    if (rv.checked) {
+      card.classList.add('is-reviewed');
+    } else {
+      card.classList.remove('is-reviewed');
+    }
   }
 
   _bindColumnAnalysisButtons() {
