@@ -172,15 +172,15 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 - **Aceptación:** smoke E2E del wizard con dataset real; seleccionar un problema queda documentado en la bitácora.
 - **Riesgo:** medio.
 
-### F7 — Integración, validación y despliegue (2026-09-03 → 2026-09-05)
+### F7 — Integración, validación y despliegue (2026-09-03 → 2026-09-05) — **HECHO 2026-08-05**
 - **Objetivo:** verificar en producción sin regresiones.
 - **Tareas:**
-  1. Suite completa + golden tests verdes.
-  2. Validación manual E2E en local con 3 datasets reales (CSV `;`, CSV `,`, XLSX).
-  3. Comparar PDF antes/después para confirmar que los cambios son coherentes.
-  4. Commit final + push; auto-deploy Render.
-  5. Verificación en prod: `/api/analyze`, `/api/diagnose`, `/api/clean`, panel admin, historial.
-  6. Marcar en la tabla maestra los IDs como `VERIFICADO PROD`.
+  1. Suite completa + golden tests verdes. → **229 passed Python + 41 E2E + ruff limpio**
+  2. Validación manual E2E en local con 3 datasets reales (CSV `;`, CSV `,`, XLSX). → **harness `tests/test_f7_validation.py` (commit `99e3af6`), 299/299 checks**
+  3. Comparar PDF antes/después para confirmar que los cambios son coherentes. → **PDF de limpieza valido; revisiones manuales documentadas; 25 filas intactas**
+  4. Commit final + push; auto-deploy Render. → **push `99e3af6`, deploy OK en Render**
+  5. Verificación en prod: `/api/analyze`, `/api/diagnose`, `/api/clean`, panel admin, historial. → **14/14 checks prod; landing/admin/maintenance HTTP 200; admin metrics/errors 401 (requieren METRICS_SECRET, ver OP-02); `/api/ai/recommend` 422 esperado**
+  6. Marcar en la tabla maestra los IDs como `VERIFICADO PROD`. → **pendiente manual (OP-01/02/03)**.
 - **Aceptación:** checklist de verificación en prod completado.
 - **Riesgo:** bajo (todo probado antes).
 
