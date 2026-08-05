@@ -67,10 +67,10 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 | DG-10 | Deduplicar conteo DUPLICATE (columna + dataset) | Motor C3 | F5 | HECHO | 2026-08-03 |
 | DG-11 | `confidence`/`signal` (CONFIRMADO vs A_REVISAR) por hallazgo | Motor 4.5 | F5 | HECHO | 2026-08-03 |
 | DG-12 | Alinear nombres/códigos de categorías (docstring vs código vs UI) | Motor C5 | F5 | HECHO | 2026-08-03 |
-| UI-01 | Tarjetas con severidad del backend + badge signal | Motor C2/C4 | F6 | PENDIENTE | 2026-08-31 |
-| UI-02 | `escapeAttr` en headers (XSS/HTML roto) | Motor C7 | F6 | PENDIENTE | 2026-08-31 |
-| UI-03 | Drawer unificado (misma severidad/signal/confianza) | Motor 5.4 | F6 | PENDIENTE | 2026-08-31 |
-| UI-04 | "Marcar revisado" + aceptar confirmadas/omitir a_revisar | Motor 5.2 | F6 | PENDIENTE | 2026-08-31 |
+| UI-01 | Tarjetas con severidad del backend + badge signal | Motor C2/C4 | F6 | HECHO | 2026-08-03 |
+| UI-02 | `escapeAttr` en headers (XSS/HTML roto) | Motor C7 | F6 | HECHO | 2026-08-03 |
+| UI-03 | Drawer unificado (misma severidad/signal/confianza) | Motor 5.4 | F6 | HECHO | 2026-08-03 |
+| UI-04 | "Marcar revisado" + aceptar confirmadas/omitir a_revisar | Motor 5.2 | F6 | HECHO | 2026-08-03 |
 | TS-01 | Golden tests motor 28 categorías (9 casos) | Doc 1 §7 | F0 | HECHO | 2026-08-07 |
 | TS-02 | Golden tests algoritmo (8 casos) | Doc 2 §9 | F0 | HECHO | 2026-08-07 |
 | TS-03 | CI GitHub Actions (pytest en cada PR) | Doc 2 §6 | F0 | HECHO | 2026-08-07 |
