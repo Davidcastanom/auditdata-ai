@@ -70,6 +70,10 @@ except ImportError:
 
 MODEL = "llama-3.1-8b-instant"
 MAX_TOKENS = 4096
+# El tier gratuito de Groq limita llama-3.1-8b-instant a 6000 TPM (input + output).
+# Las llamadas batch (recomendaciones/justificaciones) piden menos tokens de salida
+# para que el request completo (prompt + salida) quepa en el limite.
+BATCH_MAX_TOKENS = 2048
 TEMPERATURE = 0.3
 
 
@@ -220,7 +224,7 @@ def get_justifications_batch(
                 {"role": "system", "content": _JUSTIFICATION_BATCH_SYSTEM},
                 {"role": "user", "content": user_prompt},
             ],
-            max_tokens=MAX_TOKENS,
+            max_tokens=BATCH_MAX_TOKENS,
             temperature=TEMPERATURE,
             response_format={"type": "json_object"},
         )
@@ -293,7 +297,7 @@ def get_ai_recommendations(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            max_tokens=MAX_TOKENS,
+            max_tokens=BATCH_MAX_TOKENS,
             temperature=TEMPERATURE,
             response_format={"type": "json_object"}
         )
@@ -430,7 +434,7 @@ def _build_batch_prompt(
             rows = iss.get('affected_rows', [])
             if exs:
                 ex_strs = []
-                for e in exs[:3]:
+                for e in exs[:2]:
                     if isinstance(e, dict):
                         if 'row' in e and 'value' in e:
                             ex_strs.append(f"    Fila {e['row']}: valor='{e['value']}'")
@@ -445,9 +449,9 @@ def _build_batch_prompt(
                 if ex_strs:
                     examples_text += f"\n  [{cat}]:\n" + "\n".join(ex_strs)
             elif rows:
-                examples_text += f"\n  [{cat}]: Filas afectadas: {rows[:8]}"
+                examples_text += f"\n  [{cat}]: Filas afectadas: {rows[:4]}"
 
-        samples_text = ", ".join(sample_values[:8]) if sample_values else "No disponibles"
+        samples_text = ", ".join(sample_values[:4]) if sample_values else "No disponibles"
 
         parts.append(f"--- COLUMNA: {col_name} ---")
         parts.append(f"Dominio: {domain or 'desconocido'} | Filas: {total}")
@@ -659,7 +663,7 @@ async def get_ai_recommendations_async(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            max_tokens=MAX_TOKENS,
+            max_tokens=BATCH_MAX_TOKENS,
             temperature=TEMPERATURE,
             response_format={"type": "json_object"}
         )

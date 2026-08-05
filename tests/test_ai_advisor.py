@@ -10,6 +10,7 @@ Cubren:
 
 import base64
 import json
+import os
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -18,13 +19,17 @@ from fastapi.testclient import TestClient
 
 from backend.app.main import app
 from data_engine.ai_advisor import (
+    _build_batch_prompt,
     _build_chat_context_message,
     chat_with_column_advisor,
     compute_column_context,
+    get_ai_recommendations,
     get_justifications_batch,
 )
 
 client = TestClient(app)
+
+_TEST_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SAMPLE_CSV = (
     "id,nombre,ciudad,edad,horas_sueno,litros_agua,completo_reto\n"
@@ -615,6 +620,53 @@ class TestGetJustificationsBatch(unittest.TestCase):
         self.assertEqual(len(changelog), 1)
         self.assertIn("reason", changelog[0])
         self.assertTrue(len(changelog[0]["reason"]) > 10)
+
+
+# ── F5/CL-07 (fix TPM 413): presupuesto de tokens para llama-3.1-8b-instant ──
+# El tier gratuito de Groq limita llama-3.1-8b-instant a 6000 TPM (input + output).
+# El prompt batch + max_tokens=4096 superaba el limite (413) -> fallback manual.
+
+class TestBatchPromptTokenBudget(unittest.TestCase):
+    """El prompt batch y el max_tokens de salida deben caber en el TPM free (6000)."""
+
+    MAX_CHARS = 7000
+
+    def _build_dirty_columns(self):
+        import base64 as _b64
+        from fastapi.testclient import TestClient as _TC
+        from backend.app.main import app as _app
+        c = _TC(_app)
+        with open(os.path.join(_TEST_ROOT, "samples", "dataset_sucio.csv"), "rb") as f:
+            payload = _b64.b64encode(f.read()).decode()
+        r = c.post("/api/file/preview", json={"filename": "d.csv", "content_base64": payload})
+        pv = r.json()
+        settings = {"delimiter": pv["delimiter"], "encoding": pv["encoding"], "header_row_index": pv["detected_header_row"]}
+        r = c.post("/api/diagnose", json={"filename": "d.csv", "content_base64": payload, **settings})
+        return [col for col in r.json()["diagnostic"]["columns"] if col.get("issues")]
+
+    def test_prompt_cabe_en_budget_de_tokens(self):
+        """Con 11 columnas sucias (dataset real), el prompt no debe superar
+        el presupuesto estimado para TPM 6000 con max_tokens de salida."""
+        cols = self._build_dirty_columns()
+        self.assertGreaterEqual(len(cols), 8)
+        prompt = _build_batch_prompt(cols, None)
+        # estimacion conservadora: ~1 token / 2.5 chars en espanol
+        est_input_tokens = len(prompt) // 2
+        est_total = est_input_tokens + 2048  # max_tokens de salida reducido
+        self.assertLessEqual(len(prompt), self.MAX_CHARS,
+                             f"prompt {len(prompt)} chars excede presupuesto")
+        self.assertLess(est_total, 6000,
+                        f"est. {est_total} tokens >= TPM 6000")
+
+    def test_recommendations_usa_max_tokens_reducido(self):
+        """get_ai_recommendations debe pedir max_tokens <= 2048 para caber en TPM."""
+        cols = self._build_dirty_columns()
+        fake = _FakeClient(response_text=json.dumps({"recommendations": []}))
+        with patch("data_engine.ai_advisor.init_groq_client", return_value=fake):
+            get_ai_recommendations({"columns": cols}, [])
+        self.assertIsNotNone(fake.chat.completions.last_kwargs)
+        mt = fake.chat.completions.last_kwargs.get("max_tokens")
+        self.assertLessEqual(mt, 2048, f"max_tokens={mt} demasiado alto para TPM 6000")
 
 
 if __name__ == "__main__":
