@@ -53,6 +53,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 | CL-07 | IA por acción (Gemini serial, 2 proveedores) → lote Groq unificado | Algo. C7 | F5 | HECHO | 2026-08-03 |
 | CL-08 | `after` se re-parsea desde CSV → re-perfilar en memoria | Algo. C8 | F3 | HECHO | 2026-08-19 |
 | CL-09 | Batch IA excede TPM 6000 free de Groq (413 → fallback manual) | Algo. C7 | F5 | HECHO | 2026-08-05 |
+| CL-10 | Re-perfilado post-limpieza recalcula IQR sobre datos imputados → valores normales se vuelven outliers y una acción correctiva BAJA la exactitud (y el overall en el PDF) | Algo. S1 | F7 | HECHO | 2026-08-05 |
 | DM-01 | `match_column_name` substring → tokens + confirmación por valores | Motor A1/A2/B9 | F4 | HECHO | 2026-08-03 |
 | DM-02 | Fechas: asumir formato detectado (dd/mm vs mm/dd) | Motor A3 | F4 | HECHO | 2026-08-03 |
 | DM-03 | `MISSING_TOKENS_EXTENDED` depurado ("9999","-1","pendiente"," ") | Motor A4 | F4 | HECHO | 2026-08-24 |
@@ -183,6 +184,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
   4. Commit final + push; auto-deploy Render. → **push `99e3af6`, deploy OK en Render**
   5. Verificación en prod: `/api/analyze`, `/api/diagnose`, `/api/clean`, panel admin, historial. → **14/14 checks prod; landing/admin/maintenance HTTP 200; admin metrics/errors 401 (requieren METRICS_SECRET, ver OP-02); `/api/ai/recommend` 422 esperado**
   6. Marcar en la tabla maestra los IDs como `VERIFICADO PROD`. → **pendiente manual (OP-01/02/03)**.
+  7. **CL-10 (2026-08-05):** el re-perfilado post-limpieza recalcula el IQR sobre datos ya imputados y convertía valores normales (2.9 en `calificacion`) en outliers → imputar la media BAJABA `accuracy` (95.0 → 94.67) y empeoraba el overall en Etapa 06 y en el PDF. Fix: congelar los límites IQR del dataset original (`_numeric_outlier_bounds`) y pasarlos al re-perfilado (`frozen_outlier_bounds`). Verificado: con todas las imputaciones `accuracy` se mantiene 95.0 y `overall` sube 95.25 → 97.15; tests `test_impute_missing_no_degrada_accuracy*` (commit `2c4a6b0`).
 - **Aceptación:** checklist de verificación en prod completado.
 - **Riesgo:** bajo (todo probado antes).
 

@@ -96,10 +96,15 @@ def analyze_dataset(filename: str, payload: bytes, duplicate_key_columns: list[s
     return _analyze_rows(headers, rows, filename, duplicate_key_columns=duplicate_key_columns)
 
 
-def _analyze_rows(headers: list[str], rows: list[dict[str, Any]], filename: str, duplicate_key_columns: list[str] | None = None) -> dict[str, Any]:
-    """Core analysis from in-memory headers/rows (CL-08): re-perfila sin re-parsear CSV."""
+def _analyze_rows(headers: list[str], rows: list[dict[str, Any]], filename: str, duplicate_key_columns: list[str] | None = None, frozen_outlier_bounds: dict[str, tuple[float, float]] | None = None) -> dict[str, Any]:
+    """Core analysis from in-memory headers/rows (CL-08): re-perfila sin re-parsear CSV.
+
+    frozen_outlier_bounds (CL-10): límites IQR del dataset ORIGINAL por columna,
+    para que el re-perfilado post-limpieza no recalcule outliers sobre datos ya
+    imputados/corregidos (evita que una acción correctiva degrade la exactitud).
+    """
     duplicate_rows = _count_duplicate_rows(headers, rows, key_columns=duplicate_key_columns)
-    columns = [_profile_column(header, rows) for header in headers]
+    columns = [_profile_column(header, rows, outlier_bounds=(frozen_outlier_bounds or {}).get(header)) for header in headers]
     scores = _quality_scores(columns, duplicate_rows, len(rows), max(len(headers), 1))
 
     return {
@@ -126,6 +131,16 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
 
     headers, rows, header_idx = load_dataset(filename, payload, delimiter=delimiter, encoding=encoding, header_row=header_row)
     before = analyze_dataset(filename, payload, duplicate_key_columns=duplicate_key_columns, delimiter=delimiter, encoding=encoding, header_row=header_row)
+    # CL-10: congelar los límites IQR del dataset ORIGINAL para el re-perfilado
+    # post-limpieza. Imputar/rellenar no debe recalcular el rango de outliers
+    # sobre datos ya corregidos (una acción correctiva nunca degrada exactitud).
+    frozen_outlier_bounds: dict[str, tuple[float, float]] = {}
+    for header in headers:
+        parsed = _to_float_column([_normalize_missing(row.get(header, "")) for row in rows])
+        numeric = [value for value in parsed if value is not None]
+        bounds = _numeric_outlier_bounds(numeric)
+        if bounds is not None:
+            frozen_outlier_bounds[header] = bounds
     log: list[dict[str, str]] = []
     changelog: list[dict[str, Any]] = []
 
@@ -428,7 +443,8 @@ def apply_cleaning_actions(filename: str, payload: bytes, actions: list[dict[str
 
     clean_csv = rows_to_csv(headers, rows)
     # CL-08: after re-perfilado en memoria, sin re-parsear el CSV limpio.
-    after = _analyze_rows(headers, rows, _clean_filename(filename), duplicate_key_columns=duplicate_key_columns)
+    # CL-10: con límites de outliers congelados del dataset original.
+    after = _analyze_rows(headers, rows, _clean_filename(filename), duplicate_key_columns=duplicate_key_columns, frozen_outlier_bounds=frozen_outlier_bounds)
     return {"before": before, "after": after, "actions": log, "clean_csv": clean_csv, "changelog": changelog}
 
 
@@ -977,7 +993,7 @@ def detect_file_settings(filename: str, payload: bytes) -> dict[str, Any]:
     }
 
 
-def _profile_column(header: str, rows: list[dict[str, Any]]) -> ColumnProfile:
+def _profile_column(header: str, rows: list[dict[str, Any]], outlier_bounds: tuple[float, float] | None = None) -> ColumnProfile:
     values = [row.get(header, "") for row in rows]
     normalized = [_normalize_missing(value) for value in values]
     present = [value for value in normalized if value != ""]
@@ -1002,7 +1018,7 @@ def _profile_column(header: str, rows: list[dict[str, Any]]) -> ColumnProfile:
         invalid_type_count = len(present) - len([v for v in numeric_values if v is not None])
         profile.invalid_type_count = invalid_type_count
         numeric_values = [value for value in numeric_values if value is not None]
-        _add_numeric_stats(profile, numeric_values)
+        _add_numeric_stats(profile, numeric_values, outlier_bounds=outlier_bounds)
     else:
         _add_format_groups(profile, present)
         _add_value_distribution(profile, present)
@@ -1109,6 +1125,25 @@ def _to_float_column(values: list[str]) -> list[float | None]:
     return [_to_float(value, separator_mode=separator_mode) for value in values]
 
 
+def _numeric_outlier_bounds(values: list[float]) -> tuple[float, float] | None:
+    """Devuelve (low, high) del rango IQR (1.5x) o None si no hay suficientes
+    valores numéricos (<4) o dispersión (IQR=0).
+
+    CL-10: límites de referencia compartidos entre el perfilado original y el
+    re-perfilado post-limpieza (el after NO recalcula el IQR sobre datos
+    imputados, para que las acciones correctivas no degraden la exactitud).
+    """
+    if len(values) < 4:
+        return None
+    sorted_values = sorted(values)
+    q1 = statistics.median(sorted_values[: len(sorted_values) // 2])
+    q3 = statistics.median(sorted_values[(len(sorted_values) + 1) // 2 :])
+    iqr = q3 - q1
+    if iqr == 0:
+        return None
+    return (q1 - 1.5 * iqr, q3 + 1.5 * iqr)
+
+
 def _outlier_row_indices(rows: list[dict[str, Any]], column: str) -> list[int]:
     """Return 0-based row indices flagged as numeric outliers (CL-03).
 
@@ -1118,16 +1153,10 @@ def _outlier_row_indices(rows: list[dict[str, Any]], column: str) -> list[int]:
     values = [_normalize_missing(row.get(column, "")) for row in rows]
     parsed = _to_float_column(values)
     numeric = [(i, v) for i, v in enumerate(parsed) if v is not None]
-    if len(numeric) < 4:
+    bounds = _numeric_outlier_bounds([v for _, v in numeric])
+    if bounds is None:
         return []
-    sorted_values = sorted(v for _, v in numeric)
-    q1 = statistics.median(sorted_values[: len(sorted_values) // 2])
-    q3 = statistics.median(sorted_values[(len(sorted_values) + 1) // 2 :])
-    iqr = q3 - q1
-    if iqr == 0:
-        return []
-    low = q1 - 1.5 * iqr
-    high = q3 + 1.5 * iqr
+    low, high = bounds
     return [i for i, v in numeric if v < low or v > high]
 
 
@@ -1156,7 +1185,7 @@ def _add_value_distribution(profile: ColumnProfile, values: list[str]) -> None:
     ]
 
 
-def _add_numeric_stats(profile: ColumnProfile, values: list[float]) -> None:
+def _add_numeric_stats(profile: ColumnProfile, values: list[float], outlier_bounds: tuple[float, float] | None = None) -> None:
     if not values:
         return
     profile.min_value = round(min(values), 4)
@@ -1164,19 +1193,16 @@ def _add_numeric_stats(profile: ColumnProfile, values: list[float]) -> None:
     profile.mean = round(statistics.fmean(values), 4)
     profile.median = round(statistics.median(values), 4)
 
-    if len(values) < 4:
-        profile.outlier_analysis_skipped = True
-        return
-    sorted_values = sorted(values)
-    q1 = statistics.median(sorted_values[: len(sorted_values) // 2])
-    q3 = statistics.median(sorted_values[(len(sorted_values) + 1) // 2 :])
-    iqr = q3 - q1
-    if iqr == 0:
-        # AP-05: sin dispersión no hay outliers calculables; se hace explícito.
-        profile.outlier_analysis_skipped = True
-        return
-    low = q1 - 1.5 * iqr
-    high = q3 + 1.5 * iqr
+    # CL-10: si se reciben límites congelados (del dataset original) se usan
+    # tal cual; imputar/rellenar no debe recalcular el IQR sobre datos ya
+    # corregidos y convertir valores normales en outliers.
+    if outlier_bounds is None:
+        outlier_bounds = _numeric_outlier_bounds(values)
+        if outlier_bounds is None:
+            # AP-05: sin dispersión (o <4 valores) no hay outliers calculables.
+            profile.outlier_analysis_skipped = True
+            return
+    low, high = outlier_bounds
     outliers = [value for value in values if value < low or value > high]
     profile.outliers = len(outliers)
     profile.outlier_examples = outliers[:8]

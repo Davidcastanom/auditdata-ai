@@ -1,6 +1,13 @@
 import unittest
 from data_engine.analyzer import analyze_dataset, apply_cleaning_actions
 
+
+def _column_by_name(analysis, name):
+    for col in analysis["columns"]:
+        if col["name"] == name:
+            return col
+    return None
+
 class TestDataEngine(unittest.TestCase):
     def setUp(self):
         self.sample_csv = (
@@ -58,6 +65,53 @@ class TestDataEngine(unittest.TestCase):
         self.assertIn("after", result)
         self.assertEqual(result["after"]["duplicate_rows"], 0)
         self.assertGreater(len(result["clean_csv"]), 0)
+
+    def test_impute_missing_no_degrada_accuracy(self):
+        """CL-10: imputar la media en 'calificacion' (IQR con pocos valores) no
+        debe CONVERTIR valores normales en outliers ni bajar accuracy.
+        Antes del fix el after recalculaba el IQR sobre datos ya imputados y
+        el 2.9 quedaba fuera del rango (outliers 0 -> 2), restando calidad."""
+        import os
+
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "samples", "dataset_sucio.csv")
+        with open(path, "rb") as f:
+            payload = f.read()
+        actions = [{"kind": "impute_missing", "column": "calificacion", "method": "mean"}]
+        result = apply_cleaning_actions("dataset_sucio.csv", payload, actions)
+        before = _column_by_name(result["before"], "calificacion")
+        after = _column_by_name(result["after"], "calificacion")
+        self.assertIsNotNone(before)
+        self.assertIsNotNone(after)
+        self.assertGreaterEqual(after["missing"], 0)
+        self.assertEqual(after["missing"], 0, "los faltantes deben imputarse")
+        self.assertLessEqual(after["outliers"], before["outliers"],
+                             "imputar no debe convertir valores normales en outliers")
+        self.assertGreaterEqual(
+            result["after"]["scores"]["accuracy"],
+            result["before"]["scores"]["accuracy"],
+            "una accion correctiva no debe restar exactitud estructural",
+        )
+
+    def test_impute_missing_no_degrada_accuracy_telefono(self):
+        """CL-10: imputar con la moda en 'telefono' tampoco debe crear outliers."""
+        import os
+
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "samples", "dataset_sucio.csv")
+        with open(path, "rb") as f:
+            payload = f.read()
+        actions = [{"kind": "impute_missing", "column": "telefono", "method": "mode"}]
+        result = apply_cleaning_actions("dataset_sucio.csv", payload, actions)
+        before = _column_by_name(result["before"], "telefono")
+        after = _column_by_name(result["after"], "telefono")
+        self.assertLessEqual(after["outliers"], before["outliers"],
+                             "imputar la moda no debe crear outliers nuevos")
+        self.assertGreaterEqual(
+            result["after"]["scores"]["accuracy"],
+            result["before"]["scores"]["accuracy"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
