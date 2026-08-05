@@ -52,6 +52,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 | CL-06 | Consolidar impute_missing/fill_missing/fill_empty | Algo. C6 | F3 | HECHO | 2026-08-19 |
 | CL-07 | IA por acción (Gemini serial, 2 proveedores) → lote Groq unificado | Algo. C7 | F5 | HECHO | 2026-08-03 |
 | CL-08 | `after` se re-parsea desde CSV → re-perfilar en memoria | Algo. C8 | F3 | HECHO | 2026-08-19 |
+| CL-09 | Batch IA excede TPM 6000 free de Groq (413 → fallback manual) | Algo. C7 | F5 | HECHO | 2026-08-05 |
 | DM-01 | `match_column_name` substring → tokens + confirmación por valores | Motor A1/A2/B9 | F4 | HECHO | 2026-08-03 |
 | DM-02 | Fechas: asumir formato detectado (dd/mm vs mm/dd) | Motor A3 | F4 | HECHO | 2026-08-03 |
 | DM-03 | `MISSING_TOKENS_EXTENDED` depurado ("9999","-1","pendiente"," ") | Motor A4 | F4 | HECHO | 2026-08-24 |
@@ -147,7 +148,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
 
 ### F5 — Clasificación y chequeos (2026-08-24 → 2026-08-28)
 - **Objetivo:** chequeos exactos, sin ramas muertas y con semántica de salida unificada.
-- **Alcance:** DG-01..DG-12, CL-07.
+- **Alcance:** DG-01..DG-12, CL-07, CL-09.
 - **Tareas:**
   1. `_is_id_column`: nombre AND (cardinalidad ≥95% O patrón ID); excluir dominios ciudad/género/pais.
   2. Tipos DATE/NUMERIC explícitos en el profiler (las fechas únicas sí se validan).
@@ -157,6 +158,7 @@ Este plan consolida **todo lo diagnosticado y recomendado** en sesiones previas:
   6. Severidad única del backend; dedup de DUPLICATE; `confidence`/`signal`.
   7. Alinear códigos de categoría en docstring/código/UI.
   8. IA: lote asíncrono con Groq (un solo proveedor).
+  9. **CL-09:** el lote con 11 columnas sucias pedía ~7019 tokens vs TPM 6000 free de Groq (413 → fallback manual). Prompt compacto (ejemplos 2/issue, filas 4, valores 4) + `BATCH_MAX_TOKENS=2048` → request est. 4454 tokens. Verificado en prod: `/api/ai/recommend` sin 413, 19 recomendaciones reales.
 - **Aceptación:** golden tests DG; sin FP en los 9 casos documentados; veredicto consistente.
 - **Riesgo:** alto (cambia el JSON de diagnóstico: se agregan `signal`/`confidence`, se conserva el resto).
 
