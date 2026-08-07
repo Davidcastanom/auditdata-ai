@@ -72,10 +72,11 @@ export async function getCurrentUser() {
   }
 }
 
-// CHAT-07: v2.0 = texto de consentimiento corregido (IA honesta: valores de
-// ejemplo + proveedor externo). getConsent() filtra por version, asi que los
-// usuarios con la 1.0 en localStorage vuelven a ver el modal (re-aceptacion).
-export const CONSENT_VERSION = "2.0";
+// CHAT-07: v2.1 = consentimiento que tambien referencia los Terminos y
+// Condiciones y el aviso adaptado a normas internacionales. getConsent()
+// filtra por version, asi que los usuarios con versiones previas en
+// localStorage vuelven a ver el modal (re-aceptacion).
+export const CONSENT_VERSION = "2.1";
 const CONSENT_STORAGE_KEY = "auditdata_consent";
 
 export function getConsent() {

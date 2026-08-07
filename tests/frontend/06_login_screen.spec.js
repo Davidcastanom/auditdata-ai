@@ -24,8 +24,9 @@ test.describe("AuditData AI - Login con Google", () => {
     const modal = page.locator("#consentModal");
     await expect(modal).toBeVisible({ timeout: 10000 });
     await expect(page.locator("#consentModal__body, .consent-modal__body")).toBeVisible();
-    await expect(page.locator(".consent-modal__version")).toContainText("2.0");
+    await expect(page.locator(".consent-modal__version")).toContainText("2.1");
     await expect(page.locator('.consent-modal__body a[href="/privacidad"]')).toBeVisible();
+    await expect(page.locator('.consent-modal__body a[href="/terminos"]')).toBeVisible();
 
     const acceptBtn = page.locator("#consentAcceptButton");
     await expect(acceptBtn).toBeDisabled();
@@ -37,15 +38,25 @@ test.describe("AuditData AI - Login con Google", () => {
     await expect(modal).toBeHidden();
   });
 
-  test("el aviso de privacidad esta enlazado en el footer y es accesible", async ({ page }) => {
+  test("el aviso de privacidad y los terminos estan enlazados y son accesibles", async ({ page }) => {
     await page.goto("/");
-    const link = page.locator('footer a[href="/privacidad"]');
-    await expect(link).toBeVisible({ timeout: 10000 });
-    await expect(link).toHaveAttribute("href", "/privacidad");
+    const privacyLink = page.locator('footer a[href="/privacidad"]');
+    await expect(privacyLink).toBeVisible({ timeout: 10000 });
+    await expect(privacyLink).toHaveAttribute("href", "/privacidad");
+    const termsLink = page.locator('footer a[href="/terminos"]');
+    await expect(termsLink).toBeVisible({ timeout: 10000 });
+    await expect(termsLink).toHaveAttribute("href", "/terminos");
 
     await page.goto("/privacidad");
     await expect(page.locator("h1")).toContainText("privacidad");
-    await expect(page.locator("body")).toContainText("Versi\u00f3n 2.0");
+    await expect(page.locator("body")).toContainText("Versi\u00f3n 2.1");
+    await expect(page.locator("body")).toContainText("RGPD");
+    await expect(page.locator("body")).toContainText("1581");
+    await expect(page.locator("body")).toContainText("CCPA");
+
+    await page.goto("/terminos");
+    await expect(page.locator("h1")).toContainText("T\u00e9rminos y Condiciones");
+    await expect(page.locator("body")).toContainText("Responsabilidad del usuario sobre sus datos");
   });
 
   test("sin consentimiento aceptado, la sesion no guarda historial", async ({ page }) => {

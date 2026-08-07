@@ -593,6 +593,12 @@ def read_privacy():
     return FileResponse(os.path.join(frontend_path, "privacy.html"))
 
 
+@app.get("/terminos")
+def read_terms():
+    """Terminos y Condiciones de uso (CHAT-07)."""
+    return FileResponse(os.path.join(frontend_path, "terms.html"))
+
+
 @app.get("/maintenance")
 def read_maintenance():
     """Página de mantenimiento programado."""

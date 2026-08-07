@@ -1,6 +1,6 @@
 # Mejora Copiloto IA Conversacional — AuditData AI (Trazabilidad)
 
-**Fecha de creación:** 2026-08-07 · **Autor:** AuditData AI · **Estado:** EJECUTADO (commits 0-7 en `main`)
+**Fecha de creación:** 2026-08-07 · **Autor:** AuditData AI · **Estado:** EJECUTADO (commits 0-8 en `main`)
 
 ## 1. Por qué se hizo esta mejora
 
@@ -37,6 +37,7 @@ El objetivo no era solo arreglar el crash, sino que el copiloto **pareciera que 
 | 5 | `refactor(ai CHAT-05): unificar deep-analysis y eliminar compute_column_context` | `compute_column_context` → `build_column_context` (fuente única); `analyze_column_deep` recibe el mismo `context`; deep-analysis reutiliza la sesión cacheada |
 | 6 | `feat(ai CHAT-06): honestidad ante columnas inexistentes + detección de errores de escritura` | Columna inexistente → `status: error` real sin llamar a Groq (antes inventaba diagnóstico); `_detect_typos` detecta typos en valores de texto (difflib, sin formato/prefijos) → bloque `POSIBLES ERRORES DE ESCRITURA` en chat y deep-analysis |
 | 7 | `feat(ai CHAT-07): política robusta de tratamiento de datos + copiloto honesto sobre privacidad` | Aviso de privacidad `frontend/privacy.html` (qué se procesa, IA/Groq con valores de ejemplo, retención, derechos) + ruta `/privacidad`; modal de consentimiento corregido (versión 2.0, sin promesa falsa "no se usan para entrenar"); `CONSENT_VERSION=2.0` → re-aceptación automática; bloque `PRIVACIDAD Y TRATAMIENTO DE DATOS` en system prompts (chat y deep) para que el copiloto nunca afirme falsas garantías |
+| 8 | `feat(legal CHAT-07): aviso y términos adaptados a normas internacionales` | Aviso v2.1 alineado con RGPD (UE), Ley 1581/2012 (Colombia) y CCPA/CPRA (California): base legal, transferencias internacionales, derechos ARCO + portabilidad + no discriminación, plazos de respuesta, contacto/encargado. Nueva página `frontend/terms.html` + ruta `/terminos` (responsabilidad del usuario sobre la licitud de sus datos, uso aceptable, resultados de IA, limitación de responsabilidad, ley aplicable). `CONSENT_VERSION=2.1` → re-aceptación. |
 
 ### Verificación al cierre
 
