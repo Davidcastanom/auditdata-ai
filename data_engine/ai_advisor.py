@@ -75,6 +75,14 @@ MODEL = "llama-3.1-8b-instant"
 BATCH_MAX_TOKENS = 2048
 TEMPERATURE = 0.3
 
+# CHAT-01: presupuesto de contexto del chat. El tier free de Groq limita
+# llama-3.1-8b-instant a 6000 TPM (input + output). Con valores largos el prompt
+# pedía 26K tokens y Groq respondia 413. Se poda y trunca para que el request
+# quepa holgado en el limite.
+CONTEXT_SAMPLE_ROWS = 15
+CONTEXT_FREQ_ROWS = 15
+CONTEXT_VALUE_LEN = 100
+
 
 # ---------------------------------------------------------------------------
 # INICIALIZACION DEL CLIENTE (Síncrono y Asíncrono)
@@ -648,6 +656,15 @@ async def get_ai_recommendations_async(
         return get_ai_recommendations(diagnostic, sample_rows)
 
 
+def _truncate(value: Any, max_len: int = CONTEXT_VALUE_LEN) -> str:
+    """Recorta un valor para el contexto del chat (CHAT-01): evita que valores
+    largos inflen el prompt y disparen el 413 de Groq (limite 6000 TPM)."""
+    text = str(value)
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 3] + "..."
+
+
 def _build_chat_context_message(
     column_name: str,
     column_diagnostic: dict[str, Any] | None,
@@ -684,9 +701,9 @@ def _build_chat_context_message(
 
         dist = context.get("value_distribution") or []
         if dist:
-            top_n = dist[:15]
+            top_n = dist[:CONTEXT_FREQ_ROWS]
             lines = "\n".join(
-                f'- "{d.get("value", "")}": {d.get("count", 0)} ocurrencia(s)'
+                f'- "{_truncate(d.get("value", ""))}": {d.get("count", 0)} ocurrencia(s)'
                 for d in top_n
             )
             parts.append(f"TABLA DE FRECUENCIAS (top {len(top_n)}):\n{lines}")
@@ -721,8 +738,8 @@ def _build_chat_context_message(
     if context and full:
         sorted_data = context.get("sorted_data") or []
         if sorted_data:
-            sample = sorted_data[:100]
-            sample_str = "; ".join([f"Fila {r}={v}" for r, v in sample])
+            sample = sorted_data[:CONTEXT_SAMPLE_ROWS]
+            sample_str = "\n".join([f"Fila {r}={_truncate(v)}" for r, v in sample])
             parts.append(f"DATOS ORDENADOS (primeras {len(sample)} filas de {len(sorted_data)}):\n{sample_str}")
 
     return "\n\n".join(parts)

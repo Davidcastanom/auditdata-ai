@@ -307,6 +307,36 @@ class TestBuildChatContextMessage(unittest.TestCase):
         self.assertIn("__dataset__", msg)
         self.assertIn("5 filas x 7 columnas", msg)
 
+    def test_long_values_are_truncated_in_sorted_data(self):
+        """CHAT-01: valores de 2000 chars no deben inflar el prompt (413 de Groq)."""
+        long_vals = [(i, "x" * 2000) for i in range(50)]
+        ctx = {
+            "unique_count": 1,
+            "missing_count": 0,
+            "value_distribution": [{"value": "x" * 2000, "count": 50}],
+            "stats_summary": {},
+            "sorted_data": long_vals,
+        }
+        msg = _build_chat_context_message("nota", None, ctx, full=True)
+        self.assertIn("DATOS ORDENADOS", msg)
+        for line in msg.splitlines():
+            if "Fila " in line:
+                self.assertLess(len(line), 200, f"Valor no truncado en: {line[:60]}...")
+
+    def test_sorted_data_limited_to_constant(self):
+        """CHAT-01: sorted_data[:100] -> limite configurable CONTEXT_SAMPLE_ROWS."""
+        many = [(i, f"v{i}") for i in range(300)]
+        ctx = {
+            "unique_count": 300,
+            "missing_count": 0,
+            "value_distribution": [{"value": "v0", "count": 1}],
+            "stats_summary": {},
+            "sorted_data": many,
+        }
+        msg = _build_chat_context_message("col", None, ctx, full=True)
+        lines = [l for l in msg.splitlines() if l.startswith("Fila ")]
+        self.assertLessEqual(len(lines), 20, "Demasiadas filas en sorted_data")
+
 
 # ---------------------------------------------------------------------------
 # chat_with_column_advisor
