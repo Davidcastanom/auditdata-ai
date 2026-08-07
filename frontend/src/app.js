@@ -568,19 +568,19 @@ function renderRules() {
 
   els.rulesBoard.innerHTML = `
     <div class="rules-intro">
-      <div class="key-column-selector" style="margin-bottom: var(--space-4); padding: var(--space-3); background: var(--surface_2); border-radius: var(--radius); border: 1px solid var(--border);">
+      <div class="key-column-selector" style="margin-bottom: var(--space-4); padding: var(--space-3); background: var(--color-surface-2); border-radius: var(--radius-md); border: 1px solid var(--color-border);">
         <label style="font-weight: 600; display: block; margin-bottom: var(--space-1);">
           Columna clave de duplicados (opcional)
         </label>
-        <p style="font-size: 0.85rem; color: var(--muted); margin: 0 0 var(--space-2);">Selecciona la columna que identifica un registro de forma única. Si no seleccionas nada, se compara la fila completa.</p>
-        <select id="duplicateKeySelect" style="width: 100%; padding: var(--space-2); background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius);">
+        <p style="font-size: 0.85rem; color: var(--color-muted); margin: 0 0 var(--space-2);">Selecciona la columna que identifica un registro de forma única. Si no seleccionas nada, se compara la fila completa.</p>
+        <select id="duplicateKeySelect" style="width: 100%; padding: var(--space-2); background: var(--color-black); color: var(--color-text); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color-scheme: dark;">
           <option value="">Ninguna — comparar fila completa</option>
           ${columnOptions}
         </select>
       </div>
-      <div style="margin-bottom: var(--space-4); padding: var(--space-3); background: var(--surface_2); border-radius: var(--radius); border: 1px solid var(--border);">
+      <div style="margin-bottom: var(--space-4); padding: var(--space-3); background: var(--color-surface-2); border-radius: var(--radius-md); border: 1px solid var(--color-border);">
         <label style="font-weight: 600; display: block; margin-bottom: var(--space-1);">Plantilla por tipo de dataset</label>
-        <p style="font-size: 0.85rem; color: var(--muted); margin: 0 0 var(--space-2);">Preconfigura reglas típicas para tu tipo de datos.</p>
+        <p style="font-size: 0.85rem; color: var(--color-muted); margin: 0 0 var(--space-2);">Preconfigura reglas típicas para tu tipo de datos.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="button button--ghost button--sm" type="button" data-template="ventas">Ventas</button>
           <button class="button button--ghost button--sm" type="button" data-template="rrhh">RRHH</button>
