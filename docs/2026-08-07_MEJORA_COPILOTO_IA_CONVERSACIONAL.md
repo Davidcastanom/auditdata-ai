@@ -1,6 +1,6 @@
 # Mejora Copiloto IA Conversacional — AuditData AI (Trazabilidad)
 
-**Fecha de creación:** 2026-08-07 · **Autor:** AuditData AI · **Estado:** EJECUTADO (commits 0-6 en `main`)
+**Fecha de creación:** 2026-08-07 · **Autor:** AuditData AI · **Estado:** EJECUTADO (commits 0-7 en `main`)
 
 ## 1. Por qué se hizo esta mejora
 
@@ -36,10 +36,12 @@ El objetivo no era solo arreglar el crash, sino que el copiloto **pareciera que 
 | 4 | `feat(ai CHAT-04): contexto transversal estable + prompt conversacional + cache` — `c0df59c` | Cache por hash; contexto idéntico por turno; intención por keywords; bloque OTRAS COLUMNAS |
 | 5 | `refactor(ai CHAT-05): unificar deep-analysis y eliminar compute_column_context` | `compute_column_context` → `build_column_context` (fuente única); `analyze_column_deep` recibe el mismo `context`; deep-analysis reutiliza la sesión cacheada |
 | 6 | `feat(ai CHAT-06): honestidad ante columnas inexistentes + detección de errores de escritura` | Columna inexistente → `status: error` real sin llamar a Groq (antes inventaba diagnóstico); `_detect_typos` detecta typos en valores de texto (difflib, sin formato/prefijos) → bloque `POSIBLES ERRORES DE ESCRITURA` en chat y deep-analysis |
+| 7 | `feat(ai CHAT-07): política robusta de tratamiento de datos + copiloto honesto sobre privacidad` | Aviso de privacidad `frontend/privacy.html` (qué se procesa, IA/Groq con valores de ejemplo, retención, derechos) + ruta `/privacidad`; modal de consentimiento corregido (versión 2.0, sin promesa falsa "no se usan para entrenar"); `CONSENT_VERSION=2.0` → re-aceptación automática; bloque `PRIVACIDAD Y TRATAMIENTO DE DATOS` en system prompts (chat y deep) para que el copiloto nunca afirme falsas garantías |
 
 ### Verificación al cierre
 
-- Suite Python: **257 passed** (248 + 9 nuevos de CHAT-06). E2E Playwright: **41 passed**. `ruff --select F,E9`: limpio.
+- Suite Python: **259 passed** (248 + 9 de CHAT-06 + 2 de CHAT-07). E2E Playwright: **42 passed** (incluye: modal muestra versión 2.0 + enlace al aviso; `/privacidad` accesible desde el footer). `ruff --select F,E9`: limpio.
+- CHAT-07 validó que NO existía página de política (solo el modal), que el modal afirmaba "No se usan para entrenar modelos" (no garantizable con un proveedor externo) y que el código envía a Groq valores de ejemplo (el texto del modal solo mencionaba columnas y preguntas). Todo corregido con lenguaje verificable.
 - Prueba real contra Groq (columna `nombre` con `juan`/`juaan`/`Juan`): el chat detecta `"juaan"` como typo de `"juan"`; el deep-analysis cita filas exactas (18, 19, 20) con el valor mal escrito; columna inexistente responde en **0.0s** `La columna 'no_existe' no existe en el dataset. Columnas disponibles: ...` sin gastar tokens ni inventar.
 - Cache validado en la misma prueba: el 2º mensaje del mismo archivo pasó de 0.3s a ~0.0s (sin recálculo).
 
@@ -64,7 +66,8 @@ Evaluación honesta con base en el 413 reproducido y el código existente:
 ## 5. Archivos afectados
 
 - `data_engine/ai_advisor.py` — `_build_chat_context_message`, `chat_with_column_advisor`, constantes de contexto (CHAT-01/02/04), `_detect_intent` (CHAT-04), `build_column_context` y `analyze_column_deep` con contexto compartido (CHAT-05), `_strip_format` + `_detect_typos` + bloque `POSIBLES ERRORES DE ESCRITURA` (CHAT-06).
-- `backend/app/main.py` — endpoint `/api/ai/chat-column` + `_get_chat_session` con cache por hash (CHAT-04) y `column_exists` (CHAT-06).
+- `backend/app/main.py` — endpoint `/api/ai/chat-column` + `_get_chat_session` con cache por hash (CHAT-04) y `column_exists` (CHAT-06); ruta `/privacidad` (CHAT-07).
+- `frontend/privacy.html` — aviso de privacidad honesto (CHAT-07); `frontend/index.html` — modal 2.0 + footer con enlace (CHAT-07); `frontend/src/auth.js` — `CONSENT_VERSION=2.0` (CHAT-07).
 - `frontend/src/app.js` + `frontend/src/nube.js` — render de errores (CHAT-03).
 - `frontend/src/styles/design-system.css` — fix visual del dropdown (Commit 0) + `.chat-bubble--error` (CHAT-03).
 - `tests/test_ai_advisor.py` — tests nuevos + actualización de contrato `full=True/False` (cambio de contrato planificado y documentado).

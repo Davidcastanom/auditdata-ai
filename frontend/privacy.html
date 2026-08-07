@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AuditData AI | Aviso de privacidad y tratamiento de datos</title>
+    <meta name="robots" content="index, follow" />
+    <meta
+      name="description"
+      content="Aviso de privacidad y tratamiento de datos de AuditData AI: qué se procesa, cómo funciona el asistente con IA, qué se guarda en la nube y cuáles son tus derechos."
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --color-primary: #0066ff;
+        --color-primary-dark: #0052cc;
+        --color-accent: #00d4ff;
+        --color-black: #0a0a0f;
+        --color-surface: #12121a;
+        --color-surface-2: #181824;
+        --color-border: #242436;
+        --color-text: #f0f0f5;
+        --color-muted: #9090a0;
+        --color-success: #22c55e;
+        --color-warning: #f59e0b;
+        --radius-md: 12px;
+        --font-sans: "Outfit", "Plus Jakarta Sans", Inter, system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        background-color: var(--color-black);
+      }
+
+      body {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        color: var(--color-text);
+        font-family: var(--font-sans);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .page {
+        width: 100%;
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 2.5rem 1.25rem 4rem;
+        flex: 1;
+      }
+
+      .back {
+        display: inline-block;
+        margin-bottom: 1.5rem;
+        color: var(--color-accent);
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+
+      .back:hover {
+        text-decoration: underline;
+      }
+
+      .doc {
+        background: linear-gradient(180deg, var(--color-surface), var(--color-surface-2));
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: 2rem 1.75rem;
+      }
+
+      .doc h1 {
+        font-size: 1.7rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.5rem;
+      }
+
+      .doc .meta {
+        color: var(--color-muted);
+        font-size: 0.85rem;
+        margin-bottom: 1.75rem;
+        padding-bottom: 1.25rem;
+        border-bottom: 1px solid var(--color-border);
+      }
+
+      .doc h2 {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin: 1.75rem 0 0.5rem;
+        color: var(--color-accent);
+      }
+
+      .doc p,
+      .doc li {
+        color: var(--color-text);
+        font-size: 0.95rem;
+        line-height: 1.65;
+        margin-bottom: 0.5rem;
+      }
+
+      .doc ul {
+        padding-left: 1.25rem;
+      }
+
+      .doc a {
+        color: var(--color-accent);
+      }
+
+      .doc .callout {
+        background: rgba(245, 158, 11, 0.08);
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        border-radius: 8px;
+        padding: 0.9rem 1rem;
+        margin: 1.25rem 0;
+        font-size: 0.9rem;
+      }
+
+      .brand-footer {
+        padding: 1.25rem;
+        text-align: center;
+        color: var(--color-muted);
+        font-size: 0.85rem;
+        border-top: 1px solid var(--color-border);
+      }
+
+      .brand-footer a {
+        color: var(--color-accent);
+        text-decoration: none;
+      }
+
+      .brand-footer a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <a class="back" href="/">&larr; Volver a AuditData AI</a>
+      <article class="doc">
+        <h1>Aviso de privacidad y tratamiento de datos</h1>
+        <p class="meta">
+          AuditData AI &mdash; Flujo Base Data Quality System &middot; &Uacute;ltima actualizaci&oacute;n:
+          7 de agosto de 2026 &middot; Versi&oacute;n 2.0
+        </p>
+
+        <p>
+          Este aviso describe, de forma transparente y verificable, qu&eacute; informaci&oacute;n se procesa
+          cuando usas AuditData AI, c&oacute;mo se procesa y qu&eacute; puedes hacer para controlarla.
+          Est&aacute; escrito para que la expectativa que tengas coincida con lo que la herramienta
+          realmente hace.
+        </p>
+
+        <h2>1. Qu&eacute; hace la herramienta</h2>
+        <p>
+          AuditData AI analiza y limpia archivos CSV/XLSX: perfila columnas, detecta problemas de calidad
+          (vacíos, duplicados, outliers, formatos, etc.), propone acciones de limpieza y genera un reporte
+          profesional.
+        </p>
+
+        <h2>2. C&oacute;mo se procesa tu archivo</h2>
+        <ul>
+          <li>Tu archivo se env&iacute;a a un servidor y se analiza <strong>en memoria</strong> para el diagn&oacute;stico, la limpieza y la generaci&oacute;n del reporte.</li>
+          <li>El archivo <strong>no se publica ni se comparte</strong> con otros usuarios ni con terceros.</li>
+          <li>El contenido del archivo <strong>no se almacena de forma permanente</strong> en nuestros servidores, salvo que t&uacute; decidas guardar el historial con tu cuenta (ver punto 4).</li>
+        </ul>
+
+        <h2>3. Asistente con IA &mdash; transparencia</h2>
+        <p>
+          El asistente con IA (recomendaciones, chat por columna y an&aacute;lisis profundo) usa un modelo de
+          lenguaje de un <strong>proveedor externo (Groq)</strong>. Para generar cada respuesta se env&iacute;an
+          a ese proveedor:
+        </p>
+        <ul>
+          <li>Nombres de las columnas del dataset.</li>
+          <li>La pregunta que escribes en el chat.</li>
+          <li>Valores de ejemplo de las filas afectadas, tablas de frecuencia y una muestra de filas de la columna consultada (necesarios para responder con datos reales y no inventados).</li>
+        </ul>
+        <p>
+          <strong>AuditData AI no entrena modelos con tus datos ni los vende.</strong> Sin embargo, el modelo
+          es de un tercero: el envío de datos a Groq est&aacute; sujeto a las
+          <a href="https://groq.com/privacy" target="_blank" rel="noopener noreferrer">pol&iacute;ticas de privacidad de Groq</a>,
+          que pueden variar. Si el manejo de tus datos es especialmente sensible, tenlo en cuenta antes de usar el asistente.
+        </p>
+        <div class="callout">
+          Para que la expectativa no sea falsa: la app <strong>no es "100&nbsp;% local" ni afirma que "tus datos
+          nunca salen del servidor"</strong>. El an&aacute;lisis de IA se env&iacute;a a un proveedor externo;
+          el diagn&oacute;stico, la limpieza y el reporte s&iacute; se procesan en nuestros servidores.
+        </div>
+
+        <h2>4. Guardado en la nube (solo si t&uacute; lo decides)</h2>
+        <ul>
+          <li>El historial se guarda <strong>solo si inicias sesi&oacute;n y aceptas el consentimiento</strong>.</li>
+          <li>Al guardar se almacenan: nombre del archivo, n&uacute;mero de filas y columnas, las acciones de limpieza aplicadas, el an&aacute;lisis y el reporte PDF generado.</li>
+          <li>El <strong>contenido crudo del archivo no se guarda</strong>: se registra como no almacenado (<code>not_stored</code>).</li>
+          <li>Puedes <strong>borrar tu historial</strong> en cualquier momento con el bot&oacute;n &laquo;&times;&raquo; de tu sesi&oacute;n, o solicitarnos el borrado.</li>
+        </ul>
+
+        <h2>5. Telemetr&iacute;a an&oacute;nima</h2>
+        <ul>
+          <li>Registramos m&eacute;tricas de uso <strong>an&oacute;nimas</strong>: hash irreversible del cliente (HMAC-SHA256), endpoint, c&oacute;digo de estado y duraci&oacute;n.</li>
+          <li>Nunca se registra el contenido de los archivos, los nombres de columnas ni los textos del chat.</li>
+          <li>La telemetr&iacute;a solo opera si el administrador configura las variables de entorno correspondientes.</li>
+        </ul>
+
+        <h2>6. Autenticaci&oacute;n con Google</h2>
+        <p>
+          El inicio de sesi&oacute;n usa Google OAuth. Recibimos tu correo y perfil de Google para identificarte.
+          Esos datos se usan &uacute;nicamente para la gesti&oacute;n de tu cuenta e historial.
+        </p>
+
+        <h2>7. Retenci&oacute;n de la informaci&oacute;n</h2>
+        <ul>
+          <li><strong>Historial guardado:</strong> se conserva hasta que t&uacute; lo borres o solicites su eliminaci&oacute;n.</li>
+          <li><strong>M&eacute;tricas an&oacute;nimas:</strong> se conservan para operaci&oacute;n del servicio; se recomienda depuraci&oacute;n a los 12 meses.</li>
+        </ul>
+
+        <h2>8. Tus derechos</h2>
+        <ul>
+          <li>Cerrar sesi&oacute;n cuando quieras.</li>
+          <li>Borrar tu historial guardado en la nube.</li>
+          <li>Solicitar la eliminaci&oacute;n de tus datos.</li>
+        </ul>
+        <p>
+          Para ejercer estos derechos usa los controles de la aplicaci&oacute;n; para el resto escr&iacute;benos en
+          <a href="https://github.com/Davidcastanom/auditdata-ai/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>.
+        </p>
+
+        <h2>9. Nota legal</h2>
+        <p>
+          Este aviso es informativo y no constituye asesor&iacute;a legal. Si tu organizaci&oacute;n maneja datos
+          sensibles o sujetos a normativas espec&iacute;ficas (por ejemplo, protecci&oacute;n de datos personales),
+          revisa el uso de esta herramienta con tu equipo legal o de cumplimiento.
+        </p>
+      </article>
+    </div>
+    <footer class="brand-footer">
+      AuditData AI &mdash; Flujo Base Data Quality System &middot; <a href="/privacidad">Aviso de privacidad</a>
+    </footer>
+  </body>
+</html>

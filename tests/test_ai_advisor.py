@@ -317,6 +317,24 @@ class TestDeepAnalysisTypos(unittest.TestCase):
         self.assertIn("Posibles errores de escritura", user_prompt)
         self.assertIn('"juaan"', user_prompt)
 
+    def test_deep_system_prompt_includes_privacy_truth(self):
+        """CHAT-07: el deep-analysis tampoco promete falsas garantias de privacidad."""
+        ctx = {
+            "unique_count": 1,
+            "missing_count": 0,
+            "value_distribution": [],
+            "stats_summary": {},
+            "sorted_data": [(2, "x")],
+            "typos": [],
+        }
+        fake = _FakeClient()
+        with patch("data_engine.ai_advisor._get_deep_client", return_value=fake):
+            result = asyncio.run(analyze_column_deep("col", context=ctx, detected_type="text"))
+        self.assertEqual(result["status"], "success")
+        system_prompt = fake.chat.completions.last_kwargs["messages"][0]["content"]
+        self.assertIn("no entrena modelos", system_prompt)
+        self.assertIn("Groq", system_prompt)
+
 
 # ---------------------------------------------------------------------------
 # _build_chat_context_message
@@ -608,6 +626,20 @@ class TestChatWithColumnAdvisor(unittest.IsolatedAsyncioTestCase):
         messages = fake.chat.completions.last_kwargs["messages"]
         system_prompt = messages[0]["content"]
         self.assertIn("base en los datos del contexto", system_prompt)
+
+    async def test_system_prompt_includes_privacy_truth(self):
+        """CHAT-07: el copiloto no debe prometer falsas garantias de privacidad.
+        No puede afirmar 'no se usan para entrenar' (hay proveedor externo)."""
+        fake = _FakeClient()
+        with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
+             patch("data_engine.ai_advisor.init_groq_client", return_value=fake):
+            await chat_with_column_advisor("edad", "¿usan mis datos para entrenar?")
+        system_prompt = fake.chat.completions.last_kwargs["messages"][0]["content"]
+        self.assertIn("PRIVACIDAD Y TRATAMIENTO DE DATOS", system_prompt)
+        self.assertIn("no entrena modelos", system_prompt)
+        self.assertIn("Groq", system_prompt)
+        self.assertIn("100% privado", system_prompt)
+        self.assertIn("/privacidad", system_prompt)
 
     async def test_intent_instruction_appended_to_system_prompt(self):
         fake = _FakeClient()

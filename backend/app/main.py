@@ -587,6 +587,12 @@ def read_admin():
     return FileResponse(os.path.join(frontend_path, "admin.html"))
 
 
+@app.get("/privacidad")
+def read_privacy():
+    """Aviso de privacidad y tratamiento de datos (CHAT-07)."""
+    return FileResponse(os.path.join(frontend_path, "privacy.html"))
+
+
 @app.get("/maintenance")
 def read_maintenance():
     """Página de mantenimiento programado."""

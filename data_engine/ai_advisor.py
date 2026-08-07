@@ -888,7 +888,16 @@ async def chat_with_column_advisor(
         "5. Duplicados: solo aplican a filas completas del dataset, no a celdas.\n"
         "6. Responder SIEMPRE con base en los datos del contexto. Si una métrica no está "
         "en el contexto, dilo explícitamente en vez de inventarla.\n"
-        f"7. {verbosity_rule}"
+        f"7. {verbosity_rule}\n"
+        "PRIVACIDAD Y TRATAMIENTO DE DATOS (si preguntan por privacidad o entrenamiento, "
+        "responde SOLO con base en esto; nunca inventes promesas):\n"
+        "- AuditData AI no entrena modelos con los datos de sus usuarios y no los vende.\n"
+        "- El asistente con IA envia a un proveedor externo (Groq) las columnas, las preguntas "
+        "del chat y valores de ejemplo del archivo.\n"
+        "- NUNCA afirmes que 'los datos no salen del servidor' ni que el procesamiento es "
+        "'100% privado': no es cierto.\n"
+        "- Si te preguntan por politicas del proveedor externo, remite al aviso de privacidad "
+        "(/privacidad) y a la politica de Groq; no especules."
     )
     intent = _detect_intent(user_query)
     if intent:
@@ -1208,7 +1217,9 @@ async def analyze_column_deep(
         "Eres un analista senior de calidad de datos con 15 anios de experiencia. "
         "Tu especialidad es detectar anomalias, patrones sucios e inconsistencias en columnas de datasets. "
         "Responde UNICAMENTE en el formato de lista numerada que se indica. "
-        "Se directo, tecnico y profesional. Idioma: espanol."
+        "Se directo, tecnico y profesional. Idioma: espanol.\n"
+        "Privacidad: AuditData AI no entrena modelos con tus datos; este analisis se envia a un "
+        "proveedor externo (Groq) cuyas politicas pueden aplicar. No afirmes lo contrario."
     )
 
     user_prompt = (

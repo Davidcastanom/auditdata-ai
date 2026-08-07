@@ -24,6 +24,8 @@ test.describe("AuditData AI - Login con Google", () => {
     const modal = page.locator("#consentModal");
     await expect(modal).toBeVisible({ timeout: 10000 });
     await expect(page.locator("#consentModal__body, .consent-modal__body")).toBeVisible();
+    await expect(page.locator(".consent-modal__version")).toContainText("2.0");
+    await expect(page.locator('.consent-modal__body a[href="/privacidad"]')).toBeVisible();
 
     const acceptBtn = page.locator("#consentAcceptButton");
     await expect(acceptBtn).toBeDisabled();
@@ -33,6 +35,17 @@ test.describe("AuditData AI - Login con Google", () => {
 
     await page.locator("#consentCancelButton").click();
     await expect(modal).toBeHidden();
+  });
+
+  test("el aviso de privacidad esta enlazado en el footer y es accesible", async ({ page }) => {
+    await page.goto("/");
+    const link = page.locator('footer a[href="/privacidad"]');
+    await expect(link).toBeVisible({ timeout: 10000 });
+    await expect(link).toHaveAttribute("href", "/privacidad");
+
+    await page.goto("/privacidad");
+    await expect(page.locator("h1")).toContainText("privacidad");
+    await expect(page.locator("body")).toContainText("Versi\u00f3n 2.0");
   });
 
   test("sin consentimiento aceptado, la sesion no guarda historial", async ({ page }) => {
