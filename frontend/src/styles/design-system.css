@@ -2915,6 +2915,13 @@ th {
   align-self: flex-end;
 }
 
+.chat-bubble--error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid var(--color-danger);
+  color: var(--color-text);
+  align-self: flex-start;
+}
+
 .chat-input-row {
   display: flex;
   gap: var(--space-2);

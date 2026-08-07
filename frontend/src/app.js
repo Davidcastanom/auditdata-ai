@@ -1006,9 +1006,14 @@ async function sendDepurChatMessage(columnName, query) {
 
     const data = await response.json();
     const answer = data.response || 'Sin respuesta';
-    thinkingDiv.innerHTML = `<strong>Copiloto:</strong> ${renderMarkdown(answer)}`;
-    depurChatHistory[columnName].push({ role: 'assistant', content: answer });
+    const isError = data.status === 'error' || data.status === 'no_api_key';
+    thinkingDiv.className = 'chat-bubble ' + (isError ? 'chat-bubble--error' : 'chat-bubble--ai');
+    thinkingDiv.innerHTML = `<strong>Copiloto:</strong> ${isError ? escapeHtml(answer) : renderMarkdown(answer)}`;
+    if (!isError) {
+      depurChatHistory[columnName].push({ role: 'assistant', content: answer });
+    }
   } catch (e) {
+    thinkingDiv.className = 'chat-bubble chat-bubble--error';
     thinkingDiv.innerHTML = `<strong>Copiloto:</strong> Error: ${escapeHtml(e.message)}`;
   }
   chatFeed.scrollTop = chatFeed.scrollHeight;

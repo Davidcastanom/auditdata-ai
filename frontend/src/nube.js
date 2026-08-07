@@ -675,9 +675,14 @@ export class NubeValidación {
 
       const data = await response.json();
       const answer = data.response || 'Sin respuesta';
-      thinkingDiv.innerHTML = `<strong>Copiloto IA:</strong> ${this._renderMarkdown(answer)}`;
-      this.drawerChatHistory[columnName].push({ role: 'assistant', content: answer });
+      const isError = data.status === 'error' || data.status === 'no_api_key';
+      thinkingDiv.className = 'chat-bubble ' + (isError ? 'chat-bubble--error' : 'chat-bubble--ai');
+      thinkingDiv.innerHTML = `<strong>Copiloto IA:</strong> ${isError ? this._escHtml(answer) : this._renderMarkdown(answer)}`;
+      if (!isError) {
+        this.drawerChatHistory[columnName].push({ role: 'assistant', content: answer });
+      }
     } catch (e) {
+      thinkingDiv.className = 'chat-bubble chat-bubble--error';
       thinkingDiv.innerHTML = `<strong>Copiloto IA:</strong> Error al consultar: ${this._escHtml(e.message)}`;
     }
     chatFeed.scrollTop = chatFeed.scrollHeight;
