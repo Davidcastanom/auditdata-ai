@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import os
 import time
 from typing import Any
@@ -233,38 +234,22 @@ async def ai_chat_column(req: AIChatRequest):
     Endpoint para chatear interactivamente con el Copiloto de IA sobre una columna o el dataset.
     """
     try:
-        payload = _decode_payload(req.content_base64)
+        from data_engine.ai_advisor import chat_with_column_advisor
 
-        from data_engine.diagnostic import diagnose_dataset
-        from data_engine.analyzer import load_dataset
-        from data_engine.ai_advisor import chat_with_column_advisor, compute_column_context
-
-        headers, rows, header_row_index = load_dataset(req.filename, payload, **_dataset_settings(req))
-        file_row_start = header_row_index + 2
-        column_data = [(file_row_start + i, row.get(req.column, "")) for i, row in enumerate(rows)]
-
-        diagnostic = diagnose_dataset(headers, rows, header_row_index)
-        diag_dict = diagnostic.to_dict()
-
-        col_diag = None
-        for col in diag_dict.get("columns", []):
-            if col.get("column") == req.column:
-                col_diag = col
-                break
-
-        context = compute_column_context(column_data, req.detected_type)
+        session = _get_chat_session(req)
 
         res = await chat_with_column_advisor(
             column_name=req.column,
             user_query=req.user_query,
-            column_diagnostic=col_diag,
+            column_diagnostic=session["col_diag"],
             chat_history=req.chat_history,
-            context=context,
-            total_rows=len(rows),
-            total_columns=len(headers),
-            headers=headers,
+            context=session["context"],
+            total_rows=session["total_rows"],
+            total_columns=session["total_columns"],
+            headers=session["headers"],
             detected_type=req.detected_type,
             inferred_domain=req.inferred_domain,
+            other_columns=session["other_columns"],
         )
         return res
 
@@ -272,6 +257,66 @@ async def ai_chat_column(req: AIChatRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# CHAT-04: cache en memoria del trabajo pesado del chat (decode + load + diagnose
+# + contexto de columna), por hash del archivo. El 2º mensaje del mismo archivo no
+# recalcula nada. Adecuado para 1 instancia Render; se pierde al reiniciar.
+_chat_session_cache: dict[str, dict[str, Any]] = {}
+CHAT_SESSION_CACHE_MAX = 8
+
+
+def _get_chat_session(req: AIChatRequest) -> dict[str, Any]:
+    """Recupera o construye el contexto de chat cacheado para un archivo+columna."""
+    key = f"{req.column}:{req.detected_type}:{hashlib.sha256(req.content_base64.encode('utf-8')).hexdigest()}"
+    cached = _chat_session_cache.get(key)
+    if cached is not None:
+        return cached
+
+    payload = _decode_payload(req.content_base64)
+
+    from data_engine.diagnostic import diagnose_dataset
+    from data_engine.analyzer import load_dataset
+    from data_engine.ai_advisor import compute_column_context
+
+    headers, rows, header_row_index = load_dataset(req.filename, payload, **_dataset_settings(req))
+    file_row_start = header_row_index + 2
+    column_data = [(file_row_start + i, row.get(req.column, "")) for i, row in enumerate(rows)]
+
+    diagnostic = diagnose_dataset(headers, rows, header_row_index)
+    diag_dict = diagnostic.to_dict()
+
+    col_diag = None
+    for col in diag_dict.get("columns", []):
+        if col.get("column") == req.column:
+            col_diag = col
+            break
+
+    context = compute_column_context(column_data, req.detected_type)
+
+    other_columns = [
+        {
+            "name": col.get("column"),
+            "detected_type": (col.get("profiler") or {}).get("type"),
+            "total_categories": (col.get("profiler") or {}).get("total_categories"),
+            "issue_count": col.get("issue_count"),
+        }
+        for col in diag_dict.get("columns", [])
+        if col.get("column") != req.column
+    ]
+
+    session = {
+        "col_diag": col_diag,
+        "context": context,
+        "total_rows": len(rows),
+        "total_columns": len(headers),
+        "headers": headers,
+        "other_columns": other_columns,
+    }
+    _chat_session_cache[key] = session
+    if len(_chat_session_cache) > CHAT_SESSION_CACHE_MAX:
+        _chat_session_cache.pop(next(iter(_chat_session_cache)))
+    return session
 
 
 class ColumnDeepAnalysisRequest(BaseModel):

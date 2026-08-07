@@ -22,6 +22,7 @@ from backend.app.main import app
 from data_engine.ai_advisor import (
     _build_batch_prompt,
     _build_chat_context_message,
+    _detect_intent,
     chat_with_column_advisor,
     compute_column_context,
     get_ai_recommendations,
@@ -327,6 +328,40 @@ class TestBuildChatContextMessage(unittest.TestCase):
         self.assertIn("__dataset__", msg)
         self.assertIn("5 filas x 7 columnas", msg)
 
+    def test_includes_other_columns_transversal_context(self):
+        msg = _build_chat_context_message(
+            "edad", None, self._context(),
+            total_rows=5, total_columns=7, detected_type="number",
+            other_columns=[
+                {"name": "nombre", "detected_type": "text", "total_categories": 4, "issue_count": 2},
+                {"name": "ingreso", "detected_type": "number", "total_categories": None, "issue_count": 0},
+                {"name": "nota" * 30, "detected_type": "text"},
+            ],
+        )
+        self.assertIn("OTRAS COLUMNAS (contexto del dataset)", msg)
+        self.assertIn("- nombre (text) (4 categorias, 2 problemas)", msg)
+        self.assertIn("- ingreso (number) (0 problemas)", msg)
+
+
+class TestDetectIntent(unittest.TestCase):
+    def test_values_keyword(self):
+        self.assertIn("VALORES", _detect_intent("¿Cuál es el valor más frecuente?"))
+
+    def test_duplicates_keyword(self):
+        self.assertIn("DUPLICADOS", _detect_intent("¿hay filas duplicadas?"))
+
+    def test_cleaning_keyword(self):
+        self.assertIn("LIMPIEZA", _detect_intent("¿cómo limpio los vacíos?"))
+
+    def test_stats_keyword(self):
+        self.assertIn("ESTADISTICAS", _detect_intent("¿cuál es la media de la columna?"))
+
+    def test_domain_keyword(self):
+        self.assertIn("SIGNIFICADO", _detect_intent("¿qué significa esta columna?"))
+
+    def test_no_match_returns_empty(self):
+        self.assertEqual(_detect_intent("hola"), "")
+
     def test_long_values_are_truncated_in_sorted_data(self):
         """CHAT-01: valores de 2000 chars no deben inflar el prompt (413 de Groq)."""
         long_vals = [(i, "x" * 2000) for i in range(50)]
@@ -396,7 +431,8 @@ class TestChatWithColumnAdvisor(unittest.IsolatedAsyncioTestCase):
         self.assertIn("INDICADORES", user_msg)
         self.assertIn("PREGUNTA DEL ANALISTA: ¿Qué ves?", user_msg)
 
-    async def test_followup_message_compact(self):
+    async def test_followup_message_keeps_full_context(self):
+        """CHAT-04: el contexto base es identico en todos los turnos (estable)."""
         fake = _FakeClient()
         ctx = compute_column_context([(2, "28"), (3, "31"), (4, "28")], "number")
         history = [
@@ -413,7 +449,7 @@ class TestChatWithColumnAdvisor(unittest.IsolatedAsyncioTestCase):
         messages = fake.chat.completions.last_kwargs["messages"]
         self.assertEqual(len(messages), 4)  # system + 2 historial + 1 usuario
         user_msg = messages[-1]["content"]
-        self.assertNotIn("DATOS ORDENADOS", user_msg)
+        self.assertIn("DATOS ORDENADOS", user_msg)
         self.assertIn("Valores unicos", user_msg)
 
     async def test_async_path_used_when_async_client(self):
@@ -451,6 +487,15 @@ class TestChatWithColumnAdvisor(unittest.IsolatedAsyncioTestCase):
         messages = fake.chat.completions.last_kwargs["messages"]
         system_prompt = messages[0]["content"]
         self.assertIn("base en los datos del contexto", system_prompt)
+
+    async def test_intent_instruction_appended_to_system_prompt(self):
+        fake = _FakeClient()
+        with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
+             patch("data_engine.ai_advisor.init_groq_client", return_value=fake):
+            await chat_with_column_advisor("edad", "¿hay filas duplicadas?")
+        system_prompt = fake.chat.completions.last_kwargs["messages"][0]["content"]
+        self.assertIn("ENFOQUE DE ESTA PREGUNTA", system_prompt)
+        self.assertIn("DUPLICADOS", system_prompt)
 
     async def test_retry_recovers_from_rate_limit_413(self):
         """CHAT-02: un 413 transitorio no rompe la conversacion; se reintenta."""
@@ -579,6 +624,32 @@ class TestChatColumnEndpointContext(unittest.TestCase):
         ctx = mock_advisor.call_args.kwargs["context"]
         self.assertEqual(ctx["missing_count"], 5)
         self.assertEqual(ctx["unique_count"], 0)
+
+    def test_endpoint_caches_heavy_work_per_file(self):
+        """CHAT-04: el 2º mensaje del mismo archivo+columna no recalcula load_dataset."""
+        from data_engine import analyzer
+
+        calls = {"n": 0}
+        real_load = analyzer.load_dataset
+
+        def counting_load(*args, **kwargs):
+            calls["n"] += 1
+            return real_load(*args, **kwargs)
+
+        mock_advisor = AsyncMock(return_value={"response": "ok", "status": "success"})
+        body = {
+            "filename": "test.csv",
+            "content_base64": _encode(SAMPLE_CSV),
+            "column": "cache_probe",
+            "user_query": "¿Qué ves?",
+        }
+        with patch("data_engine.analyzer.load_dataset", side_effect=counting_load), \
+             patch("data_engine.ai_advisor.chat_with_column_advisor", mock_advisor):
+            r1 = client.post("/api/ai/chat-column", json=body)
+            r2 = client.post("/api/ai/chat-column", json=body)
+        self.assertEqual(r1.status_code, 200)
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(calls["n"], 1)
 
 
 class TestChatColumnEndpointLive(unittest.TestCase):

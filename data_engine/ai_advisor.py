@@ -91,6 +91,50 @@ CONTEXT_VALUE_LEN = 100
 RATE_LIMIT_RETRIES = 2
 RATE_LIMIT_BACKOFF = (0.5, 2.0)
 
+# CHAT-04: maximo de columnas vecinas a incluir como contexto transversal.
+CHAT_OTHER_COLUMNS_MAX = 12
+
+# CHAT-04: deteccion de intencion por keywords para ajustar el prompt.
+_INTENT_KEYWORDS: dict[str, tuple[list[str], str]] = {
+    "valores": (
+        ["valor", "frecuencia", "moda", "frecuente", "distribucion", "dominante", "categor"],
+        "El analista pregunta por VALORES o contenido de la columna. "
+        "Prioriza la tabla de frecuencias y ejemplos reales del contexto.",
+    ),
+    "duplicados": (
+        ["duplicad", "repetid", "iguales", "filas repetidas"],
+        "El analista pregunta por DUPLICADOS. Recuerda: solo aplican a filas completas, no a celdas.",
+    ),
+    "limpieza": (
+        ["limpi", "imputar", "rellenar", "corregir", "eliminar", "normalizar", "quitar", "vaciar"],
+        "El analista pregunta por LIMPIEZA o correccion. "
+        "Propone acciones concretas del pipeline y su impacto, sin inventar metricas.",
+    ),
+    "estadisticas": (
+        ["promedio", "media", "mediana", "minimo", "maximo", "rango", "desviacion", "outlier",
+         "atipic", "estadist", "cuartil", "distribucion"],
+        "El analista pregunta por ESTADISTICAS. Cita numeros exactos del contexto cuando existan.",
+    ),
+    "dominio": (
+        ["que es", "significa", "dominio", "semantica", "para que sirve", "representa"],
+        "El analista pregunta por el SIGNIFICADO o dominio de la columna. "
+        "Explica el dominio inferido y su uso, con base en el contexto.",
+    ),
+}
+
+
+def _detect_intent(user_query: str) -> str:
+    """Clasifica la intencion de la pregunta por keywords (CHAT-04).
+
+    Devuelve la instruccion de enfoque a anexar al system prompt, o "" si no
+    hay coincidencia. Los datos siguen mandando: nunca se fuerza una respuesta.
+    """
+    q = (user_query or "").lower()
+    for _intent, (keywords, instruction) in _INTENT_KEYWORDS.items():
+        if any(kw in q for kw in keywords):
+            return instruction
+    return ""
+
 
 def _is_rate_limit_error(exc: Exception) -> bool:
     """True si la excepcion de Groq es un rate limit/tamano (413/429)."""
@@ -692,6 +736,7 @@ def _build_chat_context_message(
     detected_type: str = "unknown",
     inferred_domain: str = "",
     full: bool = True,
+    other_columns: list[dict[str, Any]] | None = None,
 ) -> str:
     """Construye el bloque de contexto del chat con indicadores, frecuencias,
     estadisticas y datos ordenados. Nunca incluye porcentajes (evita falsos positivos)."""
@@ -752,6 +797,24 @@ def _build_chat_context_message(
         )
     parts.append(f"DIAGNOSTICO TECNICO: {issues_summary}")
 
+    if other_columns:
+        lines = []
+        for col in other_columns[:CHAT_OTHER_COLUMNS_MAX]:
+            name = _truncate(col.get("name", ""), 40)
+            ctype = col.get("detected_type") or col.get("type") or "?"
+            extra = col.get("total_categories")
+            issue_count = col.get("issue_count")
+            bits = []
+            if extra is not None:
+                bits.append(f"{extra} categorias")
+            if issue_count is not None:
+                bits.append(f"{issue_count} problemas")
+            suffix = f" ({', '.join(bits)})" if bits else ""
+            lines.append(f"- {name} ({ctype}){suffix}")
+        parts.append(
+            "OTRAS COLUMNAS (contexto del dataset):\n" + "\n".join(lines)
+        )
+
     if context and full:
         sorted_data = context.get("sorted_data") or []
         if sorted_data:
@@ -773,6 +836,7 @@ async def chat_with_column_advisor(
     headers: list[str] | None = None,
     detected_type: str = "unknown",
     inferred_domain: str = "",
+    other_columns: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Procesa preguntas de lenguaje natural en el Side Drawer para una columna o dataset."""
     client = init_async_groq_client() or init_groq_client()
@@ -808,6 +872,9 @@ async def chat_with_column_advisor(
         "en el contexto, dilo explícitamente en vez de inventarla.\n"
         f"7. {verbosity_rule}"
     )
+    intent = _detect_intent(user_query)
+    if intent:
+        system_prompt += f"\nENFOQUE DE ESTA PREGUNTA: {intent}"
 
     context_msg = _build_chat_context_message(
         column_name=column_name,
@@ -818,7 +885,8 @@ async def chat_with_column_advisor(
         headers=headers,
         detected_type=detected_type,
         inferred_domain=inferred_domain,
-        full=is_first_message,
+        full=True,
+        other_columns=other_columns,
     )
     context_msg += f"\n\nPREGUNTA DEL ANALISTA: {user_query}"
 
@@ -866,6 +934,7 @@ async def chat_with_column_advisor(
                     detected_type=detected_type,
                     inferred_domain=inferred_domain,
                     full=False,
+                    other_columns=other_columns,
                 ) + f"\n\nPREGUNTA DEL ANALISTA: {user_query}",
             }
             continue
