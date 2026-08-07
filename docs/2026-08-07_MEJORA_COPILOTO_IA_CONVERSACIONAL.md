@@ -1,6 +1,6 @@
 # Mejora Copiloto IA Conversacional — AuditData AI (Trazabilidad)
 
-**Fecha de creación:** 2026-08-07 · **Autor:** AuditData AI · **Estado:** PLANIFICADO (pendiente de ejecución)
+**Fecha de creación:** 2026-08-07 · **Autor:** AuditData AI · **Estado:** EJECUTADO (commits 0-4 en `main`; CHAT-05 pendiente de aprobación)
 
 ## 1. Por qué se hizo esta mejora
 
@@ -29,12 +29,18 @@ El objetivo no era solo arreglar el crash, sino que el copiloto **pareciera que 
 
 | Commit | ID | Alcance |
 |---|---|---|
-| 0 | `chore(ui): fix variables CSS rotas del selector de duplicados (Etapa 03)` | Aísla cambios pendientes en working tree (app.js + design-system.css) |
-| 1 | `fix(ai CHAT-01): podar y truncar contexto del chat - mata el 413` | `CONTEXT_SAMPLE_ROWS=15`, `CONTEXT_FREQ_ROWS=15`, `CONTEXT_VALUE_LEN=100`; sorted_data truncado → ~1.5-2K tokens |
-| 2 | `fix(ai CHAT-02): retry 413/429 con backoff y fallback de contexto reducido` | Reintentos 0.5s/2s + reintento con `full=False` |
-| 3 | `feat(ui CHAT-03): frontend honesto con status:error del copiloto` | Burbuja de error visible; no contamina el historial |
-| 4 | `feat(ai CHAT-04): contexto transversal estable + prompt conversacional + cache` | Reutiliza perfil del motor; contexto idéntico por turno; intención por keywords; cache por hash |
-| 5 | `refactor(ai CHAT-05): unificar deep-analysis y eliminar compute_column_context` | Solo si se aprueba; deja el código sin duplicados y sin huérfanos |
+| 0 | `chore(ui): fix variables CSS rotas del selector de duplicados (Etapa 03)` — `e026cfd` | Aísla cambios pendientes en working tree (app.js + design-system.css) |
+| 1 | `fix(ai CHAT-01): podar y truncar contexto del chat - mata el 413` — `02cc306` | `CONTEXT_SAMPLE_ROWS=15`, `CONTEXT_FREQ_ROWS=15`, `CONTEXT_VALUE_LEN=100`; sorted_data truncado → ~1.5-2K tokens |
+| 2 | `fix(ai CHAT-02): retry 413/429 con backoff y fallback de contexto reducido` — `bbb6a69` | Reintentos 0.5s/2s + reintento con `full=False` |
+| 3 | `feat(ui CHAT-03): frontend honesto con status:error del copiloto` — `1e1048b` | Burbuja de error visible; no contamina el historial |
+| 4 | `feat(ai CHAT-04): contexto transversal estable + prompt conversacional + cache` — `c0df59c` | Cache por hash; contexto idéntico por turno; intención por keywords; bloque OTRAS COLUMNAS |
+| 5 | `refactor(ai CHAT-05): unificar deep-analysis y eliminar compute_column_context` | **PENDIENTE** — solo si se aprueba; deja el código sin duplicados y sin huérfanos |
+
+### Verificación al cierre
+
+- Suite Python: **248 passed** (233 base + 15 nuevos). E2E Playwright: **41 passed**. `ruff --select F,E9`: limpio.
+- Prueba real contra Groq (columna de 2.000 chars, 120 filas): antes `413 Request too large (26384/6000 tokens)`, ahora **success** en todos los turnos (primer mensaje, seguimientos con historial y columna de texto largo).
+- Cache validado en la misma prueba: el 2º mensaje del mismo archivo pasó de 0.3s a ~0.0s (sin recálculo).
 
 ## 4. Calificación ANTES vs DESPUÉS
 
@@ -55,15 +61,15 @@ Evaluación honesta con base en el 413 reproducido y el código existente:
 
 ## 5. Archivos afectados
 
-- `data_engine/ai_advisor.py` — `_build_chat_context_message`, `chat_with_column_advisor`, constantes de contexto (CHAT-01/02/04); `compute_column_context` (CHAT-05, solo si se elimina).
-- `backend/app/main.py` — endpoint `/api/ai/chat-column` (CHAT-04: pasar perfil del motor; CHAT-05: deep-analysis).
+- `data_engine/ai_advisor.py` — `_build_chat_context_message`, `chat_with_column_advisor`, constantes de contexto (CHAT-01/02/04), `_detect_intent` (CHAT-04); `compute_column_context` (CHAT-05, solo si se elimina).
+- `backend/app/main.py` — endpoint `/api/ai/chat-column` + `_get_chat_session` con cache por hash (CHAT-04).
 - `frontend/src/app.js` + `frontend/src/nube.js` — render de errores (CHAT-03).
-- `frontend/src/styles/design-system.css` — fix visual del dropdown (Commit 0).
+- `frontend/src/styles/design-system.css` — fix visual del dropdown (Commit 0) + `.chat-bubble--error` (CHAT-03).
 - `tests/test_ai_advisor.py` — tests nuevos + actualización de contrato `full=True/False` (cambio de contrato planificado y documentado).
 - `tests/` E2E — `07_depuration_28_categories.spec.js` (CHAT-03).
 
 ## 6. Garantías
 
-- Cada commit cierra con: suite Python 233+ y E2E 41 verdes + `ruff --select F,E9` limpio.
-- Cambio de contrato explícito y documentado: solo los tests de `full=True/False` en `test_ai_advisor.py` (CHAT-04).
+- Cada commit cierra con: suite Python 248 y E2E 41 verdes + `ruff --select F,E9` limpio.
+- Cambio de contrato explícito y documentado: solo el test de `full=True/False` en `test_ai_advisor.py` (CHAT-04: `test_followup_message_compact` → `keeps_full_context`).
 - Cache en memoria apto para 1 instancia Render; sin persistencia entre reinicios (pendiente conocido, no oculto).
