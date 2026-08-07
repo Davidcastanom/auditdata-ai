@@ -365,9 +365,6 @@ def _is_text_like(column_type: str, domain_info: dict | None) -> bool:
     return True
 
 
-def _to_excel_row(index: int) -> int:
-    """Convert 0-based data index to Excel row number (header=row 1, data starts row 2)."""
-    return index + EXCEL_ROW_OFFSET
 
 
 def _shift_issue_rows(issue: IssueGroup, row_offset: int = EXCEL_ROW_OFFSET) -> IssueGroup:

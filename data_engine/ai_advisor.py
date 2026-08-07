@@ -69,7 +69,6 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 MODEL = "llama-3.1-8b-instant"
-MAX_TOKENS = 4096
 # El tier gratuito de Groq limita llama-3.1-8b-instant a 6000 TPM (input + output).
 # Las llamadas batch (recomendaciones/justificaciones) piden menos tokens de salida
 # para que el request completo (prompt + salida) quepa en el limite.
@@ -543,90 +542,6 @@ def _get_sample_values(
 # FUNCIONES AUXILIARES (PARSear RESPUESTAS)
 # ---------------------------------------------------------------------------
 
-def _parse_ai_response(response_text: str) -> dict[str, Any]:
-    """
-    Convierte la respuesta de Groq en formato JSON estructurado.
-
-    QUE HACE:
-    - Recibe el texto de respuesta de Groq
-    - Intenta parsearlo como JSON
-    - Si falla, crea un JSON básico con el texto original
-    - Valida que tenga la estructura correcta
-
-    PARAMETROS:
-    - response_text: Respuesta de Groq en texto plano
-
-    RETORNA:
-    - Diccionario con estructura:
-      {
-        "recommendations": [
-          {
-            "category": "NOMBRE",
-            "count": 10,
-            "text": "justificación",
-            "action": {...},
-            "confidence": 0.85
-          }
-        ]
-      }
-
-    MANEJO DE ERRORES:
-    - Si el JSON es invalido, retorna el texto como recomendación
-    - Si falta información, completa con valores por defecto
-    - Nunca falla, siempre retorna algo util
-
-    EJEMPLO:
-    >>> response = '{"recommendations": [{"category": "MISSING", "text": "..."}]}'
-    >>> parsed = _parse_ai_response(response)
-    >>> print(parsed["recommendations"][0]["category"])
-    "MISSING"
-    """
-    try:
-        # Intentar parsear como JSON
-        data = json.loads(response_text)
-
-        # Validar que tenga la estructura correcta
-        if "recommendations" not in data:
-            # Si no tiene "recommendations", crear estructura básica
-            data = {"recommendations": [data] if isinstance(data, dict) else []}
-
-        # Validar cada recomendación
-        valid_recommendations = []
-        for rec in data.get("recommendations", []):
-            if isinstance(rec, dict):
-                # Asegurar que tenga los campos minimos
-                valid_recommendations.append({
-                    "category": rec.get("category", "UNKNOWN"),
-                    "count": rec.get("count", 0),
-                    "text": rec.get("text", "Sin justificación"),
-                    "action": rec.get("action", {}),
-                    "confidence": min(max(rec.get("confidence", 0.5), 0.0), 1.0)
-                })
-
-        return {"recommendations": valid_recommendations}
-
-    except json.JSONDecodeError as e:
-        logger.warning("Error al parsear respuesta JSON: %s", e)
-        return {
-            "recommendations": [{
-                "category": "AI_RESPONSE",
-                "count": 0,
-                "text": response_text,
-                "action": {},
-                "confidence": 0.5
-            }]
-        }
-    except Exception as e:
-        logger.error("Error inesperado al parsear respuesta: %s", e)
-        return {
-            "recommendations": [{
-                "category": "ERROR",
-                "count": 0,
-                "text": f"Error al procesar respuesta: {e!s}",
-                "action": {},
-                "confidence": 0.0
-            }]
-        }
 
 
 # ---------------------------------------------------------------------------
@@ -1134,4 +1049,3 @@ async def analyze_column_deep(
             "analysis": f"Error al analizar columna: {e}",
             "status": "error",
         }
-
