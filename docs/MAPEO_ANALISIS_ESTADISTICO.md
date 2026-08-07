@@ -96,7 +96,7 @@ El README documenta **28 categorías (12 principales + 16 anexos)** con nombres 
 | `get_ai_recommendations_async` | Recomendaciones batch (primer mensaje detallado) | `POST /api/ai/recommend` (main.py:168) |
 | `chat_with_column_advisor` | Chat interactivo por columna (Paso 4) | `POST /api/ai/chat-column` (main.py:196) |
 | `analyze_column_deep` | Análisis profundo "experto senior" (Paso 3, bajo demanda) | `POST /api/ai/column-deep-analysis` (main.py:251) |
-| `compute_column_context` | Contexto: datos ordenados, únicos, missing, distribución, stats | — |
+| `build_column_context` | Contexto único compartido: datos ordenados, únicos, missing, distribución, stats (chat + deep-analysis) | `chat-column` y `column-deep-analysis` |
 
 - Modelo: Groq `llama-3.1-8b-instant`. Keys: `GROQ_API_KEY` (chat/recomendaciones) y `Recomendaciones_de_copiloto` (análisis profundo).
 - Sin API key → **modo fallback** con recomendaciones basadas en el diagnóstico local.

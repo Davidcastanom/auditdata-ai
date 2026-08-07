@@ -1,7 +1,7 @@
 """Tests rigurosos para el advisor de IA.
 
 Cubren:
-- compute_column_context: indicadores, frecuencias, estadisticas y ordenamiento
+- build_column_context: indicadores, frecuencias, estadisticas y ordenamiento
   (SIN porcentajes para evitar falsos positivos)
 - _build_chat_context_message: construccion del contexto del chat
 - chat_with_column_advisor: ensamblado de mensajes y manejo de errores
@@ -24,7 +24,7 @@ from data_engine.ai_advisor import (
     _build_chat_context_message,
     _detect_intent,
     chat_with_column_advisor,
-    compute_column_context,
+    build_column_context,
     get_ai_recommendations,
     get_justifications_batch,
 )
@@ -110,19 +110,19 @@ class _FakeAsyncGroqClientClass:
 
 
 # ---------------------------------------------------------------------------
-# compute_column_context
+# build_column_context
 # ---------------------------------------------------------------------------
 
 class TestComputeColumnContext(unittest.TestCase):
     def test_numeric_indicators(self):
         data = [(2, "28"), (3, "31"), (4, "28"), (5, ""), (6, "450")]
-        ctx = compute_column_context(data, "number")
+        ctx = build_column_context(data, "number")
         self.assertEqual(ctx["unique_count"], 3)
         self.assertEqual(ctx["missing_count"], 1)
 
     def test_numeric_stats(self):
         data = [(2, "28"), (3, "31"), (4, "28"), (5, ""), (6, "450")]
-        ctx = compute_column_context(data, "number")
+        ctx = build_column_context(data, "number")
         stats = ctx["stats_summary"]
         self.assertEqual(stats["min"], 28.0)
         self.assertEqual(stats["max"], 450.0)
@@ -137,55 +137,55 @@ class TestComputeColumnContext(unittest.TestCase):
 
     def test_numeric_sorted_ascending(self):
         data = [(2, "450"), (3, "28"), (4, "31"), (5, "28")]
-        ctx = compute_column_context(data, "number")
+        ctx = build_column_context(data, "number")
         values = [v for _, v in ctx["sorted_data"]]
         self.assertEqual(values, ["28", "28", "31", "450"])
 
     def test_numeric_row_numbers_preserved(self):
         data = [(10, "28"), (20, "450"), (30, "31")]
-        ctx = compute_column_context(data, "number")
+        ctx = build_column_context(data, "number")
         self.assertEqual(ctx["sorted_data"], [(10, "28"), (30, "31"), (20, "450")])
 
     def test_comma_decimal_parsed_as_number(self):
         data = [(2, "1,5"), (3, "2,5"), (4, "1,5")]
-        ctx = compute_column_context(data, "number")
+        ctx = build_column_context(data, "number")
         self.assertEqual(ctx["stats_summary"]["min"], 1.5)
         self.assertEqual(ctx["stats_summary"]["max"], 2.5)
         self.assertEqual(ctx["stats_summary"]["median"], 1.5)
 
     def test_text_sorted_case_insensitive(self):
         data = [(2, "Bogota"), (3, "ana"), (4, "Ana"), (5, "bogota")]
-        ctx = compute_column_context(data, "text")
+        ctx = build_column_context(data, "text")
         values = [v for _, v in ctx["sorted_data"]]
         self.assertEqual(values, ["ana", "Ana", "Bogota", "bogota"])
 
     def test_text_sort_tiebreak_by_row_number(self):
         data = [(5, "ana"), (3, "ana"), (4, "Ana")]
-        ctx = compute_column_context(data, "text")
+        ctx = build_column_context(data, "text")
         rows = [r for r, _ in ctx["sorted_data"]]
         self.assertEqual(rows, [3, 4, 5])
 
     def test_value_distribution_counts(self):
         data = [(2, "si"), (3, "no"), (4, "si"), (5, "si")]
-        ctx = compute_column_context(data, "text")
+        ctx = build_column_context(data, "text")
         dist = {d["value"]: d["count"] for d in ctx["value_distribution"]}
         self.assertEqual(dist["si"], 3)
         self.assertEqual(dist["no"], 1)
 
     def test_value_distribution_capped_at_30(self):
         data = [(i, f"v{i}") for i in range(100)]
-        ctx = compute_column_context(data, "text")
+        ctx = build_column_context(data, "text")
         self.assertLessEqual(len(ctx["value_distribution"]), 30)
 
     def test_missing_excluded_from_unique(self):
         data = [(2, ""), (3, "x"), (4, ""), (5, "x"), (6, " ")]
-        ctx = compute_column_context(data, "text")
+        ctx = build_column_context(data, "text")
         self.assertEqual(ctx["unique_count"], 1)
         self.assertEqual(ctx["missing_count"], 3)
 
     def test_empty_column(self):
         data = [(2, ""), (3, ""), (4, "")]
-        ctx = compute_column_context(data, "number")
+        ctx = build_column_context(data, "number")
         self.assertEqual(ctx["unique_count"], 0)
         self.assertEqual(ctx["missing_count"], 3)
         self.assertEqual(ctx["value_distribution"], [])
@@ -193,19 +193,19 @@ class TestComputeColumnContext(unittest.TestCase):
 
     def test_no_percentages_anywhere(self):
         data = [(2, "28"), (3, "31"), (4, "28"), (5, ""), (6, "450")]
-        ctx = compute_column_context(data, "number")
+        ctx = build_column_context(data, "number")
         blob = str(ctx)
         self.assertNotIn("%", blob, "No deben incluirse porcentajes (causan falsos positivos)")
 
     def test_mixed_text_numeric_keeps_non_numeric_last(self):
         data = [(2, "abc"), (3, "30"), (4, "10"), (5, "xyz")]
-        ctx = compute_column_context(data, "number")
+        ctx = build_column_context(data, "number")
         values = [v for _, v in ctx["sorted_data"]]
         self.assertEqual(values, ["10", "30", "abc", "xyz"])
 
     def test_non_numeric_type_leaves_stats_empty(self):
         data = [(2, "28"), (3, "31")]
-        ctx = compute_column_context(data, "text")
+        ctx = build_column_context(data, "text")
         self.assertEqual(ctx["stats_summary"], {})
 
 
@@ -410,14 +410,14 @@ class TestChatWithColumnAdvisor(unittest.IsolatedAsyncioTestCase):
              patch("data_engine.ai_advisor.init_groq_client", return_value=fake):
             result = await chat_with_column_advisor(
                 "edad", "¿Cómo trato los vacíos?",
-                context=compute_column_context([(2, "28")], "number"),
+                context=build_column_context([(2, "28")], "number"),
             )
         self.assertEqual(result["status"], "success")
         self.assertEqual(result["response"], "respuesta de prueba")
 
     async def test_first_message_has_full_context(self):
         fake = _FakeClient()
-        ctx = compute_column_context([(2, "28"), (3, "31"), (4, "28")], "number")
+        ctx = build_column_context([(2, "28"), (3, "31"), (4, "28")], "number")
         with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
              patch("data_engine.ai_advisor.init_groq_client", return_value=fake):
             await chat_with_column_advisor(
@@ -434,7 +434,7 @@ class TestChatWithColumnAdvisor(unittest.IsolatedAsyncioTestCase):
     async def test_followup_message_keeps_full_context(self):
         """CHAT-04: el contexto base es identico en todos los turnos (estable)."""
         fake = _FakeClient()
-        ctx = compute_column_context([(2, "28"), (3, "31"), (4, "28")], "number")
+        ctx = build_column_context([(2, "28"), (3, "31"), (4, "28")], "number")
         history = [
             {"role": "user", "content": "¿Qué ves?"},
             {"role": "assistant", "content": "Respuesta anterior"},
@@ -534,7 +534,7 @@ class TestChatWithColumnAdvisor(unittest.IsolatedAsyncioTestCase):
         """CHAT-02: el reintento tras 413 cae a contexto compacto (sin DATOS ORDENADOS)."""
         fake = _FakeClient()
         fake.chat.completions = _FlakyCompletions([413])
-        ctx = compute_column_context([(2, "28"), (3, "31"), (4, "28")], "number")
+        ctx = build_column_context([(2, "28"), (3, "31"), (4, "28")], "number")
         with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
              patch("data_engine.ai_advisor.init_groq_client", return_value=fake), \
              patch("data_engine.ai_advisor.asyncio.sleep", AsyncMock()):
@@ -696,12 +696,13 @@ class TestColumnDeepAnalysisEndpointContext(unittest.TestCase):
         self.assertEqual(call_kwargs["total_rows"], 5)
         self.assertEqual(call_kwargs["total_columns"], 7)
         self.assertIn("id", call_kwargs["headers"])
-        self.assertEqual(call_kwargs["unique_count"], 3)
-        self.assertEqual(call_kwargs["missing_count"], 1)
-        self.assertEqual(call_kwargs["value_distribution"][0], {"value": "28", "count": 2})
-        self.assertEqual(call_kwargs["stats_summary"]["min"], 28.0)
-        # Recibe datos YA ordenados desde el helper compartido
-        self.assertEqual(call_kwargs["column_data"], [(2, "28"), (4, "28"), (3, "31"), (6, "450"), (5, "")])
+        # CHAT-05: recibe el MISMO contexto compartido de build_column_context.
+        ctx = call_kwargs["context"]
+        self.assertEqual(ctx["unique_count"], 3)
+        self.assertEqual(ctx["missing_count"], 1)
+        self.assertEqual(ctx["value_distribution"][0], {"value": "28", "count": 2})
+        self.assertEqual(ctx["stats_summary"]["min"], 28.0)
+        self.assertEqual(ctx["sorted_data"], [(2, "28"), (4, "28"), (3, "31"), (6, "450"), (5, "")])
 
     def test_endpoint_without_api_key_returns_graceful(self):
         with patch("data_engine.ai_advisor._get_deep_client", return_value=None):

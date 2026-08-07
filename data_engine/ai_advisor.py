@@ -970,12 +970,12 @@ def _get_deep_client() -> Groq | AsyncGroq | None:
         return None
 
 
-def compute_column_context(
+def build_column_context(
     column_data: list[tuple[int, str]],
     detected_type: str = "unknown",
 ) -> dict[str, Any]:
     """
-    Construye un paquete de contexto completo de una columna para la IA.
+    Fuente unica de contexto de una columna para la IA (chat y deep-analysis).
 
     Incluye:
     - unique_count: valores unicos (SIN porcentajes para evitar falsos positivos)
@@ -1047,21 +1047,17 @@ def compute_column_context(
 
 async def analyze_column_deep(
     column_name: str,
-    column_data: list[tuple[int, str]],
+    context: dict[str, Any] | None = None,
     total_rows: int = 0,
     total_columns: int = 0,
     headers: list[str] | None = None,
     detected_type: str = "unknown",
     inferred_domain: str = "",
-    unique_count: int = 0,
-    missing_count: int = 0,
-    value_distribution: list[dict] | None = None,
-    stats_summary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Analiza una columna como experto senior y devuelve hallazgos + recomendaciones.
-    Recibe contexto completo: indicadores, frecuencias, estadisticas y headers.
-    column_data: lista de (numero_fila_en_archivo, valor)
+    Usa el MISMO contexto compartido de build_column_context (fuente unica):
+    indicadores, frecuencias, estadisticas y datos ordenados.
     """
     client = _get_deep_client()
     if not client:
@@ -1070,22 +1066,18 @@ async def analyze_column_deep(
             "status": "no_api_key",
         }
 
+    context = context or {}
+    column_data = context.get("sorted_data") or []
+    unique_count = context.get("unique_count", 0)
+    missing_count = context.get("missing_count", 0)
+    value_distribution = context.get("value_distribution") or []
+    stats_summary = context.get("stats_summary") or {}
+
     n_total = total_rows or len(column_data)
 
-    # --- Sort data for better pattern detection ---
-    if detected_type == "number":
-        def _num_sort_key(item):
-            try:
-                return (0, float(item[1].replace(",", ".")))
-            except (ValueError, AttributeError):
-                return (1, str(item[1]).lower())
-        sorted_data = sorted(column_data, key=_num_sort_key)
-    else:
-        sorted_data = sorted(column_data, key=lambda x: (str(x[1]).lower(), x[0]))
-
     # Sample: take up to 200 rows from sorted data
-    sample_size = min(200, len(sorted_data))
-    sample_rows = sorted_data[:sample_size]
+    sample_size = min(200, len(column_data))
+    sample_rows = column_data[:sample_size]
     sample_str = "; ".join([f"Fila {r}={v}" for r, v in sample_rows])
 
     # --- Build dataset context ---

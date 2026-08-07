@@ -1,6 +1,6 @@
 # Mejora Copiloto IA Conversacional — AuditData AI (Trazabilidad)
 
-**Fecha de creación:** 2026-08-07 · **Autor:** AuditData AI · **Estado:** EJECUTADO (commits 0-4 en `main`; CHAT-05 pendiente de aprobación)
+**Fecha de creación:** 2026-08-07 · **Autor:** AuditData AI · **Estado:** EJECUTADO (commits 0-5 en `main`)
 
 ## 1. Por qué se hizo esta mejora
 
@@ -34,7 +34,7 @@ El objetivo no era solo arreglar el crash, sino que el copiloto **pareciera que 
 | 2 | `fix(ai CHAT-02): retry 413/429 con backoff y fallback de contexto reducido` — `bbb6a69` | Reintentos 0.5s/2s + reintento con `full=False` |
 | 3 | `feat(ui CHAT-03): frontend honesto con status:error del copiloto` — `1e1048b` | Burbuja de error visible; no contamina el historial |
 | 4 | `feat(ai CHAT-04): contexto transversal estable + prompt conversacional + cache` — `c0df59c` | Cache por hash; contexto idéntico por turno; intención por keywords; bloque OTRAS COLUMNAS |
-| 5 | `refactor(ai CHAT-05): unificar deep-analysis y eliminar compute_column_context` | **PENDIENTE** — solo si se aprueba; deja el código sin duplicados y sin huérfanos |
+| 5 | `refactor(ai CHAT-05): unificar deep-analysis y eliminar compute_column_context` | `compute_column_context` → `build_column_context` (fuente única); `analyze_column_deep` recibe el mismo `context`; deep-analysis reutiliza la sesión cacheada |
 
 ### Verificación al cierre
 
@@ -61,7 +61,7 @@ Evaluación honesta con base en el 413 reproducido y el código existente:
 
 ## 5. Archivos afectados
 
-- `data_engine/ai_advisor.py` — `_build_chat_context_message`, `chat_with_column_advisor`, constantes de contexto (CHAT-01/02/04), `_detect_intent` (CHAT-04); `compute_column_context` (CHAT-05, solo si se elimina).
+- `data_engine/ai_advisor.py` — `_build_chat_context_message`, `chat_with_column_advisor`, constantes de contexto (CHAT-01/02/04), `_detect_intent` (CHAT-04), `build_column_context` y `analyze_column_deep` con contexto compartido (CHAT-05).
 - `backend/app/main.py` — endpoint `/api/ai/chat-column` + `_get_chat_session` con cache por hash (CHAT-04).
 - `frontend/src/app.js` + `frontend/src/nube.js` — render de errores (CHAT-03).
 - `frontend/src/styles/design-system.css` — fix visual del dropdown (Commit 0) + `.chat-bubble--error` (CHAT-03).

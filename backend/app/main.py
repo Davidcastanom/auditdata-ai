@@ -2,7 +2,7 @@ import base64
 import hashlib
 import os
 import time
-from typing import Any
+from typing import Any, Protocol
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -262,11 +262,19 @@ async def ai_chat_column(req: AIChatRequest):
 # CHAT-04: cache en memoria del trabajo pesado del chat (decode + load + diagnose
 # + contexto de columna), por hash del archivo. El 2º mensaje del mismo archivo no
 # recalcula nada. Adecuado para 1 instancia Render; se pierde al reiniciar.
+# CHAT-05: el deep-analysis reutiliza la misma sesion (fuente unica de contexto).
 _chat_session_cache: dict[str, dict[str, Any]] = {}
 CHAT_SESSION_CACHE_MAX = 8
 
 
-def _get_chat_session(req: AIChatRequest) -> dict[str, Any]:
+class _ChatSessionSource(Protocol):
+    column: str
+    detected_type: str
+    content_base64: str
+    filename: str
+
+
+def _get_chat_session(req: _ChatSessionSource) -> dict[str, Any]:
     """Recupera o construye el contexto de chat cacheado para un archivo+columna."""
     key = f"{req.column}:{req.detected_type}:{hashlib.sha256(req.content_base64.encode('utf-8')).hexdigest()}"
     cached = _chat_session_cache.get(key)
@@ -277,7 +285,7 @@ def _get_chat_session(req: AIChatRequest) -> dict[str, Any]:
 
     from data_engine.diagnostic import diagnose_dataset
     from data_engine.analyzer import load_dataset
-    from data_engine.ai_advisor import compute_column_context
+    from data_engine.ai_advisor import build_column_context
 
     headers, rows, header_row_index = load_dataset(req.filename, payload, **_dataset_settings(req))
     file_row_start = header_row_index + 2
@@ -292,7 +300,7 @@ def _get_chat_session(req: AIChatRequest) -> dict[str, Any]:
             col_diag = col
             break
 
-    context = compute_column_context(column_data, req.detected_type)
+    context = build_column_context(column_data, req.detected_type)
 
     other_columns = [
         {
@@ -331,32 +339,22 @@ class ColumnDeepAnalysisRequest(BaseModel):
 async def ai_column_deep_analysis(req: ColumnDeepAnalysisRequest):
     """
     Analiza una columna como experto senior: hallazgos + recomendaciones estructuradas.
-    Incluye contexto completo: indicadores, frecuencias, estadisticas y datos ordenados.
+    Reutiliza la sesion cacheada del chat (CHAT-05): misma fuente de contexto,
+    sin recalcular load/diagnose/contexto.
     """
     try:
-        payload = _decode_payload(req.content_base64)
+        from data_engine.ai_advisor import analyze_column_deep
 
-        from data_engine.ai_advisor import analyze_column_deep, compute_column_context
-        from data_engine.analyzer import load_dataset
-
-        headers, rows, header_row_index = load_dataset(req.filename, payload, **_dataset_settings(req))
-        file_row_start = header_row_index + 2
-        column_data = [(file_row_start + i, row.get(req.column, "")) for i, row in enumerate(rows)]
-
-        context = compute_column_context(column_data, req.detected_type)
+        session = _get_chat_session(req)
 
         result = await analyze_column_deep(
             column_name=req.column,
-            column_data=context["sorted_data"],
-            total_rows=len(rows),
-            total_columns=len(headers),
-            headers=headers,
+            context=session["context"],
+            total_rows=session["total_rows"],
+            total_columns=session["total_columns"],
+            headers=session["headers"],
             detected_type=req.detected_type,
             inferred_domain=req.inferred_domain,
-            unique_count=context["unique_count"],
-            missing_count=context["missing_count"],
-            value_distribution=context["value_distribution"],
-            stats_summary=context["stats_summary"],
         )
         return result
 
