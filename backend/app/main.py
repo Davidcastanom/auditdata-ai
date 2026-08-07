@@ -238,6 +238,18 @@ async def ai_chat_column(req: AIChatRequest):
 
         session = _get_chat_session(req)
 
+        # CHAT-06: columna inexistente -> respuesta honesta, sin llamar a Groq
+        # (antes el modelo inventaba un diagnostico para una columna que no existe).
+        if not session["column_exists"]:
+            disponibles = ", ".join(session["headers"][:15]) or "ninguna"
+            return {
+                "response": (
+                    f"La columna '{req.column}' no existe en el dataset. "
+                    f"Columnas disponibles: {disponibles}."
+                ),
+                "status": "error",
+            }
+
         res = await chat_with_column_advisor(
             column_name=req.column,
             user_query=req.user_query,
@@ -320,6 +332,8 @@ def _get_chat_session(req: _ChatSessionSource) -> dict[str, Any]:
         "total_columns": len(headers),
         "headers": headers,
         "other_columns": other_columns,
+        # CHAT-06: honestidad. La IA solo conversa/analiza columnas que existen.
+        "column_exists": req.column == "__dataset__" or req.column in headers,
     }
     _chat_session_cache[key] = session
     if len(_chat_session_cache) > CHAT_SESSION_CACHE_MAX:
@@ -346,6 +360,17 @@ async def ai_column_deep_analysis(req: ColumnDeepAnalysisRequest):
         from data_engine.ai_advisor import analyze_column_deep
 
         session = _get_chat_session(req)
+
+        # CHAT-06: honestidad ante columna inexistente.
+        if not session["column_exists"]:
+            disponibles = ", ".join(session["headers"][:15]) or "ninguna"
+            return {
+                "analysis": (
+                    f"La columna '{req.column}' no existe en el dataset. "
+                    f"Columnas disponibles: {disponibles}."
+                ),
+                "status": "error",
+            }
 
         result = await analyze_column_deep(
             column_name=req.column,

@@ -53,7 +53,9 @@ import asyncio
 import json
 import logging
 import os
+import difflib
 import statistics
+import unicodedata
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -93,6 +95,13 @@ RATE_LIMIT_BACKOFF = (0.5, 2.0)
 
 # CHAT-04: maximo de columnas vecinas a incluir como contexto transversal.
 CHAT_OTHER_COLUMNS_MAX = 12
+
+# CHAT-06: deteccion de posibles errores de escritura (typos) en valores de texto.
+# Compara los valores menos frecuentes contra los dominantes con difflib y reporta
+# los mas claros al modelo para que los mencione con honestidad.
+CHAT_TYPOS_MAX = 5
+TYPOS_SIMILARITY = 0.82
+TYPOS_MAX_UNIQUE = 60
 
 # CHAT-04: deteccion de intencion por keywords para ajustar el prompt.
 _INTENT_KEYWORDS: dict[str, tuple[list[str], str]] = {
@@ -786,6 +795,15 @@ def _build_chat_context_message(
                 f"- Outliers altos: {stats.get('outliers_altos', 0)}"
             )
 
+        typos = context.get("typos") or []
+        if typos:
+            typo_lines = "\n".join(
+                f'- "{_truncate(t.get("value", ""))}" ({t.get("count", 0)}x) '
+                f'parece typo de "{_truncate(t.get("canonical", ""))}"'
+                for t in typos
+            )
+            parts.append(f"POSIBLES ERRORES DE ESCRITURA:\n{typo_lines}")
+
     issues_summary = ""
     if column_diagnostic:
         issues = column_diagnostic.get("issues", [])
@@ -970,6 +988,69 @@ def _get_deep_client() -> Groq | AsyncGroq | None:
         return None
 
 
+def _strip_format(value: Any) -> str:
+    """Normaliza un valor para distinguir typos reales de variantes solo de formato
+    (mayusculas/espacios/acentos). Las variantes de formato ya las cubre el motor
+    con format_groups, asi que aqui se descartan."""
+    text = str(value).strip().lower()
+    text = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in text if not unicodedata.combining(c))
+
+
+def _detect_typos(
+    value_distribution: list[dict[str, Any]],
+    unique_count: int,
+    detected_type: str,
+) -> list[dict[str, Any]]:
+    """Detecta posibles errores de escritura (typos) entre los valores de texto.
+
+    CHAT-06: compara los valores poco frecuentes (>= 2 ocurrencias y con a lo
+    menos la mitad de frecuencia que el dominante) contra los mas frecuentes con
+    difflib.SequenceMatcher. Solo aplica a columnas de texto con vocabulario
+    acotado (<= TYPOS_MAX_UNIQUE). Descarta:
+    - diferencias solo de formato (mayusculas/espacios/acentos): ya las cubre
+      el motor con format_groups
+    - prefijos/abreviaciones ("jua" de "juan"): mas recorte que typo
+
+    Devuelve hasta CHAT_TYPOS_MAX entradas {value, count, canonical, ratio}.
+    """
+    if detected_type != "text" or unique_count > TYPOS_MAX_UNIQUE or len(value_distribution) < 3:
+        return []
+    max_count = value_distribution[0].get("count", 0) or 0
+    if max_count < 2:
+        return []
+    typos: list[dict[str, Any]] = []
+    for cand in value_distribution:
+        if len(typos) >= CHAT_TYPOS_MAX:
+            break
+        v = cand.get("value")
+        count = cand.get("count", 0) or 0
+        if not v or count < 2 or count * 2 > max_count:
+            continue
+        best, best_ratio = None, 0.0
+        for ref in value_distribution:
+            d = ref.get("value")
+            if not d or v == d:
+                continue
+            ratio = difflib.SequenceMatcher(None, v, d).ratio()
+            if ratio > best_ratio:
+                best, best_ratio = d, ratio
+        if (
+            best
+            and best_ratio >= TYPOS_SIMILARITY
+            and abs(len(v) - len(best)) <= 2
+            and not (v.startswith(best) or best.startswith(v))
+            and _strip_format(v) != _strip_format(best)
+        ):
+            typos.append({
+                "value": v,
+                "count": count,
+                "canonical": best,
+                "ratio": round(best_ratio, 2),
+            })
+    return typos
+
+
 def build_column_context(
     column_data: list[tuple[int, str]],
     detected_type: str = "unknown",
@@ -983,6 +1064,7 @@ def build_column_context(
     - value_distribution: tabla de frecuencias (top 30, solo conteos)
     - stats_summary: resumen estadistico numerico (min, max, mean, median, IQR)
     - sorted_data: datos ordenados (alfabetico o numerico segun tipo)
+    - typos: posibles errores de escritura (CHAT-06) en columnas de texto
 
     column_data: lista de (numero_fila_en_archivo, valor)
     """
@@ -1042,6 +1124,7 @@ def build_column_context(
         "value_distribution": value_distribution,
         "stats_summary": stats_summary,
         "sorted_data": sorted_data,
+        "typos": _detect_typos(value_distribution, unique_count, detected_type),
     }
 
 
@@ -1110,6 +1193,16 @@ async def analyze_column_deep(
         ]
         stats_str = "**Resumen Estadistico:**\n" + "\n".join(stats_lines) + "\n"
 
+    # --- Build typos section (CHAT-06) ---
+    typos_str = ""
+    typos = context.get("typos") or []
+    if typos:
+        typo_lines = [
+            f'  - "{t["value"]}" ({t["count"]}x) -> probable typo de "{t["canonical"]}"'
+            for t in typos
+        ]
+        typos_str = "**Posibles errores de escritura:**\n" + "\n".join(typo_lines) + "\n"
+
     # --- Build prompts ---
     system_prompt = (
         "Eres un analista senior de calidad de datos con 15 anios de experiencia. "
@@ -1124,10 +1217,12 @@ async def analyze_column_deep(
         f"INDICADORES:\n{indicators}\n"
         f"{freq_str}\n"
         f"{stats_str}\n"
+        f"{typos_str}\n"
         f"Datos ordenados (fila=valor, primeros {len(sample_rows)} de {n_total}):\n{sample_str}\n\n"
         "INSTRUCCIONES:\n"
         "- Identifica SOLO anomalias reales (no describas datos normales)\n"
         "- Si NO hay anomalias responde exactamente: No hay hallazgos significativos.\n"
+        "- Detecta errores de escritura (typos) en valores de texto y cita el valor mal escrito\n"
         "- Por cada hallazgo incluye: numero(s) de FILA exacto(s) y el VALOR de ejemplo\n"
         "- Clasifica cada hallazgo por tipo de error\n"
         "- Da una recomendacion ACCIONABLE y CONCRETA\n"

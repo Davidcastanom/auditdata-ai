@@ -1,6 +1,6 @@
 # Mejora Copiloto IA Conversacional — AuditData AI (Trazabilidad)
 
-**Fecha de creación:** 2026-08-07 · **Autor:** AuditData AI · **Estado:** EJECUTADO (commits 0-5 en `main`)
+**Fecha de creación:** 2026-08-07 · **Autor:** AuditData AI · **Estado:** EJECUTADO (commits 0-6 en `main`)
 
 ## 1. Por qué se hizo esta mejora
 
@@ -35,11 +35,12 @@ El objetivo no era solo arreglar el crash, sino que el copiloto **pareciera que 
 | 3 | `feat(ui CHAT-03): frontend honesto con status:error del copiloto` — `1e1048b` | Burbuja de error visible; no contamina el historial |
 | 4 | `feat(ai CHAT-04): contexto transversal estable + prompt conversacional + cache` — `c0df59c` | Cache por hash; contexto idéntico por turno; intención por keywords; bloque OTRAS COLUMNAS |
 | 5 | `refactor(ai CHAT-05): unificar deep-analysis y eliminar compute_column_context` | `compute_column_context` → `build_column_context` (fuente única); `analyze_column_deep` recibe el mismo `context`; deep-analysis reutiliza la sesión cacheada |
+| 6 | `feat(ai CHAT-06): honestidad ante columnas inexistentes + detección de errores de escritura` | Columna inexistente → `status: error` real sin llamar a Groq (antes inventaba diagnóstico); `_detect_typos` detecta typos en valores de texto (difflib, sin formato/prefijos) → bloque `POSIBLES ERRORES DE ESCRITURA` en chat y deep-analysis |
 
 ### Verificación al cierre
 
-- Suite Python: **248 passed** (233 base + 15 nuevos). E2E Playwright: **41 passed**. `ruff --select F,E9`: limpio.
-- Prueba real contra Groq (columna de 2.000 chars, 120 filas): antes `413 Request too large (26384/6000 tokens)`, ahora **success** en todos los turnos (primer mensaje, seguimientos con historial y columna de texto largo).
+- Suite Python: **257 passed** (248 + 9 nuevos de CHAT-06). E2E Playwright: **41 passed**. `ruff --select F,E9`: limpio.
+- Prueba real contra Groq (columna `nombre` con `juan`/`juaan`/`Juan`): el chat detecta `"juaan"` como typo de `"juan"`; el deep-analysis cita filas exactas (18, 19, 20) con el valor mal escrito; columna inexistente responde en **0.0s** `La columna 'no_existe' no existe en el dataset. Columnas disponibles: ...` sin gastar tokens ni inventar.
 - Cache validado en la misma prueba: el 2º mensaje del mismo archivo pasó de 0.3s a ~0.0s (sin recálculo).
 
 ## 4. Calificación ANTES vs DESPUÉS
@@ -55,14 +56,15 @@ Evaluación honesta con base en el 413 reproducido y el código existente:
 | Manejo de errores UX | 3/10 | 9/10 |
 | Rendimiento por turno | 5/10 | 9/10 |
 | Mantenibilidad | 6/10 | 9/10 |
+| Validación (lo que existe) y typos | 4/10 | 9/10 |
 | **Promedio ponderado** | **4.1/10** | **8.9/10** |
 
 **Conclusión:** sube de nivel de forma significativa (2.2× en nivel). El 413 deja de existir, el costo de tokens cae ~10×, la conversación es estable y contextual, y el código queda con fuente única de contexto (sin duplicación con el motor).
 
 ## 5. Archivos afectados
 
-- `data_engine/ai_advisor.py` — `_build_chat_context_message`, `chat_with_column_advisor`, constantes de contexto (CHAT-01/02/04), `_detect_intent` (CHAT-04), `build_column_context` y `analyze_column_deep` con contexto compartido (CHAT-05).
-- `backend/app/main.py` — endpoint `/api/ai/chat-column` + `_get_chat_session` con cache por hash (CHAT-04).
+- `data_engine/ai_advisor.py` — `_build_chat_context_message`, `chat_with_column_advisor`, constantes de contexto (CHAT-01/02/04), `_detect_intent` (CHAT-04), `build_column_context` y `analyze_column_deep` con contexto compartido (CHAT-05), `_strip_format` + `_detect_typos` + bloque `POSIBLES ERRORES DE ESCRITURA` (CHAT-06).
+- `backend/app/main.py` — endpoint `/api/ai/chat-column` + `_get_chat_session` con cache por hash (CHAT-04) y `column_exists` (CHAT-06).
 - `frontend/src/app.js` + `frontend/src/nube.js` — render de errores (CHAT-03).
 - `frontend/src/styles/design-system.css` — fix visual del dropdown (Commit 0) + `.chat-bubble--error` (CHAT-03).
 - `tests/test_ai_advisor.py` — tests nuevos + actualización de contrato `full=True/False` (cambio de contrato planificado y documentado).

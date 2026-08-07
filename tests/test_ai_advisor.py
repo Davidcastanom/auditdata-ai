@@ -8,6 +8,7 @@ Cubren:
 - /api/ai/chat-column: integracion del contexto calculado en el endpoint
 """
 
+import asyncio
 import base64
 import copy
 import json
@@ -23,6 +24,8 @@ from data_engine.ai_advisor import (
     _build_batch_prompt,
     _build_chat_context_message,
     _detect_intent,
+    _detect_typos,
+    analyze_column_deep,
     chat_with_column_advisor,
     build_column_context,
     get_ai_recommendations,
@@ -210,6 +213,112 @@ class TestComputeColumnContext(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# CHAT-06: deteccion de errores de escritura (typos)
+# ---------------------------------------------------------------------------
+
+class TestDetectTypos(unittest.TestCase):
+    def _context_from(self, values, detected_type="text"):
+        data = [(i + 2, v) for i, v in enumerate(values)]
+        return build_column_context(data, detected_type)
+
+    def test_detects_spelling_variants(self):
+        values = (
+            ["juan"] * 10 + ["maria"] * 8 + ["ana"] * 7 + ["carlos"] * 6
+            + ["pedro"] * 5 + ["lucia"] * 4 + ["juaan"] * 3 + ["anna"] * 2
+        )
+        typos = self._context_from(values)["typos"]
+        by_value = {t["value"]: t for t in typos}
+        self.assertEqual(by_value["juaan"]["canonical"], "juan")
+        self.assertEqual(by_value["juaan"]["count"], 3)
+        self.assertEqual(by_value["anna"]["canonical"], "ana")
+        self.assertTrue(all(t["ratio"] >= 0.82 for t in typos))
+
+    def test_direct_call_finds_typo(self):
+        dist = [
+            {"value": "juan", "count": 10},
+            {"value": "maria", "count": 8},
+            {"value": "ana", "count": 7},
+            {"value": "carlos", "count": 6},
+            {"value": "pedro", "count": 5},
+            {"value": "juaan", "count": 3},
+        ]
+        typos = _detect_typos(dist, unique_count=6, detected_type="text")
+        self.assertEqual(typos, [{
+            "value": "juaan", "count": 3,
+            "canonical": "juan", "ratio": 0.89,
+        }])
+
+    def test_no_typos_on_high_cardinality(self):
+        # Emails practicamente unicos: no hay vocabulario dominante, no debe inferir.
+        values = [f"cliente{i}@correo.com" for i in range(100)]
+        ctx = self._context_from(values)
+        self.assertEqual(ctx["unique_count"], 100)
+        self.assertEqual(ctx["typos"], [])
+
+    def test_no_typos_on_numeric_column(self):
+        values = ["1"] * 10 + ["2"] * 8 + ["3"] * 6 + ["11"] * 3 + ["12"] * 2
+        self.assertEqual(self._context_from(values, "number")["typos"], [])
+
+    def test_format_variants_are_not_typos(self):
+        # "Juan"/"juan " son variantes de formato (las cubre format_groups), no typos.
+        values = (
+            ["juan"] * 12 + ["Juan"] * 6 + ["juan "] * 4 + ["maria"] * 5
+            + ["ana"] * 4 + ["pedro"] * 3 + ["lucia"] * 2 + ["rosa"] * 2
+        )
+        typos = self._context_from(values)["typos"]
+        self.assertTrue(all(t["value"] not in ("Juan", "juan ") for t in typos))
+
+    def test_prefix_abbreviation_not_a_typo(self):
+        # "jua" es un recorte de "juan", no un error de escritura claro.
+        values = (
+            ["juan"] * 10 + ["maria"] * 8 + ["ana"] * 7 + ["carlos"] * 6
+            + ["pedro"] * 5 + ["lucia"] * 4 + ["jua"] * 3 + ["rosa"] * 2
+        )
+        typos = self._context_from(values)["typos"]
+        self.assertNotIn("jua", [t["value"] for t in typos])
+
+
+class TestDeepAnalysisTypos(unittest.TestCase):
+    def test_deep_prompt_includes_typos(self):
+        ctx = {
+            "unique_count": 6,
+            "missing_count": 0,
+            "value_distribution": [
+                {"value": "juan", "count": 10},
+                {"value": "maria", "count": 8},
+                {"value": "ana", "count": 7},
+                {"value": "carlos", "count": 6},
+                {"value": "pedro", "count": 5},
+                {"value": "juaan", "count": 3},
+            ],
+            "stats_summary": {},
+            "sorted_data": [(i + 2, v) for i, v in enumerate(
+                ["juan"] * 10 + ["maria"] * 8 + ["ana"] * 7 + ["carlos"] * 6
+                + ["pedro"] * 5 + ["juaan"] * 3
+            )],
+            "typos": [{"value": "juaan", "count": 3, "canonical": "juan", "ratio": 0.89}],
+        }
+        fake = _FakeClient()
+        captured = {}
+
+        def _spy(*args, **kwargs):
+            captured["messages"] = kwargs.get("messages")
+            return _FakeResponse("1. **TYPO** (Filas 44, 45, 46)\n"
+                                 "   Valor ejemplo: \"juaan\"\n"
+                                 "   -> **Recomendacion**: corregir a \"juan\".")
+
+        fake.chat.completions.create = _spy
+        with patch("data_engine.ai_advisor._get_deep_client", return_value=fake):
+            result = asyncio.run(
+                analyze_column_deep("nombre", context=ctx, detected_type="text")
+            )
+        self.assertEqual(result["status"], "success")
+        user_prompt = captured["messages"][1]["content"]
+        self.assertIn("Posibles errores de escritura", user_prompt)
+        self.assertIn('"juaan"', user_prompt)
+
+
+# ---------------------------------------------------------------------------
 # _build_chat_context_message
 # ---------------------------------------------------------------------------
 
@@ -341,6 +450,18 @@ class TestBuildChatContextMessage(unittest.TestCase):
         self.assertIn("OTRAS COLUMNAS (contexto del dataset)", msg)
         self.assertIn("- nombre (text) (4 categorias, 2 problemas)", msg)
         self.assertIn("- ingreso (number) (0 problemas)", msg)
+
+    def test_includes_typos_block(self):
+        ctx = self._context()
+        ctx["typos"] = [
+            {"value": "juaan", "count": 3, "canonical": "juan", "ratio": 0.89},
+        ]
+        msg = _build_chat_context_message(
+            "nombre", None, ctx,
+            total_rows=5, total_columns=7, detected_type="text",
+        )
+        self.assertIn("POSIBLES ERRORES DE ESCRITURA", msg)
+        self.assertIn('"juaan" (3x) parece typo de "juan"', msg)
 
 
 class TestDetectIntent(unittest.TestCase):
@@ -608,7 +729,9 @@ class TestChatColumnEndpointContext(unittest.TestCase):
         self.assertEqual(call_kwargs["detected_type"], "unknown")
         self.assertEqual(call_kwargs["context"]["stats_summary"], {})
 
-    def test_endpoint_unknown_column_still_works(self):
+    def test_endpoint_unknown_column_returns_honest_error(self):
+        """CHAT-06: columna inexistente responde error honesto SIN llamar a Groq.
+        (antes el modelo inventaba un diagnostico para una columna que no existe)."""
         mock_advisor = AsyncMock(return_value={"response": "ok", "status": "success"})
         with patch("data_engine.ai_advisor.chat_with_column_advisor", mock_advisor):
             response = client.post(
@@ -621,9 +744,11 @@ class TestChatColumnEndpointContext(unittest.TestCase):
                 },
             )
         self.assertEqual(response.status_code, 200)
-        ctx = mock_advisor.call_args.kwargs["context"]
-        self.assertEqual(ctx["missing_count"], 5)
-        self.assertEqual(ctx["unique_count"], 0)
+        data = response.json()
+        self.assertEqual(data["status"], "error")
+        self.assertIn("no existe", data["response"])
+        self.assertIn("edad", data["response"])
+        mock_advisor.assert_not_called()
 
     def test_endpoint_caches_heavy_work_per_file(self):
         """CHAT-04: el 2º mensaje del mismo archivo+columna no recalcula load_dataset."""
@@ -722,6 +847,25 @@ class TestColumnDeepAnalysisEndpointContext(unittest.TestCase):
             "response" in data or "analysis" in data,
             "Debe incluir un mensaje explicativo de IA deshabilitada",
         )
+
+    def test_endpoint_unknown_column_returns_honest_error(self):
+        """CHAT-06: deep-analysis de columna inexistente responde error honesto sin Groq."""
+        mock_advisor = AsyncMock(return_value={"analysis": "ok", "status": "success"})
+        with patch("data_engine.ai_advisor.analyze_column_deep", mock_advisor):
+            response = client.post(
+                "/api/ai/column-deep-analysis",
+                json={
+                    "filename": "test.csv",
+                    "content_base64": _encode(SAMPLE_CSV),
+                    "column": "no_existe",
+                    "detected_type": "text",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "error")
+        self.assertIn("no existe", data["analysis"])
+        mock_advisor.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
