@@ -9,6 +9,7 @@ Cubren:
 """
 
 import base64
+import copy
 import json
 import os
 import unittest
@@ -72,6 +73,25 @@ class _FakeCompletions:
 class _FakeAsyncCompletions(_FakeCompletions):
     async def create(self, *args, **kwargs):
         self.last_kwargs = kwargs
+        return _FakeResponse(self._response_text)
+
+
+class _FlakyCompletions(_FakeCompletions):
+    """Falla con status_code rate-limit N veces y luego responde."""
+
+    def __init__(self, fail_codes: list[int], response_text: str = "respuesta tras retry"):
+        super().__init__(response_text)
+        self.fail_codes = list(fail_codes)
+        self.calls: list[dict] = []
+
+    def create(self, *args, **kwargs):
+        self.calls.append(copy.deepcopy(kwargs))
+        self.last_kwargs = kwargs
+        if self.fail_codes:
+            code = self.fail_codes.pop(0)
+            err = RuntimeError(f"Error code: {code} - rate_limit_exceeded")
+            err.status_code = code
+            raise err
         return _FakeResponse(self._response_text)
 
 
@@ -431,6 +451,56 @@ class TestChatWithColumnAdvisor(unittest.IsolatedAsyncioTestCase):
         messages = fake.chat.completions.last_kwargs["messages"]
         system_prompt = messages[0]["content"]
         self.assertIn("base en los datos del contexto", system_prompt)
+
+    async def test_retry_recovers_from_rate_limit_413(self):
+        """CHAT-02: un 413 transitorio no rompe la conversacion; se reintenta."""
+        fake = _FakeClient()
+        fake.chat.completions = _FlakyCompletions([413])
+        with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
+             patch("data_engine.ai_advisor.init_groq_client", return_value=fake), \
+             patch("data_engine.ai_advisor.asyncio.sleep", AsyncMock()):
+            result = await chat_with_column_advisor("edad", "Hola")
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(len(fake.chat.completions.calls), 2)
+
+    async def test_retry_recovers_from_rate_limit_429(self):
+        """CHAT-02: 429 (tokens por minuto) tambien se reintenta."""
+        fake = _FakeClient()
+        fake.chat.completions = _FlakyCompletions([429, 429])
+        with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
+             patch("data_engine.ai_advisor.init_groq_client", return_value=fake), \
+             patch("data_engine.ai_advisor.asyncio.sleep", AsyncMock()):
+            result = await chat_with_column_advisor("edad", "Hola")
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(len(fake.chat.completions.calls), 3)
+
+    async def test_persistent_rate_limit_returns_clean_error(self):
+        """CHAT-02: si siempre falla, se devuelve status error con mensaje claro."""
+        fake = _FakeClient()
+        fake.chat.completions = _FlakyCompletions([413, 413, 413, 413])
+        with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
+             patch("data_engine.ai_advisor.init_groq_client", return_value=fake), \
+             patch("data_engine.ai_advisor.asyncio.sleep", AsyncMock()):
+            result = await chat_with_column_advisor("edad", "Hola")
+        self.assertEqual(result["status"], "error")
+        self.assertIn("Lo siento", result["response"])
+
+    async def test_retry_uses_reduced_context_on_second_attempt(self):
+        """CHAT-02: el reintento tras 413 cae a contexto compacto (sin DATOS ORDENADOS)."""
+        fake = _FakeClient()
+        fake.chat.completions = _FlakyCompletions([413])
+        ctx = compute_column_context([(2, "28"), (3, "31"), (4, "28")], "number")
+        with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
+             patch("data_engine.ai_advisor.init_groq_client", return_value=fake), \
+             patch("data_engine.ai_advisor.asyncio.sleep", AsyncMock()):
+            await chat_with_column_advisor(
+                "edad", "¿Qué ves?", context=ctx, total_rows=3, total_columns=7,
+                detected_type="number",
+            )
+        calls = fake.chat.completions.calls
+        self.assertIn("DATOS ORDENADOS", calls[0]["messages"][-1]["content"])
+        self.assertNotIn("DATOS ORDENADOS", calls[1]["messages"][-1]["content"])
+
 
 
 # ---------------------------------------------------------------------------

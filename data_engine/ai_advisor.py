@@ -49,9 +49,11 @@ VERSION: 1.0
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
+import statistics
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -82,6 +84,21 @@ TEMPERATURE = 0.3
 CONTEXT_SAMPLE_ROWS = 15
 CONTEXT_FREQ_ROWS = 15
 CONTEXT_VALUE_LEN = 100
+
+# CHAT-02: reintentos ante rate limit de Groq (413 request too large / 429 TPM).
+# El tier free responde 413/429 cuando el request excede 6000 TPM; se reintenta
+# con backoff y contexto reducido en lugar de romper la conversacion.
+RATE_LIMIT_RETRIES = 2
+RATE_LIMIT_BACKOFF = (0.5, 2.0)
+
+
+def _is_rate_limit_error(exc: Exception) -> bool:
+    """True si la excepcion de Groq es un rate limit/tamano (413/429)."""
+    status = getattr(exc, "status_code", None)
+    if status in (413, 429):
+        return True
+    msg = str(exc).lower()
+    return "rate_limit_exceeded" in msg or "too large" in msg or "tokens per minute" in msg
 
 
 # ---------------------------------------------------------------------------
@@ -810,29 +827,54 @@ async def chat_with_column_advisor(
         messages.extend(chat_history[-10:])
     messages.append({"role": "user", "content": context_msg})
 
-    try:
-        if isinstance(client, AsyncGroq):
-            res = await client.chat.completions.create(
-                model=MODEL,
-                messages=messages,
-                max_tokens=1024,
-                temperature=0.4
-            )
-        else:
-            res = client.chat.completions.create(
-                model=MODEL,
-                messages=messages,
-                max_tokens=1024,
-                temperature=0.4
-            )
-        answer = res.choices[0].message.content
-        return {"response": answer, "status": "success"}
-    except Exception as e:
-        logger.error("Error en chat_with_column_advisor: %s", e)
-        return {
-            "response": f"Lo siento, ocurrió un error al consultar la IA: {e}",
-            "status": "error"
-        }
+    # CHAT-02: reintentos ante rate limit (413/429) con backoff. Tras el primer
+    # fallo se cae a contexto compacto (sin DATOS ORDENADOS) para caber en TPM.
+    last_error: Exception | None = None
+    for attempt in range(RATE_LIMIT_RETRIES + 1):
+        try:
+            if isinstance(client, AsyncGroq):
+                res = await client.chat.completions.create(
+                    model=MODEL,
+                    messages=messages,
+                    max_tokens=1024,
+                    temperature=0.4
+                )
+            else:
+                res = client.chat.completions.create(
+                    model=MODEL,
+                    messages=messages,
+                    max_tokens=1024,
+                    temperature=0.4
+                )
+            answer = res.choices[0].message.content
+            return {"response": answer, "status": "success"}
+        except Exception as e:
+            last_error = e
+            if not _is_rate_limit_error(e) or attempt >= RATE_LIMIT_RETRIES:
+                break
+            await asyncio.sleep(RATE_LIMIT_BACKOFF[attempt])
+            # Reintento con contexto reducido: quitar DATOS ORDENADOS y recortar.
+            messages[-1] = {
+                "role": "user",
+                "content": _build_chat_context_message(
+                    column_name=column_name,
+                    column_diagnostic=column_diagnostic,
+                    context=context,
+                    total_rows=total_rows,
+                    total_columns=total_columns,
+                    headers=headers,
+                    detected_type=detected_type,
+                    inferred_domain=inferred_domain,
+                    full=False,
+                ) + f"\n\nPREGUNTA DEL ANALISTA: {user_query}",
+            }
+            continue
+
+    logger.error("Error en chat_with_column_advisor: %s", last_error)
+    return {
+        "response": f"Lo siento, ocurrió un error al consultar la IA: {last_error}",
+        "status": "error"
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -875,7 +917,6 @@ def compute_column_context(
 
     column_data: lista de (numero_fila_en_archivo, valor)
     """
-    import statistics
     from collections import Counter
 
     values = [v for _, v in column_data]
