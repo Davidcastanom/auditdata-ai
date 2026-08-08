@@ -3403,6 +3403,17 @@ th {
   gap: var(--space-2);
 }
 
+.consent-modal__body a {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.consent-modal__body a:hover {
+  color: #ffffff;
+  text-decoration: underline;
+  opacity: 0.85;
+}
+
 .consent-modal__version {
   margin: var(--space-2) 0 0;
   font-size: 0.75rem;
