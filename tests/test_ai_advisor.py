@@ -375,6 +375,7 @@ class TestDeepAnalysisTypos(unittest.TestCase):
         self.assertEqual(result["status"], "success")
         system_prompt = fake.chat.completions.last_kwargs["messages"][0]["content"]
         self.assertIn("no entrena modelos", system_prompt)
+        self.assertIn("LIMITATE A LAS CAPACIDADES DE AuditData AI", system_prompt)
         self.assertIn("Groq", system_prompt)
 
 
@@ -668,6 +669,30 @@ class TestChatWithColumnAdvisor(unittest.IsolatedAsyncioTestCase):
         messages = fake.chat.completions.last_kwargs["messages"]
         system_prompt = messages[0]["content"]
         self.assertIn("base en los datos del contexto", system_prompt)
+
+    async def test_system_prompt_is_conversational(self):
+        """CHAT-09: el copiloto debe ser conversacional, no un generador de listas."""
+        fake = _FakeClient()
+        with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
+             patch("data_engine.ai_advisor.init_groq_client", return_value=fake):
+            await chat_with_column_advisor("edad", "¿cómo trato los vacíos?")
+        system_prompt = fake.chat.completions.last_kwargs["messages"][0]["content"]
+        self.assertIn("conversacional", system_prompt)
+        self.assertIn("Sé soberano", system_prompt)
+        self.assertNotIn("Estructura tu respuesta como LISTA", system_prompt)
+
+    async def test_system_prompt_limits_to_app_capabilities(self):
+        """CHAT-09: no debe sugerir funciones/tools externos (Excel, Python, SQL...)."""
+        fake = _FakeClient()
+        with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
+             patch("data_engine.ai_advisor.init_groq_client", return_value=fake):
+            await chat_with_column_advisor("edad", "¿cómo limpio esto?")
+        system_prompt = fake.chat.completions.last_kwargs["messages"][0]["content"]
+        self.assertIn("LIMITATE A LAS CAPACIDADES DE AuditData AI", system_prompt)
+        self.assertIn("Pandas", system_prompt)
+        self.assertIn("Excel", system_prompt)
+        self.assertIn("SQL", system_prompt)
+        self.assertIn("imputar/rellenar faltantes", system_prompt)
 
     async def test_system_prompt_includes_privacy_truth(self):
         """CHAT-07: el copiloto no debe prometer falsas garantias de privacidad.
