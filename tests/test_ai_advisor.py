@@ -670,8 +670,8 @@ class TestChatWithColumnAdvisor(unittest.IsolatedAsyncioTestCase):
         system_prompt = messages[0]["content"]
         self.assertIn("base en los datos del contexto", system_prompt)
 
-    async def test_system_prompt_is_conversational(self):
-        """CHAT-09: el copiloto debe ser conversacional, no un generador de listas."""
+    async def test_system_prompt_is_conversational_and_structured(self):
+        """CHAT-09: el copiloto es conversacional PERO SIEMPRE estructurado con viñetas."""
         fake = _FakeClient()
         with patch("data_engine.ai_advisor.init_async_groq_client", return_value=None), \
              patch("data_engine.ai_advisor.init_groq_client", return_value=fake):
@@ -679,7 +679,8 @@ class TestChatWithColumnAdvisor(unittest.IsolatedAsyncioTestCase):
         system_prompt = fake.chat.completions.last_kwargs["messages"][0]["content"]
         self.assertIn("conversacional", system_prompt)
         self.assertIn("Sé soberano", system_prompt)
-        self.assertNotIn("Estructura tu respuesta como LISTA", system_prompt)
+        self.assertIn("ESTRUCTURADA", system_prompt)
+        self.assertIn("No uses párrafos largos", system_prompt)
 
     async def test_system_prompt_limits_to_app_capabilities(self):
         """CHAT-09: no debe sugerir funciones/tools externos (Excel, Python, SQL...)."""

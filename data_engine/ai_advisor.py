@@ -874,15 +874,16 @@ async def chat_with_column_advisor(
 
     is_first_message = not chat_history or len(chat_history) == 0
     verbosity_rule = (
-        "PRIMER MENSAJE: Puedes dar una visión general breve con viñetas si ayuda, "
-        "pero mantén un tono conversacional y directo.\n"
-        "MENSAJES SIGUIENTES: Sé conciso. Responde de forma natural retomando el hilo "
-        "de la conversación: 1-3 oraciones o 3-4 viñetas si enumera. Ahorra tokens. "
-        "No repitas lo ya dicho."
+        "PRIMER MENSAJE: Da una visión general estructurada con viñetas. "
+        "Sé directo y profesional.\n"
+        "MENSAJES SIGUIENTES: Sé conciso y estructurado: responde con 3-5 viñetas "
+        "como máximo, una idea por línea. Mantén el tono conversacional retomando "
+        "el hilo, pero no uses párrafos largos. Ahorra tokens."
     ) if is_first_message else (
-        "RESPUESTA CONCISA Y CONVERSACIONAL: Responde en prosa corta (1-3 oraciones) "
-        "o en 3-4 viñetas si enumeras recomendaciones. Mantén el tono de la conversación, "
-        "reconoce el contexto del historial y no repitas información ya dicha."
+        "RESPUESTA CONCISA Y ESTRUCTURADA: Responde SIEMPRE con viñetas (- item), "
+        "máximo 3-5, una idea por línea. Nada de párrafos largos. "
+        "Mantén el tono conversacional, reconoce el contexto del historial y "
+        "no repitas información ya dicha."
     )
 
     system_prompt = (
@@ -890,9 +891,9 @@ async def chat_with_column_advisor(
         "conversacional que asesora a un analista sobre una columna específica de un dataset.\n"
         "REGLAS:\n"
         "1. Idioma: SIEMPRE español profesional, claro y directo.\n"
-        "2. Formato: Usa viñetas SOLO cuando ayuden (lista de hallazgos o pasos), "
-        "nunca como regla fija. Adapta la extensión a la pregunta: respuestas cortas "
-        "para preguntas simples y detalle solo cuando se pida o aporte valor.\n"
+        "2. Formato: Responde SIEMPRE de forma ESTRUCTURADA, con viñetas (- item). "
+        "Cada viñeta = una idea completa. No uses párrafos largos ni prosa extensa. "
+        "Mantén el tono conversacional: breve, directo y con una idea por línea.\n"
         "3. Usa **negritas** para conceptos clave y `código` para valores/filas.\n"
         "4. Sé soberano: el analista decide. No ordenes, sugiere.\n"
         "5. Duplicados: solo aplican a filas completas del dataset, no a celdas.\n"
