@@ -31,6 +31,7 @@ from data_engine.ai_advisor import (
     get_ai_recommendations,
     get_justifications_batch,
 )
+from data_engine.sensitive import detect_sensitive_columns, sensitive_groups_for
 
 client = TestClient(app)
 
@@ -43,6 +44,12 @@ SAMPLE_CSV = (
     "1,Ana,Bogota,28,7,2.1,si\n"
     "4,Maria,Medellin,,8,2.4,si\n"
     "5,Luis,Medellin,450,2,,no\n"
+)
+
+SENSITIVE_CSV = (
+    "id,nombre,email,edad\n"
+    "1,Ana,ana@correo.com,28\n"
+    "2,Juan,juan@correo.com,31\n"
 )
 
 
@@ -276,6 +283,41 @@ class TestDetectTypos(unittest.TestCase):
         )
         typos = self._context_from(values)["typos"]
         self.assertNotIn("jua", [t["value"] for t in typos])
+
+
+# ---------------------------------------------------------------------------
+# Datos sensibles: deteccion por nombre de columna (autorizacion antes de la IA)
+# ---------------------------------------------------------------------------
+
+class TestDetectSensitiveColumns(unittest.TestCase):
+    def test_detects_sensitive_columns(self):
+        headers = ["id", "nombre", "email", "telefono", "salud", "salario"]
+        found = detect_sensitive_columns(headers)
+        self.assertIn("email", found)
+        self.assertIn("telefono", found)
+        self.assertIn("salud", found)
+        self.assertIn("salario", found)
+
+    def test_ignores_technical_and_normal_columns(self):
+        headers = ["id", "nombre", "edad", "ciudad", "horas_sueno", "litros_agua", "completo_reto"]
+        self.assertEqual(detect_sensitive_columns(headers), [])
+
+    def test_normalizes_case_and_accents(self):
+        self.assertEqual(detect_sensitive_columns(["Cédula", "TELÉFONO", "Dirección"]),
+                         ["Cédula", "TELÉFONO", "Dirección"])
+
+    def test_bare_id_is_not_sensitive(self):
+        self.assertEqual(detect_sensitive_columns(["id", "ID", "Id"]), [])
+
+    def test_compound_sensitive_terms(self):
+        self.assertEqual(detect_sensitive_columns(["historia clinica"]), ["historia clinica"])
+        self.assertEqual(detect_sensitive_columns(["orientacion sexual"]), ["orientacion sexual"])
+
+    def test_sensitive_groups_are_meaningful(self):
+        groups = sensitive_groups_for(["email", "salario", "diagnostico"])
+        self.assertIn("contacto personal", groups)
+        self.assertIn("financiero o patrimonial", groups)
+        self.assertIn("salud y biometria", groups)
 
 
 class TestDeepAnalysisTypos(unittest.TestCase):
@@ -782,6 +824,62 @@ class TestChatColumnEndpointContext(unittest.TestCase):
         self.assertIn("edad", data["response"])
         mock_advisor.assert_not_called()
 
+    def test_endpoint_sensitive_requires_authorization(self):
+        """Datos sensibles: el chat se bloquea (sensitive_required) hasta autorizar.
+        Nada se envia a Groq mientras el usuario no autorice."""
+        mock_advisor = AsyncMock(return_value={"response": "ok", "status": "success"})
+        with patch("data_engine.ai_advisor.chat_with_column_advisor", mock_advisor):
+            response = client.post(
+                "/api/ai/chat-column",
+                json={
+                    "filename": "test.csv",
+                    "content_base64": _encode(SENSITIVE_CSV),
+                    "column": "edad",
+                    "user_query": "¿Cómo trato los vacíos?",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "sensitive_required")
+        self.assertIn("email", data["sensitive_columns"])
+        self.assertIn("autorizacion", data["response"].lower())
+        mock_advisor.assert_not_called()
+
+    def test_endpoint_sensitive_authorized_calls_advisor(self):
+        """Con sensitive_authorized=True la IA si recibe el contexto."""
+        mock_advisor = AsyncMock(return_value={"response": "ok", "status": "success"})
+        with patch("data_engine.ai_advisor.chat_with_column_advisor", mock_advisor):
+            response = client.post(
+                "/api/ai/chat-column",
+                json={
+                    "filename": "test.csv",
+                    "content_base64": _encode(SENSITIVE_CSV),
+                    "column": "edad",
+                    "user_query": "¿Cómo trato los vacíos?",
+                    "sensitive_authorized": True,
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"response": "ok", "status": "success"})
+        mock_advisor.assert_called_once()
+
+    def test_endpoint_non_sensitive_dataset_not_blocked(self):
+        """Un dataset sin columnas sensibles no requiere autorizacion."""
+        mock_advisor = AsyncMock(return_value={"response": "ok", "status": "success"})
+        with patch("data_engine.ai_advisor.chat_with_column_advisor", mock_advisor):
+            response = client.post(
+                "/api/ai/chat-column",
+                json={
+                    "filename": "test.csv",
+                    "content_base64": _encode(SAMPLE_CSV),
+                    "column": "edad",
+                    "user_query": "¿Qué ves?",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"response": "ok", "status": "success"})
+        mock_advisor.assert_called_once()
+
     def test_endpoint_caches_heavy_work_per_file(self):
         """CHAT-04: el 2º mensaje del mismo archivo+columna no recalcula load_dataset."""
         from data_engine import analyzer
@@ -898,6 +996,42 @@ class TestColumnDeepAnalysisEndpointContext(unittest.TestCase):
         self.assertEqual(data["status"], "error")
         self.assertIn("no existe", data["analysis"])
         mock_advisor.assert_not_called()
+
+    def test_endpoint_sensitive_requires_authorization(self):
+        """Deep-analysis tambien exige autorizacion para datos sensibles."""
+        mock_advisor = AsyncMock(return_value={"analysis": "ok", "status": "success"})
+        with patch("data_engine.ai_advisor.analyze_column_deep", mock_advisor):
+            response = client.post(
+                "/api/ai/column-deep-analysis",
+                json={
+                    "filename": "test.csv",
+                    "content_base64": _encode(SENSITIVE_CSV),
+                    "column": "edad",
+                    "detected_type": "number",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "sensitive_required")
+        self.assertIn("email", data["sensitive_columns"])
+        mock_advisor.assert_not_called()
+
+    def test_endpoint_sensitive_authorized_calls_deep(self):
+        mock_advisor = AsyncMock(return_value={"analysis": "ok", "status": "success"})
+        with patch("data_engine.ai_advisor.analyze_column_deep", mock_advisor):
+            response = client.post(
+                "/api/ai/column-deep-analysis",
+                json={
+                    "filename": "test.csv",
+                    "content_base64": _encode(SENSITIVE_CSV),
+                    "column": "edad",
+                    "detected_type": "number",
+                    "sensitive_authorized": True,
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"analysis": "ok", "status": "success"})
+        mock_advisor.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

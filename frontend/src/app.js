@@ -2,6 +2,7 @@ import { Store } from "./state.js";
 import { Router } from "./router.js";
 import { signInWithGoogle, signOut, getCurrentUser, authAvailable, saveToHistory, getHistory, getHistorySession, deleteHistorySession, hasConsent, acceptConsent, recordConsent } from "./auth.js";
 import { NubeValidación } from "./nube.js";
+import { requestSensitiveAuthorization, initSensitiveConsentModal } from "./sensitiveConsent.js";
 
 const loginScreen = document.querySelector("#loginScreen");
 const appContent = document.querySelector("#appContent");
@@ -295,6 +296,7 @@ document.querySelectorAll("[data-step-button]").forEach((button) => {
 });
 
 function init() {
+  initSensitiveConsentModal();
   if (store.state.filename) {
     els.systemStatus.textContent = `Sesión recuperada: ${store.state.filename}`;
     if (store.state.rowMeaning) els.rowMeaningInput.value = store.state.rowMeaning;
@@ -969,17 +971,19 @@ function renderMarkdown(text) {
   return out.join('\n');
 }
 
-async function sendDepurChatMessage(columnName, query) {
+async function sendDepurChatMessage(columnName, query, sensitiveAuthorized = false) {
   const chatFeed = document.querySelector('#drawerChatFeed');
   if (!chatFeed) return;
 
-  const userDiv = document.createElement('div');
-  userDiv.className = 'chat-bubble chat-bubble--user';
-  userDiv.innerHTML = `<strong>Tu:</strong> ${escapeHtml(query)}`;
-  chatFeed.appendChild(userDiv);
-
   if (!depurChatHistory[columnName]) depurChatHistory[columnName] = [];
-  depurChatHistory[columnName].push({ role: 'user', content: query });
+
+  if (!sensitiveAuthorized) {
+    const userDiv = document.createElement('div');
+    userDiv.className = 'chat-bubble chat-bubble--user';
+    userDiv.innerHTML = `<strong>Tu:</strong> ${escapeHtml(query)}`;
+    chatFeed.appendChild(userDiv);
+    depurChatHistory[columnName].push({ role: 'user', content: query });
+  }
 
   const thinkingDiv = document.createElement('div');
   thinkingDiv.className = 'chat-bubble chat-bubble--ai';
@@ -998,13 +1002,30 @@ async function sendDepurChatMessage(columnName, query) {
         user_query: query,
         detected_type: nube.drawerColumnType || 'unknown',
         inferred_domain: nube.drawerColumnDomain || '',
-        chat_history: depurChatHistory[columnName].slice(-10)
+        chat_history: depurChatHistory[columnName].slice(-10),
+        sensitive_authorized: sensitiveAuthorized
       })
     });
 
     if (!response.ok) throw new Error('Error de conexión con la IA');
 
     const data = await response.json();
+
+    // Datos sensibles: pedir autorización explícita antes de enviar a la IA.
+    if (data.status === 'sensitive_required') {
+      thinkingDiv.remove();
+      const authorized = await requestSensitiveAuthorization(data.sensitive_columns || []);
+      if (authorized) {
+        return sendDepurChatMessage(columnName, query, true);
+      }
+      const declinedDiv = document.createElement('div');
+      declinedDiv.className = 'chat-bubble chat-bubble--error';
+      declinedDiv.innerHTML = `<strong>Copiloto:</strong> No autorizaste el envío de datos sensibles a la IA. Puedes seguir usando el diagnóstico y la limpieza normal.`;
+      chatFeed.appendChild(declinedDiv);
+      chatFeed.scrollTop = chatFeed.scrollHeight;
+      return;
+    }
+
     const answer = data.response || 'Sin respuesta';
     const isError = data.status === 'error' || data.status === 'no_api_key';
     thinkingDiv.className = 'chat-bubble ' + (isError ? 'chat-bubble--error' : 'chat-bubble--ai');

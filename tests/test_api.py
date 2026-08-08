@@ -256,6 +256,28 @@ class TestAIRecommendEndpoint(unittest.TestCase):
             self.assertIn("columns", recs)
             self.assertIsInstance(recs["columns"], list)
 
+    def test_recommend_sensitive_requires_authorization(self):
+        SENSITIVE = "id,nombre,email,edad\n1,Ana,a@x.com,28\n2,Juan,j@x.com,31\n"
+        response = client.post(
+            "/api/ai/recommend",
+            json={"filename": "test.csv", "content_base64": _encode(SENSITIVE)},
+        )
+        self.assertEqual(response.status_code, 200)
+        recs = response.json()["recommendations"]
+        self.assertEqual(recs["status"], "sensitive_required")
+        self.assertIn("email", recs["sensitive_columns"])
+
+    def test_recommend_sensitive_authorized_passes(self):
+        SENSITIVE = "id,nombre,email,edad\n1,Ana,a@x.com,28\n2,Juan,j@x.com,31\n"
+        response = client.post(
+            "/api/ai/recommend",
+            json={"filename": "test.csv", "content_base64": _encode(SENSITIVE),
+                  "sensitive_authorized": True},
+        )
+        self.assertEqual(response.status_code, 200)
+        recs = response.json()["recommendations"]
+        self.assertNotEqual(recs["status"], "sensitive_required")
+
 
 class TestAIChatColumnEndpoint(unittest.TestCase):
     def test_chat_column_valid_csv(self):

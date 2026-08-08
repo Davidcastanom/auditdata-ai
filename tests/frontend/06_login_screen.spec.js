@@ -23,10 +23,10 @@ test.describe("AuditData AI - Login con Google", () => {
 
     const modal = page.locator("#consentModal");
     await expect(modal).toBeVisible({ timeout: 10000 });
-    await expect(page.locator("#consentModal__body, .consent-modal__body")).toBeVisible();
-    await expect(page.locator(".consent-modal__version")).toContainText("2.1");
-    await expect(page.locator('.consent-modal__body a[href="/privacidad"]')).toBeVisible();
-    await expect(page.locator('.consent-modal__body a[href="/terminos"]')).toBeVisible();
+    await expect(page.locator("#consentModal .consent-modal__body")).toBeVisible();
+    await expect(page.locator("#consentModal .consent-modal__version")).toContainText("2.1");
+    await expect(page.locator('#consentModal .consent-modal__body a[href="/privacidad"]')).toBeVisible();
+    await expect(page.locator('#consentModal .consent-modal__body a[href="/terminos"]')).toBeVisible();
 
     const acceptBtn = page.locator("#consentAcceptButton");
     await expect(acceptBtn).toBeDisabled();
@@ -79,5 +79,58 @@ test.describe("AuditData AI - Login con Google", () => {
     await page.goto("/?test");
     const appContent = page.locator("#appContent");
     await expect(appContent).toBeVisible({ timeout: 10000 });
+  });
+
+  test("existe un modal de autorizacion de datos sensibles oculto", async ({ page }) => {
+    await page.goto("/?test");
+    const modal = page.locator("#sensitiveConsentModal");
+    await expect(modal).toHaveCount(1);
+    await expect(modal).toHaveAttribute("aria-hidden", "true");
+  });
+
+  test("chat con datos sensibles pide autorizacion antes de enviar a la IA", async ({ page }) => {
+    await page.goto("/?test");
+    await page.evaluate(() => localStorage.clear());
+    await page.goto("/?test");
+
+    // Simula la respuesta del backend: el archivo parece contener datos sensibles.
+    await page.route("**/api/ai/chat-column", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "sensitive_required",
+          sensitive_columns: ["email"],
+          response: "Se requiere autorizacion para datos sensibles",
+        }),
+      });
+    });
+
+    await page.click("#loadSampleButton");
+    await expect(page.locator('[data-step="1"]')).toHaveClass(/is-active/, { timeout: 15000 });
+
+    await page.evaluate(() => {
+      document.querySelectorAll("[data-step-button]").forEach((b) => { b.disabled = false; });
+      window.location.hash = "#/validar-ia";
+    });
+    await expect(page.locator("#nubeSkipManual")).toBeVisible({ timeout: 30000 });
+    await page.locator("#nubeSkipManual").click();
+
+    await page.evaluate(() => { window.location.hash = "#/depurar"; });
+    await expect(page.locator('[data-step="4"]')).toHaveClass(/is-active/, { timeout: 10000 });
+
+    await page.locator("[data-depur-open-col]").first().click();
+    await expect(page.locator("#aiColumnDrawer.is-active")).toBeVisible({ timeout: 10000 });
+
+    await page.fill("#drawerChatInput", "¿Qué problemas tiene esta columna?");
+    await page.click("#drawerChatSendButton");
+
+    const modal = page.locator("#sensitiveConsentModal");
+    await expect(modal).toHaveClass(/is-active/, { timeout: 5000 });
+    await expect(page.locator("#sensitiveColumnsLabel")).toContainText("email");
+
+    await page.click("#sensitiveDeclineButton");
+    await expect(modal).not.toHaveClass(/is-active/);
+    await expect(page.locator("#drawerChatFeed .chat-bubble--error")).toContainText("No autorizaste");
   });
 });

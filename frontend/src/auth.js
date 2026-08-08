@@ -121,6 +121,42 @@ export async function recordConsent(userId) {
   }
 }
 
+// Autorización de datos sensibles. Es SEPARADA del consentimiento general porque
+// la ley exige una autorización expresa cuando se sabe que hay datos sensibles.
+// Solo se guarda en el navegador (localStorage): es una autorización por sesión,
+// opcional y revocable (se limpia al cerrar sesión).
+export const SENSITIVE_CONSENT_VERSION = "1.0";
+const SENSITIVE_STORAGE_KEY = "auditdata_sensitive_consent";
+
+export function getSensitiveConsent() {
+  try {
+    const raw = localStorage.getItem(SENSITIVE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && parsed.version === SENSITIVE_CONSENT_VERSION ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function hasSensitiveConsent() {
+  return getSensitiveConsent() !== null;
+}
+
+export function acceptSensitiveConsent(columns) {
+  const consent = {
+    version: SENSITIVE_CONSENT_VERSION,
+    columns: Array.isArray(columns) ? columns : [],
+    acceptedAt: new Date().toISOString(),
+  };
+  localStorage.setItem(SENSITIVE_STORAGE_KEY, JSON.stringify(consent));
+  return consent;
+}
+
+export function clearSensitiveConsent() {
+  localStorage.removeItem(SENSITIVE_STORAGE_KEY);
+}
+
 export async function saveToHistory(dataset, analysis, actions, before, after, reportPdfBase64) {
   if (!authAvailable || !supabase) return null;
   if (!hasConsent()) return null;

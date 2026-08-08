@@ -578,6 +578,29 @@
       </div>
     </div>
 
+    <!-- AUTORIZACIÓN DE DATOS SENSIBLES (requiere consentimiento general aceptado) -->
+    <div class="consent-backdrop" id="sensitiveBackdrop"></div>
+    <div class="consent-modal" id="sensitiveConsentModal" role="dialog" aria-modal="true" aria-labelledby="sensitiveConsentTitle" aria-hidden="true">
+      <div class="consent-modal__header">
+        <h3 id="sensitiveConsentTitle">Autorización de datos sensibles</h3>
+      </div>
+      <div class="consent-modal__body">
+        <p>Tu archivo parece contener <strong>datos sensibles o personales de alto riesgo</strong> en: <code id="sensitiveColumnsLabel"></code></p>
+        <p>Para que el asistente de IA los analice, esas columnas y sus valores se enviarían a un proveedor externo de IA (Groq). Esto es <strong>opcional y revocable</strong>.</p>
+        <ul>
+          <li><strong>Autorizar:</strong> permites que la IA procese las columnas marcadas. Puedes revocar la autorización en cualquier momento cerrando sesión.</li>
+          <li><strong>No autorizar:</strong> el asistente de IA queda deshabilitado para este archivo; el diagnóstico y la limpieza siguen funcionando normalmente.</li>
+        </ul>
+        <p class="consent-modal__version">Versión de autorización: 1.0 · <a href="/privacidad" target="_blank" rel="noopener noreferrer">Ver aviso de privacidad</a></p>
+      </div>
+      <div class="consent-modal__footer">
+        <div class="consent-modal__actions">
+          <button class="button button--ghost" id="sensitiveDeclineButton" type="button">No autorizar</button>
+          <button class="button button--primary" id="sensitiveAcceptButton" type="button">Autorizar IA</button>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="/frontend/src/app.js"></script>
   </body>
 </html>

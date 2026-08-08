@@ -103,6 +103,7 @@ class AnalyzeRequest(BaseModel):
     delimiter: str | None = None
     encoding: str | None = None
     header_row: int | None = None
+    sensitive_authorized: bool = False
 
 
 def _dataset_settings(req: BaseModel) -> dict[str, Any]:
@@ -198,6 +199,7 @@ class AIChatRequest(BaseModel):
     detected_type: str = "unknown"
     inferred_domain: str = ""
     chat_history: list[dict[str, str]] | None = None
+    sensitive_authorized: bool = False
 
 
 @app.post("/api/ai/recommend")
@@ -214,6 +216,21 @@ async def ai_recommend(req: AnalyzeRequest):
 
         headers, rows, header_row_index = load_dataset(req.filename, payload, **_dataset_settings(req))
         diagnostic = diagnose_dataset(headers, rows, header_row_index)
+
+        # Datos sensibles: exige autorizacion explicita antes de enviar filas a la IA.
+        from data_engine.sensitive import detect_sensitive_columns
+        sensitive_columns = detect_sensitive_columns(headers)
+        if sensitive_columns and not req.sensitive_authorized:
+            return {
+                "recommendations": {
+                    "status": "sensitive_required",
+                    "sensitive_columns": sensitive_columns,
+                    "message": (
+                        "Tu archivo parece contener datos sensibles o personales de alto riesgo. "
+                        "Autoriza su envio al asistente de IA para continuar, o usa la app sin la IA."
+                    ),
+                }
+            }
 
         recommendations = await get_ai_recommendations_async(
             diagnostic=diagnostic.to_dict(),
@@ -248,6 +265,20 @@ async def ai_chat_column(req: AIChatRequest):
                     f"Columnas disponibles: {disponibles}."
                 ),
                 "status": "error",
+            }
+
+        # Datos sensibles: exige autorizacion explicita antes de enviar columnas/valores a Groq.
+        if session["sensitive_columns"] and not req.sensitive_authorized:
+            return {
+                "response": (
+                    "Tu archivo parece contener datos sensibles o personales de alto riesgo "
+                    f"({', '.join(session['sensitive_columns'][:8])}). "
+                    "Para que la IA los analice, primero necesito tu autorizacion explicita "
+                    "(opcional y revocable). Si no autorizas, el asistente de IA no se usara "
+                    "en este archivo; el diagnostico y la limpieza siguen funcionando."
+                ),
+                "status": "sensitive_required",
+                "sensitive_columns": session["sensitive_columns"],
             }
 
         res = await chat_with_column_advisor(
@@ -298,6 +329,7 @@ def _get_chat_session(req: _ChatSessionSource) -> dict[str, Any]:
     from data_engine.diagnostic import diagnose_dataset
     from data_engine.analyzer import load_dataset
     from data_engine.ai_advisor import build_column_context
+    from data_engine.sensitive import detect_sensitive_columns
 
     headers, rows, header_row_index = load_dataset(req.filename, payload, **_dataset_settings(req))
     file_row_start = header_row_index + 2
@@ -334,6 +366,8 @@ def _get_chat_session(req: _ChatSessionSource) -> dict[str, Any]:
         "other_columns": other_columns,
         # CHAT-06: honestidad. La IA solo conversa/analiza columnas que existen.
         "column_exists": req.column == "__dataset__" or req.column in headers,
+        # Datos sensibles: se exige autorizacion antes de enviar datos a la IA.
+        "sensitive_columns": detect_sensitive_columns(headers),
     }
     _chat_session_cache[key] = session
     if len(_chat_session_cache) > CHAT_SESSION_CACHE_MAX:
@@ -347,6 +381,7 @@ class ColumnDeepAnalysisRequest(BaseModel):
     column: str
     detected_type: str = "unknown"
     inferred_domain: str = ""
+    sensitive_authorized: bool = False
 
 
 @app.post("/api/ai/column-deep-analysis")
@@ -370,6 +405,19 @@ async def ai_column_deep_analysis(req: ColumnDeepAnalysisRequest):
                     f"Columnas disponibles: {disponibles}."
                 ),
                 "status": "error",
+            }
+
+        # Datos sensibles: exige autorizacion explicita antes de analizar con IA.
+        if session["sensitive_columns"] and not req.sensitive_authorized:
+            return {
+                "analysis": (
+                    "Tu archivo parece contener datos sensibles o personales de alto riesgo "
+                    f"({', '.join(session['sensitive_columns'][:8])}). "
+                    "Necesito tu autorizacion explicita (opcional y revocable) antes de analizar "
+                    "esta columna con la IA."
+                ),
+                "status": "sensitive_required",
+                "sensitive_columns": session["sensitive_columns"],
             }
 
         result = await analyze_column_deep(

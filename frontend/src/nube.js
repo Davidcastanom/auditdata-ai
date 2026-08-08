@@ -16,6 +16,8 @@
  * ============================================================================
  */
 
+import { requestSensitiveAuthorization } from "./sensitiveConsent.js";
+
 export class NubeValidación {
   constructor(options = {}) {
     this.container = options.container;
@@ -307,46 +309,65 @@ export class NubeValidación {
           return;
         }
 
-        const outputEl = document.getElementById(`colAnalysis_${col}`);
-        if (!outputEl) return;
-
-        btn.disabled = true;
-        btn.textContent = 'Analizando...';
-        outputEl.innerHTML = '<div class="nube-loading" style="padding:var(--space-2);"><div class="nube-spinner"></div></div>';
-
-        // Look up column data for type and domain
-        const colData = this.diagnostic?.columns?.find(c => c.column === col);
-        const detectedType = colData?.profiler?.type || 'unknown';
-        const inferredDomain = colData?.inferred_domain || '';
-
-        try {
-          const response = await fetch('/api/ai/column-deep-analysis', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              filename: this.filename,
-              content_base64: this.contentBase64,
-              column: col,
-              detected_type: detectedType,
-              inferred_domain: inferredDomain,
-            }),
-          });
-
-          if (!response.ok) throw new Error('Error en el an\u00e1lisis');
-
-          const data = await response.json();
-          const analysis = data.analysis || 'Sin resultados';
-          const html = `<div class="nube-ia-result">${this._renderMarkdown(analysis)}</div>`;
-          this.columnAnalysisCache[col] = html;
-          outputEl.innerHTML = html;
-        } catch (e) {
-          outputEl.innerHTML = `<p class="empty-state" style="font-size:0.8rem;">Error: ${this._escHtml(e.message)}</p>`;
-        } finally {
-          btn.disabled = false;
-          btn.textContent = 'Ejecutar an\u00e1lisis';
-        }
+        await this._runColumnDeepAnalysis(col, btn);
       };
     });
+  }
+
+  async _runColumnDeepAnalysis(col, btn, sensitiveAuthorized = false) {
+    const outputEl = document.getElementById(`colAnalysis_${col}`);
+    if (!outputEl) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Analizando...';
+    outputEl.innerHTML = '<div class="nube-loading" style="padding:var(--space-2);"><div class="nube-spinner"></div></div>';
+
+    const colData = this.diagnostic?.columns?.find(c => c.column === col);
+    const detectedType = colData?.profiler?.type || 'unknown';
+    const inferredDomain = colData?.inferred_domain || '';
+
+    try {
+      const response = await fetch('/api/ai/column-deep-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: this.filename,
+          content_base64: this.contentBase64,
+          column: col,
+          detected_type: detectedType,
+          inferred_domain: inferredDomain,
+          sensitive_authorized: sensitiveAuthorized,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Error en el an\u00e1lisis');
+
+      const data = await response.json();
+
+      // Datos sensibles: pedir autorización explícita antes de analizar con IA.
+      if (data.status === 'sensitive_required') {
+        btn.disabled = false;
+        btn.textContent = 'Ejecutar an\u00e1lisis';
+        outputEl.innerHTML = '';
+        const authorized = await requestSensitiveAuthorization(data.sensitive_columns || []);
+        if (authorized) {
+          await this._runColumnDeepAnalysis(col, btn, true);
+        } else {
+          outputEl.innerHTML = `<p class="empty-state" style="font-size:0.8rem;">No autorizaste el envío de datos sensibles a la IA.</p>`;
+        }
+        return;
+      }
+
+      const analysis = data.analysis || 'Sin resultados';
+      const html = `<div class="nube-ia-result">${this._renderMarkdown(analysis)}</div>`;
+      this.columnAnalysisCache[col] = html;
+      outputEl.innerHTML = html;
+    } catch (e) {
+      outputEl.innerHTML = `<p class="empty-state" style="font-size:0.8rem;">Error: ${this._escHtml(e.message)}</p>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Ejecutar an\u00e1lisis';
+    }
   }
 
   _updateManualProgress() {
@@ -638,17 +659,19 @@ export class NubeValidación {
     if (backdrop) backdrop.classList.remove('is-active');
   }
 
-  async sendDrawerChatMessage(columnName, query) {
+  async sendDrawerChatMessage(columnName, query, sensitiveAuthorized = false) {
     const chatFeed = document.querySelector('#drawerChatFeed');
     if (!chatFeed) return;
 
-    const userMsgDiv = document.createElement('div');
-    userMsgDiv.className = 'chat-bubble chat-bubble--user';
-    userMsgDiv.innerHTML = `<strong>Tu:</strong> ${this._escHtml(query)}`;
-    chatFeed.appendChild(userMsgDiv);
-
     if (!this.drawerChatHistory[columnName]) this.drawerChatHistory[columnName] = [];
-    this.drawerChatHistory[columnName].push({ role: 'user', content: query });
+
+    if (!sensitiveAuthorized) {
+      const userMsgDiv = document.createElement('div');
+      userMsgDiv.className = 'chat-bubble chat-bubble--user';
+      userMsgDiv.innerHTML = `<strong>Tu:</strong> ${this._escHtml(query)}`;
+      chatFeed.appendChild(userMsgDiv);
+      this.drawerChatHistory[columnName].push({ role: 'user', content: query });
+    }
 
     const thinkingDiv = document.createElement('div');
     thinkingDiv.className = 'chat-bubble chat-bubble--ai';
@@ -667,13 +690,30 @@ export class NubeValidación {
           user_query: query,
           detected_type: this.drawerColumnType || 'unknown',
           inferred_domain: this.drawerColumnDomain || '',
-          chat_history: this.drawerChatHistory[columnName].slice(-10)
+          chat_history: this.drawerChatHistory[columnName].slice(-10),
+          sensitive_authorized: sensitiveAuthorized
         })
       });
 
       if (!response.ok) throw new Error('Error de conexión con la IA');
 
       const data = await response.json();
+
+      // Datos sensibles: pedir autorización explícita antes de enviar a la IA.
+      if (data.status === 'sensitive_required') {
+        thinkingDiv.remove();
+        const authorized = await requestSensitiveAuthorization(data.sensitive_columns || []);
+        if (authorized) {
+          return this.sendDrawerChatMessage(columnName, query, true);
+        }
+        const declinedDiv = document.createElement('div');
+        declinedDiv.className = 'chat-bubble chat-bubble--error';
+        declinedDiv.innerHTML = `<strong>Copiloto IA:</strong> No autorizaste el envío de datos sensibles a la IA. Puedes seguir usando el diagnóstico y la limpieza normal.`;
+        chatFeed.appendChild(declinedDiv);
+        chatFeed.scrollTop = chatFeed.scrollHeight;
+        return;
+      }
+
       const answer = data.response || 'Sin respuesta';
       const isError = data.status === 'error' || data.status === 'no_api_key';
       thinkingDiv.className = 'chat-bubble ' + (isError ? 'chat-bubble--error' : 'chat-bubble--ai');
