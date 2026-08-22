@@ -643,7 +643,7 @@ class TestChatWithColumnAdvisor(unittest.IsolatedAsyncioTestCase):
                 "edad", "Hola", context={}, total_rows=0,
             )
         self.assertEqual(result["status"], "success")
-        self.assertEqual(fake.chat.completions.last_kwargs["model"], "llama-3.1-8b-instant")
+        self.assertEqual(fake.chat.completions.last_kwargs["model"], "openai/gpt-oss-20b")
 
     async def test_exception_returns_error(self):
         class _ExplodingClient:

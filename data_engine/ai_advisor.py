@@ -37,7 +37,7 @@ from groq import Groq
 
 client = Groq(api_key="tu_api_key_aqui")
 response = client.chat.completions.create(
-    model="llama-3.1-8b-instant",
+    model="openai/gpt-oss-20b",
     messages=[{"role": "user", "content": "Hola"}]
 )
 print(response.choices[0].message.content)
@@ -72,15 +72,15 @@ except ImportError:
 # CONFIGURACION
 # ---------------------------------------------------------------------------
 
-MODEL = "llama-3.1-8b-instant"
-# El tier gratuito de Groq limita llama-3.1-8b-instant a 6000 TPM (input + output).
+MODEL = "openai/gpt-oss-20b"
+# El tier gratuito de Groq limita openai/gpt-oss-20b a 6000 TPM (input + output).
 # Las llamadas batch (recomendaciones/justificaciones) piden menos tokens de salida
 # para que el request completo (prompt + salida) quepa en el limite.
 BATCH_MAX_TOKENS = 2048
 TEMPERATURE = 0.3
 
 # CHAT-01: presupuesto de contexto del chat. El tier free de Groq limita
-# llama-3.1-8b-instant a 6000 TPM (input + output). Con valores largos el prompt
+# openai/gpt-oss-20b a 6000 TPM (input + output). Con valores largos el prompt
 # pedía 26K tokens y Groq respondia 413. Se poda y trunca para que el request
 # quepa holgado en el limite.
 CONTEXT_SAMPLE_ROWS = 15
@@ -996,7 +996,7 @@ async def chat_with_column_advisor(
 # ANALISIS PROFUNDO DE COLUMNA (Recomendacion de Copiloto)
 # ---------------------------------------------------------------------------
 
-DEEP_MODEL = "llama-3.1-8b-instant"
+DEEP_MODEL = "openai/gpt-oss-20b"
 DEEP_MAX_TOKENS = 1536
 DEEP_TEMPERATURE = 0.2
 
